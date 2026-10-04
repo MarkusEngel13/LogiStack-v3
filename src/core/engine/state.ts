@@ -41,7 +41,9 @@ export interface SeatState {
   shown: boolean;
   mucked: boolean;
   squids: number;
-  lastAction: { action: BetAction | 'post'; to: Chips; allIn: boolean } | null;
+  /** Playing blind this hand (hasn't looked at their cards). */
+  blind: boolean;
+  lastAction: { action: BetAction | 'post'; to: Chips; allIn: boolean; blind: boolean } | null;
 }
 
 export interface Pot {
@@ -62,6 +64,8 @@ export type LogEntry =
       /** Chips this action added. */
       added: Chips;
       allIn: boolean;
+      /** Made without looking at the cards. */
+      blind: boolean;
       potAfter: Chips;
     }
   | { kind: 'board'; event: number; street: Street; cards: Card[] }

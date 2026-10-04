@@ -62,6 +62,8 @@ export interface PlayerSetup {
   cards?: [CardStr, CardStr];
   /** Squid tokens held at the start of this hand (squid game). */
   squids?: number;
+  /** Plays blind: hasn't looked at their cards, so their bets and raises are blind ("blind raise"). */
+  blind?: boolean;
   /** Seated but not dealt in. */
   sittingOut?: boolean;
 }
@@ -94,8 +96,11 @@ export interface SquidRule {
 export type ActionKind = 'fold' | 'check' | 'call' | 'bet' | 'raise' | 'allin';
 
 export type HandEvent =
-  /** `to` = the player's total bet on this street after the action ("raise to 600"). Needed for bet/raise only. */
-  | { type: 'action'; seat: SeatNo; action: ActionKind; to?: Chips }
+  /**
+   * `to` = the player's total bet on this street after the action ("raise to 600"). Needed for bet/raise only.
+   * `blind` = made without looking at the cards; defaults to the player's `blind` flag.
+   */
+  | { type: 'action'; seat: SeatNo; action: ActionKind; to?: Chips; blind?: boolean }
   /** Flop (3 cards), turn (1) or river (1). */
   | { type: 'board'; cards: CardStr[] }
   /** Reveal hole cards: at showdown, or a voluntary show after winning. */

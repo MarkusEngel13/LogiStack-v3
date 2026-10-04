@@ -145,6 +145,7 @@ export function initialState(record: HandRecord): TableState {
         shown: false,
         mucked: false,
         squids: p.squids ?? 0,
+        blind: p.blind ?? false,
         lastAction: null,
       })),
     toAct: null,
@@ -204,7 +205,7 @@ export function initialState(record: HandRecord): TableState {
       state.log.push({ kind: 'post', event: null, seat: s.seat, post: kind, amount: paid, allIn: s.allIn });
     } else {
       const paid = pay(s, amount - s.streetBet);
-      s.lastAction = { action: 'post', to: s.streetBet, allIn: s.allIn };
+      s.lastAction = { action: 'post', to: s.streetBet, allIn: s.allIn, blind: false };
       state.log.push({ kind: 'post', event: null, seat: s.seat, post: kind, amount: paid, allIn: s.allIn });
     }
   };
@@ -344,7 +345,8 @@ function applyAction(state: TableState, ev: Extract<HandEvent, { type: 'action' 
   s.acted = true;
   s.matchedLevel = state.currentBet;
   const shownTo = action === 'fold' || action === 'check' ? 0 : s.streetBet;
-  s.lastAction = { action, to: shownTo, allIn: s.allIn };
+  const blind = ev.blind ?? s.blind;
+  s.lastAction = { action, to: shownTo, allIn: s.allIn, blind };
   state.log.push({
     kind: 'action',
     event: index,
@@ -354,6 +356,7 @@ function applyAction(state: TableState, ev: Extract<HandEvent, { type: 'action' 
     to: shownTo,
     added: s.totalIn - before,
     allIn: s.allIn && action !== 'fold',
+    blind,
     potAfter: potTotal(state),
   });
 

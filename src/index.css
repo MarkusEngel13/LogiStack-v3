@@ -1,1 +1,82 @@
 @import "tailwindcss";
+
+/*
+ * Theme tokens. Every color in the app comes from these variables, so a theme is just
+ * another set of values under [data-theme="..."]. Dark (Holdem Manager style) is the default.
+ */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #151515;
+  --bg-stripe: rgba(255, 255, 255, 0.018);
+  --surface: #202020;
+  --surface-2: #2a2a2a;
+  --surface-3: #333333;
+  --border: #3a3a3a;
+  --text: #f1f1f1;
+  --text-muted: #9b9b9b;
+  --text-faint: #6b6b6b;
+  --accent: #f26b1d;
+  --accent-strong: #ff8740;
+  --accent-text: #1a0d05;
+  --danger: #f05252;
+  --ok: #3ccf75;
+
+  --rail: #0f0f0f;
+  --rail-edge: #2b2b2b;
+  --felt: #262626;
+  --felt-center: #2e2e2e;
+  --felt-line: #f26b1d;
+  --plate: #2b2b2b;
+  --plate-top: #343434;
+  --plate-border: #444444;
+  --chip-text: #f1f1f1;
+  --dealer: #f26b1d;
+  --dealer-text: #ffffff;
+
+  --card-face: #ffffff;
+  --card-back: #7a2a12;
+  --card-back-pattern: #9c3a1c;
+  --suit-s: #151515;
+  --suit-h: #d6262b;
+  --suit-d: #1e63d6;
+  --suit-c: #18893a;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--border);
+  --color-ink: var(--text);
+  --color-muted: var(--text-muted);
+  --color-faint: var(--text-faint);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-ink: var(--accent-text);
+  --color-danger: var(--danger);
+  --color-ok: var(--ok);
+}
+
+html,
+body {
+  background-color: var(--bg);
+  background-image: repeating-linear-gradient(
+    135deg,
+    var(--bg-stripe) 0 2px,
+    transparent 2px 9px
+  );
+  color: var(--text);
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+}
+
+/* Number inputs without the spinner arrows */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
