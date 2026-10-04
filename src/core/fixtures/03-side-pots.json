@@ -1,0 +1,44 @@
+{
+  "format": "logistack.hand/0",
+  "id": "fixture-03-side-pots",
+  "createdAt": "2026-10-04T18:00:00Z",
+  "title": "Four-way all-in, three pots",
+  "notes": "Full 10-max home game. Three players all-in for different amounts plus one big stack who calls. Tests 10-max position names, side pots, and the board running out with no betting.",
+  "table": {
+    "seats": 10,
+    "venue": "home",
+    "currency": { "code": "EUR", "minorPerMajor": 100 },
+    "blinds": { "sb": 100, "bb": 200 }
+  },
+  "button": 9,
+  "hero": 0,
+  "players": [
+    { "seat": 0, "name": "Hero", "stack": 10000, "cards": ["Qc", "Kd"] },
+    { "seat": 1, "name": "Ana", "stack": 3000, "playerType": "Nit", "cards": ["As", "Ah"] },
+    { "seat": 2, "name": "Bob", "stack": 6000, "playerType": "Reg", "cards": ["Kc", "Ks"] },
+    { "seat": 3, "name": "Cem", "stack": 20000, "playerType": "Whale", "cards": ["Qh", "9c"], "tags": ["drinking", "winning"] },
+    { "seat": 4, "name": "Dan", "stack": 20000 },
+    { "seat": 5, "name": "Eli", "stack": 20000 },
+    { "seat": 6, "name": "Fay", "stack": 20000 },
+    { "seat": 7, "name": "Gil", "stack": 20000 },
+    { "seat": 8, "name": "Ida", "stack": 20000 },
+    { "seat": 9, "name": "Jon", "stack": 20000 }
+  ],
+  "events": [
+    { "type": "action", "seat": 2, "action": "raise", "to": 600 },
+    { "type": "action", "seat": 3, "action": "call" },
+    { "type": "action", "seat": 4, "action": "fold" },
+    { "type": "action", "seat": 5, "action": "fold" },
+    { "type": "action", "seat": 6, "action": "fold" },
+    { "type": "action", "seat": 7, "action": "fold" },
+    { "type": "action", "seat": 8, "action": "fold" },
+    { "type": "action", "seat": 9, "action": "fold" },
+    { "type": "action", "seat": 0, "action": "allin" },
+    { "type": "action", "seat": 1, "action": "allin" },
+    { "type": "action", "seat": 2, "action": "allin" },
+    { "type": "action", "seat": 3, "action": "call" },
+    { "type": "board", "cards": ["Qs", "7d", "2c"] },
+    { "type": "board", "cards": ["5h"] },
+    { "type": "board", "cards": ["Ts"] }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "format": "logistack.hand/0",
+  "id": "fixture-05-squid",
+  "createdAt": "2026-10-04T18:00:00Z",
+  "title": "Last squid ends the round",
+  "notes": "6-seat home game, squid game at 10 EUR per squid. Four players already hold a squid; Hero 3-bets and wins the pot, gets the last squid, and the only player without one pays everybody.",
+  "table": {
+    "seats": 6,
+    "venue": "home",
+    "currency": { "code": "EUR", "minorPerMajor": 100 },
+    "blinds": { "sb": 100, "bb": 200 }
+  },
+  "sideGames": { "squid": { "value": 1000 } },
+  "button": 2,
+  "hero": 4,
+  "players": [
+    { "seat": 0, "name": "Ola", "stack": 15000, "squids": 1 },
+    { "seat": 1, "name": "Pia", "stack": 15000, "squids": 1 },
+    { "seat": 2, "name": "Rui", "stack": 15000, "squids": 0, "tags": ["tilt"] },
+    { "seat": 3, "name": "Sam", "stack": 15000, "squids": 1 },
+    { "seat": 4, "name": "Hero", "stack": 15000, "squids": 0, "cards": ["Js", "Jc"] }
+  ],
+  "events": [
+    { "type": "action", "seat": 0, "action": "fold" },
+    { "type": "action", "seat": 1, "action": "fold" },
+    { "type": "action", "seat": 2, "action": "fold" },
+    { "type": "action", "seat": 3, "action": "raise", "to": 600 },
+    { "type": "action", "seat": 4, "action": "raise", "to": 1800 },
+    { "type": "action", "seat": 3, "action": "fold" }
+  ]
+}

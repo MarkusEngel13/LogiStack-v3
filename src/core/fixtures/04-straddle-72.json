@@ -1,0 +1,43 @@
+{
+  "format": "logistack.hand/0",
+  "id": "fixture-04-straddle-72",
+  "createdAt": "2026-10-04T18:00:00Z",
+  "title": "Straddled pot won with 7-2",
+  "notes": "8-seat home game with 5 players, a UTG straddle and the 7-2 game (5 EUR bounty). Tests the straddler's option, a short all-in raise that doesn't re-open the betting, an uncalled turn bet coming back, and the bounty (the busted player pays nothing).",
+  "table": {
+    "seats": 8,
+    "venue": "home",
+    "currency": { "code": "EUR", "minorPerMajor": 100 },
+    "blinds": { "sb": 100, "bb": 200 }
+  },
+  "sideGames": {
+    "sevenDeuce": { "bounty": 500, "payers": "dealt-in", "suitedCounts": false, "showdownOnly": false }
+  },
+  "button": 5,
+  "hero": 0,
+  "players": [
+    { "seat": 0, "name": "Hero", "stack": 20000, "cards": ["8d", "6c"] },
+    { "seat": 1, "name": "Bea", "stack": 20000, "playerType": "Reg" },
+    { "seat": 2, "name": "Cal", "stack": 20000, "playerType": "LAG" },
+    { "seat": 3, "name": "Dex", "stack": 1000, "playerType": "Fish", "cards": ["Ks", "Qs"], "tags": ["tilt"] },
+    { "seat": 5, "name": "Fritz", "stack": 20000, "playerType": "Maniac", "cards": ["7h", "2c"], "tags": ["drinking"] }
+  ],
+  "straddles": [{ "seat": 2, "amount": 400 }],
+  "events": [
+    { "type": "action", "seat": 3, "action": "call" },
+    { "type": "action", "seat": 5, "action": "call" },
+    { "type": "action", "seat": 0, "action": "fold" },
+    { "type": "action", "seat": 1, "action": "fold" },
+    { "type": "action", "seat": 2, "action": "check" },
+    { "type": "board", "cards": ["7d", "2s", "Kh"] },
+    { "type": "action", "seat": 2, "action": "bet", "to": 500 },
+    { "type": "action", "seat": 3, "action": "allin" },
+    { "type": "action", "seat": 5, "action": "call" },
+    { "type": "action", "seat": 2, "action": "call" },
+    { "type": "board", "cards": ["9c"] },
+    { "type": "action", "seat": 2, "action": "check" },
+    { "type": "action", "seat": 5, "action": "bet", "to": 2000 },
+    { "type": "action", "seat": 2, "action": "fold" },
+    { "type": "board", "cards": ["3h"] }
+  ]
+}

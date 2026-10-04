@@ -1,0 +1,32 @@
+{
+  "format": "logistack.hand/0",
+  "id": "fixture-01-steal",
+  "createdAt": "2026-10-04T18:00:00Z",
+  "title": "CO open, everyone folds",
+  "notes": "6-max home game. Tests positions, the uncalled raise coming back, and a hand won without showdown.",
+  "table": {
+    "seats": 6,
+    "venue": "home",
+    "name": "Thursday Home Game",
+    "currency": { "code": "EUR", "minorPerMajor": 100 },
+    "blinds": { "sb": 100, "bb": 200 }
+  },
+  "button": 3,
+  "hero": 2,
+  "players": [
+    { "seat": 0, "name": "Anna", "stack": 20000, "playerType": "Fish", "tags": ["winning"] },
+    { "seat": 1, "name": "Ben", "stack": 20000, "playerType": "Reg" },
+    { "seat": 2, "name": "Hero", "stack": 20000, "cards": ["Ah", "Qd"] },
+    { "seat": 3, "name": "Dave", "stack": 20000, "playerType": "Nit" },
+    { "seat": 4, "name": "Eva", "stack": 20000, "playerType": "LAG", "tags": ["tilt"] },
+    { "seat": 5, "name": "Finn", "stack": 20000, "playerType": "Whale", "tags": ["drinking"] }
+  ],
+  "events": [
+    { "type": "action", "seat": 0, "action": "fold" },
+    { "type": "action", "seat": 1, "action": "fold" },
+    { "type": "action", "seat": 2, "action": "raise", "to": 500 },
+    { "type": "action", "seat": 3, "action": "fold" },
+    { "type": "action", "seat": 4, "action": "fold" },
+    { "type": "action", "seat": 5, "action": "fold" }
+  ]
+}

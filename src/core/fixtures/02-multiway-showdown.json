@@ -1,0 +1,47 @@
+{
+  "format": "logistack.hand/0",
+  "id": "fixture-02-multiway-showdown",
+  "createdAt": "2026-10-04T18:00:00Z",
+  "title": "Three-way pot, flush beats a set",
+  "notes": "9-seat casino table with 6 players and empty seats. 5% rake capped at 5 EUR. Tests betting on every street, an all-in shove on the river, rake and showdown.",
+  "table": {
+    "seats": 9,
+    "venue": "casino",
+    "name": "Casino 1/2 NL",
+    "currency": { "code": "EUR", "minorPerMajor": 100 },
+    "blinds": { "sb": 100, "bb": 200 },
+    "rake": { "percent": 0.05, "cap": 500, "noFlopNoDrop": true }
+  },
+  "button": 7,
+  "hero": 0,
+  "players": [
+    { "seat": 0, "name": "Hero", "stack": 30000, "cards": ["Kh", "Jh"] },
+    { "seat": 2, "name": "Carl", "stack": 25000, "playerType": "Reg", "cards": ["As", "Kd"] },
+    { "seat": 4, "name": "Dora", "stack": 40000, "playerType": "LAG", "cards": ["9c", "9d"] },
+    { "seat": 5, "name": "Emil", "stack": 20000, "playerType": "Nit" },
+    { "seat": 7, "name": "Gus", "stack": 30000, "playerType": "Fish" },
+    { "seat": 8, "name": "Hanna", "stack": 15000, "playerType": "Reg" }
+  ],
+  "events": [
+    { "type": "action", "seat": 2, "action": "raise", "to": 600 },
+    { "type": "action", "seat": 4, "action": "call" },
+    { "type": "action", "seat": 5, "action": "fold" },
+    { "type": "action", "seat": 7, "action": "fold" },
+    { "type": "action", "seat": 8, "action": "fold" },
+    { "type": "action", "seat": 0, "action": "call" },
+    { "type": "board", "cards": ["Ks", "9h", "4h"] },
+    { "type": "action", "seat": 0, "action": "check" },
+    { "type": "action", "seat": 2, "action": "bet", "to": 1000 },
+    { "type": "action", "seat": 4, "action": "raise", "to": 3000 },
+    { "type": "action", "seat": 0, "action": "call" },
+    { "type": "action", "seat": 2, "action": "fold" },
+    { "type": "board", "cards": ["2h"] },
+    { "type": "action", "seat": 0, "action": "check" },
+    { "type": "action", "seat": 4, "action": "bet", "to": 5000 },
+    { "type": "action", "seat": 0, "action": "raise", "to": 15000 },
+    { "type": "action", "seat": 4, "action": "call" },
+    { "type": "board", "cards": ["7c"] },
+    { "type": "action", "seat": 0, "action": "allin" },
+    { "type": "action", "seat": 4, "action": "call" }
+  ]
+}
