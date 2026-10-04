@@ -145,7 +145,6 @@ export function initialState(record: HandRecord): TableState {
         shown: false,
         mucked: false,
         squids: p.squids ?? 0,
-        blind: p.blind ?? false,
         lastAction: null,
       })),
     toAct: null,
@@ -345,7 +344,7 @@ function applyAction(state: TableState, ev: Extract<HandEvent, { type: 'action' 
   s.acted = true;
   s.matchedLevel = state.currentBet;
   const shownTo = action === 'fold' || action === 'check' ? 0 : s.streetBet;
-  const blind = ev.blind ?? s.blind;
+  const blind = ev.blind ?? false;
   s.lastAction = { action, to: shownTo, allIn: s.allIn, blind };
   state.log.push({
     kind: 'action',

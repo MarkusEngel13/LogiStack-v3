@@ -22,10 +22,12 @@ engine, saved-hand format and Django backend are replaced. v3 lives on GitHub as
 4. [x] **Hand wizard** (`src/ui/wizard/`), 4 steps:
        - Table: seats (HU-10), home game / casino (casino → rake %, cap, no flop no drop),
          currency, blinds, ante (none / every player / BB ante), table name.
+         Changing the big blind rescales the straddle and ante, and in money games also the
+         stacks (same BB depth) and the 7-2 / squid amounts. Amounts accept "0.25" and "0,25".
        - Players: click a seat on the table preview; name, stack, player type (colour stripe),
-         status (winning / tilt / drinking / plays blind), hole cards (card picker), Hero,
+         status (winning / tilt / drinking), hole cards (card picker), Hero,
          sitting out, dealer button, empty seat. "Fill empty seats", "Same stack for all".
-       - House rules: straddle (UTG / button-Mississippi, amount, re-straddle), blind raise,
+       - House rules: straddle (UTG / button-Mississippi, amount, re-straddle),
          7-2 game (bounty, who pays, suited counts, showdown only), squid game (value, squids held).
        - Review: the table after the blinds are posted (engine state), summary, title, hand number,
          errors from the engine's own setup checks. Create → saved, JSON export.
@@ -66,7 +68,8 @@ act from there to branch (the old line is dropped). IndexedDB storage.
 - **Seat layouts:** only 10-max coordinates ever existed (v2 / PkApp v3); v3 computes all sizes
   along the rail. A drag-to-place layout editor (v1 `LayoutEditor.jsx`) can store per-size tweaks later.
 - **Blind raise** = a raise made without looking at the cards (home games, usually a drinking player).
-  Per player for the hand (`blind`), or per action (`blind` on the event).
+  Marked on the action (`blind` on the event) while entering the hand, when it's clear who acts -
+  not in the wizard (Marius, 2026-10-04).
 
 ## Open questions
 

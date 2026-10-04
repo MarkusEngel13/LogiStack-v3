@@ -41,8 +41,6 @@ export interface SeatState {
   shown: boolean;
   mucked: boolean;
   squids: number;
-  /** Playing blind this hand (hasn't looked at their cards). */
-  blind: boolean;
   lastAction: { action: BetAction | 'post'; to: Chips; allIn: boolean; blind: boolean } | null;
 }
 

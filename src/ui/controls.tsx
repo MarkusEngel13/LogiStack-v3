@@ -120,16 +120,41 @@ export function TextInput({ value, onChange, placeholder }: { value: string; onC
   return <input className={inputClass} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />;
 }
 
-/** Money input in major units ("2.50" or "2,50"); reports minor units. */
-export function MoneyInput({ value, currency, onChange }: { value: Chips; currency: Currency; onChange: (v: Chips) => void }) {
-  const format = (v: Chips) => String(toMajor(v, currency));
+/**
+ * Money input in major units. Accepts a decimal dot or comma ("0.25" or "0,25") and keeps the
+ * text as typed; reports minor units.
+ * commitOnBlur: report only when the field is left or Enter is pressed. Used for the blinds,
+ * where every change rescales the stacks, so half-typed values like "0," must not count.
+ */
+export function MoneyInput({
+  value,
+  currency,
+  onChange,
+  commitOnBlur = false,
+}: {
+  value: Chips;
+  currency: Currency;
+  onChange: (v: Chips) => void;
+  commitOnBlur?: boolean;
+}) {
+  const format = (v: Chips) => {
+    const major = toMajor(v, currency);
+    return Number.isInteger(major) ? String(major) : major.toFixed(2); // 0.5 → "0.50"
+  };
   const [text, setText] = useState(format(value));
   const [invalid, setInvalid] = useState(false);
 
-  // Follow outside changes (e.g. a currency switch) without fighting the user's typing.
+  // Follow outside changes (e.g. stacks rescaled by new blinds) without fighting the user's typing.
   useEffect(() => {
     setText((t) => (parseAmount(t, currency) === value ? t : format(value)));
   }, [value, currency]);
+
+  const commit = () => {
+    const parsed = parseAmount(text, currency);
+    if (parsed === null) setText(format(value));
+    else if (parsed !== value) onChange(parsed);
+    setInvalid(false);
+  };
 
   const sym = currencySymbol(currency);
   return (
@@ -143,12 +168,10 @@ export function MoneyInput({ value, currency, onChange }: { value: Chips; curren
           setText(e.target.value);
           const parsed = parseAmount(e.target.value, currency);
           setInvalid(parsed === null);
-          if (parsed !== null) onChange(parsed);
+          if (!commitOnBlur && parsed !== null) onChange(parsed);
         }}
-        onBlur={() => {
-          setText(format(value));
-          setInvalid(false);
-        }}
+        onBlur={commit}
+        onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
       />
     </div>
   );

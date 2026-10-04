@@ -3,7 +3,7 @@ import { Field, MoneyInput, PercentInput, Section, Segmented, TextInput, Toggle 
 import { CURRENCIES } from '../../format';
 import { useSettings } from '../../settings';
 import { PokerTable } from '../../table/PokerTable';
-import { previewPositions, resizeTable, setCurrency, type AnteKind, type WizardDraft } from '../draft';
+import { previewPositions, resizeTable, setBlinds, setCurrency, type AnteKind, type WizardDraft } from '../draft';
 import { draftSeatViews } from '../seatViews';
 
 interface Props {
@@ -55,10 +55,23 @@ export function TableStep({ draft, setDraft }: Props) {
             </Field>
             <div className="grid grid-cols-2 gap-4">
               <Field label="Small blind">
-                <MoneyInput value={draft.blinds.sb} currency={c} onChange={(sb) => set({ blinds: { ...draft.blinds, sb } })} />
+                <MoneyInput
+                  commitOnBlur
+                  value={draft.blinds.sb}
+                  currency={c}
+                  onChange={(sb) => setDraft((d) => setBlinds(d, { ...d.blinds, sb }))}
+                />
               </Field>
-              <Field label="Big blind">
-                <MoneyInput value={draft.blinds.bb} currency={c} onChange={(bb) => set({ blinds: { ...draft.blinds, bb } })} />
+              <Field
+                label="Big blind"
+                hint={c.code === 'CHIPS' ? 'Straddle and ante follow the big blind.' : 'Stacks, straddle, ante and side-game amounts follow the big blind.'}
+              >
+                <MoneyInput
+                  commitOnBlur
+                  value={draft.blinds.bb}
+                  currency={c}
+                  onChange={(bb) => setDraft((d) => setBlinds(d, { ...d.blinds, bb }))}
+                />
               </Field>
             </div>
             <Field label="Ante">

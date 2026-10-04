@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { Field, MoneyInput, Section, Segmented, Stepper, Toggle } from '../../controls';
 import { formatAmount } from '../../format';
-import { BLIND_ICON, SQUID_ICON } from '../../playerTypes';
+import { SQUID_ICON } from '../../playerTypes';
 import { isDealtIn, straddlesFor, type StraddleKind, type WizardDraft } from '../draft';
 
 interface Props {
@@ -22,7 +22,7 @@ export function RulesStep({ draft, setDraft }: Props) {
     setDraft((d) => ({ ...d, seats: d.seats.map((p, i) => (i === seat && p ? { ...p, ...patch } : p)) }));
 
   return (
-    <div className="grid gap-5 lg:grid-cols-2">
+    <div className="grid items-start gap-5 lg:grid-cols-2 2xl:grid-cols-3">
       <Section title="Straddle">
         <div className="space-y-4">
           <Segmented<StraddleKind>
@@ -58,15 +58,6 @@ export function RulesStep({ draft, setDraft }: Props) {
               </p>
             </>
           )}
-        </div>
-      </Section>
-
-      <Section title={`Blind raise ${BLIND_ICON}`}>
-        <p className="mb-3 text-sm text-muted">Who hasn't looked at their cards? Their bets and raises show as blind.</p>
-        <div className="space-y-2">
-          {players.map(({ p, seat }) => (
-            <Toggle key={seat} checked={p.blind} onChange={(blind) => updatePlayer(seat, { blind })} label={`${p.name} (seat ${seat + 1})`} />
-          ))}
         </div>
       </Section>
 
@@ -135,7 +126,10 @@ export function RulesStep({ draft, setDraft }: Props) {
         )}
       </Section>
 
-      <p className="text-xs text-faint lg:col-span-2">More home-game rules (bomb pots, run it twice, double board, ...) can be added here later.</p>
+      <p className="text-xs text-faint lg:col-span-2 2xl:col-span-3">
+        Blind raises are marked on the raise itself when you enter the actions. More home-game rules (bomb pots, run it twice,
+        double board, ...) can be added here later.
+      </p>
     </div>
   );
 }

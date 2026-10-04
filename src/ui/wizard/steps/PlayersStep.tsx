@@ -5,7 +5,7 @@ import { CardPicker } from '../../cards/CardPicker';
 import { PlayingCard } from '../../cards/PlayingCard';
 import { Button, Field, MoneyInput, TextInput, Toggle } from '../../controls';
 import { formatAmount } from '../../format';
-import { BLIND_ICON, PLAYER_TYPES, STATUS_TAGS } from '../../playerTypes';
+import { PLAYER_TYPES, STATUS_TAGS } from '../../playerTypes';
 import { useSettings } from '../../settings';
 import { PokerTable } from '../../table/PokerTable';
 import { newPlayer, previewPositions, type DraftPlayer, type WizardDraft } from '../draft';
@@ -164,14 +164,6 @@ function PlayerEditor({
               {t.icon} {t.label}
             </button>
           ))}
-          <button
-            type="button"
-            onClick={() => updateSeat((x) => ({ ...x, blind: !x.blind }))}
-            title="Hasn't looked at their cards: their raises are blind raises"
-            className={`rounded-md border px-2.5 py-1 text-xs ${p.blind ? 'border-accent bg-surface-3 text-ink' : 'border-line text-muted hover:text-ink'}`}
-          >
-            {BLIND_ICON} Plays blind
-          </button>
         </div>
       </Field>
 

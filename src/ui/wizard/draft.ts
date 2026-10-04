@@ -25,7 +25,6 @@ export interface DraftPlayer {
   stack: Chips;
   playerType: string;
   tags: PlayerTag[];
-  blind: boolean;
   sittingOut: boolean;
   cards: [CardStr, CardStr] | null;
   squids: number;
@@ -60,7 +59,6 @@ export function newPlayer(seat: number, bb: Chips, isHero = false): DraftPlayer 
     stack: 100 * bb,
     playerType: isHero ? '' : 'Unknown',
     tags: [],
-    blind: false,
     sittingOut: false,
     cards: null,
     squids: 0,
@@ -118,6 +116,43 @@ export function setCurrency(d: WizardDraft, currency: Currency): WizardDraft {
   };
 }
 
+/** Rounds to the nearest 1, 2, 2.5 or 5 times a power of ten (in minor units): 62.5 → 50. */
+export function niceRound(v: number): Chips {
+  if (v <= 1) return Math.max(1, Math.round(v));
+  let best = Math.round(v);
+  let bestDist = Infinity;
+  for (let e = 0; e <= 9; e++)
+    for (const m of [1, 2, 2.5, 5]) {
+      const c = m * 10 ** e;
+      if (!Number.isInteger(c)) continue;
+      const dist = Math.abs(Math.log(c / v));
+      if (dist < bestDist) [best, bestDist] = [c, dist];
+    }
+  return best;
+}
+
+/**
+ * New blinds. When the big blind changes, everything priced off it follows: the straddle and
+ * the ante always; in money games also the stacks (they keep their depth in BB) and the 7-2 /
+ * squid amounts (rounded to a sensible value). In chip games stacks stay put, like a
+ * tournament level going up. The rake cap is a house rule and never changes.
+ */
+export function setBlinds(d: WizardDraft, blinds: { sb: Chips; bb: Chips }): WizardDraft {
+  const f = d.blinds.bb > 0 && blinds.bb > 0 ? blinds.bb / d.blinds.bb : 1;
+  if (f === 1) return { ...d, blinds };
+  const scale = (v: Chips) => Math.max(1, Math.round(v * f));
+  const money = d.currency.code !== 'CHIPS';
+  return {
+    ...d,
+    blinds,
+    straddle: { ...d.straddle, amount: scale(d.straddle.amount) },
+    ante: { ...d.ante, amount: scale(d.ante.amount) },
+    sevenDeuce: money ? { ...d.sevenDeuce, bounty: niceRound(d.sevenDeuce.bounty * f) } : d.sevenDeuce,
+    squid: money ? { ...d.squid, value: niceRound(d.squid.value * f) } : d.squid,
+    seats: money ? d.seats.map((p) => (p ? { ...p, stack: scale(p.stack) } : null)) : d.seats,
+  };
+}
+
 export const isDealtIn = (p: DraftPlayer | null): p is DraftPlayer => !!p && !p.sittingOut && p.stack > 0;
 
 function baseRecord(d: WizardDraft, straddles: Straddle[]): HandRecord {
@@ -156,7 +191,6 @@ function baseRecord(d: WizardDraft, straddles: Straddle[]): HandRecord {
               tags: p.tags.length ? [...p.tags] : undefined,
               cards: p.cards ?? undefined,
               squids: d.squid.enabled && p.squids > 0 ? p.squids : undefined,
-              blind: p.blind || undefined,
               sittingOut: p.sittingOut || undefined,
             },
           ]

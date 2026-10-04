@@ -1,7 +1,7 @@
 import { parseCard } from '../../core/cards';
 import type { TableState } from '../../core/engine/state';
 import { formatAmount, type AmountDisplay } from '../format';
-import { BLIND_ICON, SQUID_ICON, playerTypeColor, statusIcon } from '../playerTypes';
+import { SQUID_ICON, playerTypeColor, statusIcon } from '../playerTypes';
 import type { SeatView } from '../table/PokerTable';
 import { isDealtIn, type WizardDraft } from './draft';
 
@@ -25,7 +25,6 @@ export function draftSeatViews(d: WizardDraft, o: Options): SeatView[] {
     const isHero = d.heroSeat === seat;
     const icons = [
       ...p.tags.map(statusIcon),
-      ...(p.blind ? [BLIND_ICON] : []),
       ...(d.squid.enabled && p.squids > 0 ? [SQUID_ICON + (p.squids > 1 ? `×${p.squids}` : '')] : []),
     ];
     let cards: (number | null)[] | undefined;
