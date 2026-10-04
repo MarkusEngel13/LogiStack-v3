@@ -4,16 +4,23 @@ import { Button } from './ui/controls';
 import { HandsList } from './ui/HandsList';
 import { downloadJson, saveHand } from './ui/library';
 import { OptionsModal } from './ui/OptionsModal';
+import { ReplayScreen } from './ui/replay/ReplayScreen';
 import { SettingsProvider } from './ui/settings';
 import { HandWizard } from './ui/wizard/HandWizard';
 
-type Page = 'new' | 'hands';
+type Page = 'new' | 'hands' | 'replay';
 
 export default function App() {
   const [page, setPage] = useState<Page>('new');
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [created, setCreated] = useState<{ hand: HandRecord; saved: boolean } | null>(null);
   const [wizardKey, setWizardKey] = useState(0);
+  const [replayHand, setReplayHand] = useState<HandRecord | null>(null);
+
+  const openHand = (hand: HandRecord) => {
+    setReplayHand(hand);
+    setPage('replay');
+  };
 
   return (
     <SettingsProvider>
@@ -38,7 +45,9 @@ export default function App() {
                       setPage(id);
                       setCreated(null);
                     }}
-                    className={`rounded-md px-3 py-1.5 text-sm ${page === id ? 'bg-surface-2 text-ink' : 'text-muted hover:text-ink'}`}
+                    className={`rounded-md px-3 py-1.5 text-sm ${
+                      page === id || (page === 'replay' && id === 'hands') ? 'bg-surface-2 text-ink' : 'text-muted hover:text-ink'
+                    }`}
                   >
                     {label}
                   </button>
@@ -62,6 +71,9 @@ export default function App() {
               the actions comes with the Lab, the next step.
             </p>
             <div className="flex justify-center gap-3">
+              <Button variant="secondary" onClick={() => openHand(created.hand)}>
+                Open hand
+              </Button>
               <Button variant="secondary" onClick={() => downloadJson(`hand-${created.hand.handNo}.json`, created.hand)}>
                 Export JSON
               </Button>
@@ -77,7 +89,8 @@ export default function App() {
             </div>
           </div>
         )}
-        {page === 'hands' && <HandsList />}
+        {page === 'hands' && <HandsList onOpen={openHand} />}
+        {page === 'replay' && replayHand && <ReplayScreen key={replayHand.id} hand={replayHand} onBack={() => setPage('hands')} />}
 
         {optionsOpen && <OptionsModal onClose={() => setOptionsOpen(false)} />}
       </div>

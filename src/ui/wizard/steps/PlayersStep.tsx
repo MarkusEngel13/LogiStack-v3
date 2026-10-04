@@ -97,6 +97,9 @@ function PlayerEditor({
 
   const isHero = draft.heroSeat === seat;
   const hasButton = draft.button === seat;
+  const bb = draft.blinds.bb;
+  /** Add or remove whole big blinds; never below 1 BB. */
+  const addBB = (n: number) => updateSeat((x) => ({ ...x, stack: Math.max(bb, x.stack + n * bb) }));
   const toggleTag = (tag: PlayerTag) =>
     updateSeat((x) => ({ ...x, tags: x.tags.includes(tag) ? x.tags.filter((t) => t !== tag) : [...x.tags, tag] }));
 
@@ -128,8 +131,39 @@ function PlayerEditor({
         <TextInput value={p.name} onChange={(name) => updateSeat((x) => ({ ...x, name }))} />
       </Field>
 
-      <Field label="Stack" hint={`${formatAmount(p.stack, c, draft.blinds.bb, 'bb')}`}>
-        <MoneyInput value={p.stack} currency={c} onChange={(stack) => updateSeat((x) => ({ ...x, stack }))} />
+      <Field label="Stack" hint={`= ${formatAmount(p.stack, c, bb, 'bb')} · ↑/↓ in the field: ±1 BB, with Shift ±10 BB`}>
+        <MoneyInput
+          value={p.stack}
+          currency={c}
+          onChange={(stack) => updateSeat((x) => ({ ...x, stack }))}
+          onStep={(dir, big) => addBB(dir * (big ? 10 : 1))}
+        />
+        <div className="mt-2 grid grid-cols-6 gap-1">
+          {[-50, -10, -1, 1, 10, 50].map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => addBB(n)}
+              className="rounded border border-line bg-surface-2 py-1 text-xs text-muted tabular-nums hover:bg-surface-3 hover:text-ink"
+            >
+              {n > 0 ? `+${n}` : `−${-n}`}
+            </button>
+          ))}
+        </div>
+        <div className="mt-1 grid grid-cols-5 gap-1">
+          {[50, 100, 150, 200, 300].map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => updateSeat((x) => ({ ...x, stack: n * bb }))}
+              className={`rounded border py-1 text-xs tabular-nums ${
+                p.stack === n * bb ? 'border-accent bg-surface-3 text-ink' : 'border-line text-muted hover:bg-surface-3 hover:text-ink'
+              }`}
+            >
+              {n} BB
+            </button>
+          ))}
+        </div>
       </Field>
 
       <Field label="Player type">

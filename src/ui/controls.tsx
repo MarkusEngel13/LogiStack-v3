@@ -131,11 +131,14 @@ export function MoneyInput({
   currency,
   onChange,
   commitOnBlur = false,
+  onStep,
 }: {
   value: Chips;
   currency: Currency;
   onChange: (v: Chips) => void;
   commitOnBlur?: boolean;
+  /** ↑ / ↓ in the field (Shift = big step); the caller decides the step size. */
+  onStep?: (direction: 1 | -1, big: boolean) => void;
 }) {
   const format = (v: Chips) => {
     const major = toMajor(v, currency);
@@ -171,7 +174,13 @@ export function MoneyInput({
           if (!commitOnBlur && parsed !== null) onChange(parsed);
         }}
         onBlur={commit}
-        onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur();
+          else if (onStep && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+            e.preventDefault();
+            onStep(e.key === 'ArrowUp' ? 1 : -1, e.shiftKey);
+          }
+        }}
       />
     </div>
   );

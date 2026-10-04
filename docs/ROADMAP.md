@@ -36,22 +36,30 @@ engine, saved-hand format and Django backend are replaced. v3 lives on GitHub as
        for every size 2-10 (`geometry.ts`), Hero always bottom centre.
 6. [x] Options modal: theme (dark only so far), amounts as money / chips / BB,
        show all known hole cards or only Hero's.
+7. [x] Stack controls in the wizard: ±1 / ±10 / ±50 BB buttons, presets 50 / 100 / 150 / 200 / 300 BB,
+       ↑/↓ in the stack field (Shift = ±10 BB).
+8. [x] **Replay screen** (`src/ui/replay/`), opened from the Hands list (sample and saved hands)
+       or after "Create hand":
+       - Header: hand number, title, game details; badges for straddle / 7-2 / squid.
+       - Table: board, HM3 pot box (pot, pot odds for the player facing a bet, side pots), bets,
+         action tags on the plates ("Raise", "Call", "All-in", "Blind raise"), folded players dimmed.
+       - Cards: Hero always face up; others per the Options setting, all shown at showdown.
+       - End: winners glow with "Wins €X", final stacks include 7-2 / squid payments,
+         pot box summarises rake and side games.
+       - Playback: start / back / play-pause / next / end, jump to street, speed 0.5-2×;
+         keys ←/→, Space, Home/End.
+       - Action list on the right: reads like a hand history, street headers with cards,
+         future rows dimmed, click a row to jump, result rows at the end.
+       - A broken event (e.g. an imported file) stops the replay there with a message.
 
-## Next: replayer
+## Next: the Lab (entering a hand)
 
-**Look:** the classic Holdem Manager 3 replayer, dark mode first; one or two more themes later
-(all colours are CSS variables already).
-- Header: hand title and hand number.
-- Board cards and pot box in the middle: pot, and pot odds for the player facing a bet
-  ("1.61:1 (38.3%)"); a line for 7-2 / straddle / rake.
-- Last action shown on the plate ("Raise 110", "Blind raise"); folded players dimmed.
-- Playback controls under the table; action list on the right (port v2's ActionLog).
-- Result at the end: winners per pot, rake, 7-2 bounties, squid payouts.
-
-## Then: the Lab
-
-The replayer with editing on: enter actions and cards, click any earlier action to rewind,
-act from there to branch (the old line is dropped). IndexedDB storage.
+The replay screen with editing on. "Create hand" opens it straight away.
+- Buttons for the player to act: fold / check / call / bet / raise, sizing presets (pot fractions,
+  BB multiples), all-in; a "blind" tick on bets and raises.
+- Card picker when the flop / turn / river is due; show / muck at showdown.
+- Click an earlier action to rewind; acting from there replaces the old line (branch).
+- Undo; autosave; storage moves to IndexedDB.
 
 ## Then: ranges and decisions
 

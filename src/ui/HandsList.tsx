@@ -11,20 +11,24 @@ function describe(h: HandRecord) {
   return `${h.table.seats}-max ${h.table.venue} · ${money(h.table.blinds.sb)}/${money(h.table.blinds.bb)} · ${dealt} players`;
 }
 
-function Row({ hand, onDelete }: { hand: HandRecord; onDelete?: () => void }) {
+function Row({ hand, onOpen, onDelete }: { hand: HandRecord; onOpen: () => void; onDelete?: () => void }) {
   return (
-    <li className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-surface-2 px-4 py-3">
-      <div>
+    <li className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-surface-2 px-4 py-3 hover:border-accent/60">
+      <button type="button" onClick={onOpen} className="min-w-0 flex-1 cursor-pointer text-left">
         <div className="font-semibold">
           {hand.handNo !== undefined && <span className="mr-2 text-muted">#{hand.handNo}</span>}
           {hand.title || hand.table.name || (hand.handNo !== undefined ? `Hand #${hand.handNo}` : 'Untitled hand')}
         </div>
         <div className="text-xs text-muted">
           {describe(hand)}
+          {hand.events.length === 0 ? ' · no actions yet' : ` · ${hand.events.length} events`}
           {hand.createdAt && ` · ${new Date(hand.createdAt).toLocaleString()}`}
         </div>
-      </div>
+      </button>
       <div className="flex gap-2">
+        <Button variant="primary" onClick={onOpen}>
+          Open
+        </Button>
         <Button variant="secondary" onClick={() => downloadJson(`hand-${hand.handNo ?? hand.id}.json`, hand)}>
           Export JSON
         </Button>
@@ -38,7 +42,7 @@ function Row({ hand, onDelete }: { hand: HandRecord; onDelete?: () => void }) {
   );
 }
 
-export function HandsList() {
+export function HandsList({ onOpen }: { onOpen: (hand: HandRecord) => void }) {
   const [hands, setHands] = useState(loadHands);
   return (
     <div className="mx-auto max-w-4xl space-y-5 px-6 py-6">
@@ -52,6 +56,7 @@ export function HandsList() {
               <Row
                 key={h.id}
                 hand={h}
+                onOpen={() => onOpen(h)}
                 onDelete={() => {
                   if (window.confirm(`Delete hand #${h.handNo ?? ''}?`)) {
                     deleteHand(h.id);
@@ -66,7 +71,7 @@ export function HandsList() {
       <Section title="Sample hands">
         <ul className="space-y-2">
           {Object.values(FIXTURES).map((h) => (
-            <Row key={h.id} hand={h} />
+            <Row key={h.id} hand={h} onOpen={() => onOpen(h)} />
           ))}
         </ul>
       </Section>

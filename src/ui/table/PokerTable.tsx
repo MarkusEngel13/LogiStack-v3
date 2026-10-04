@@ -20,7 +20,23 @@ export interface SeatView {
   /** Bet in front of the player, already formatted. */
   betText?: string;
   selected?: boolean;
+  /** Last action on this street ("Raise", "Call", ...) or the amount won at the end. */
+  action?: { text: string; tone: ActionTone };
+  winner?: boolean;
 }
+
+export type ActionTone = 'bet' | 'call' | 'check' | 'fold' | 'allin' | 'post' | 'win' | 'info';
+
+export const TONE_COLORS: Record<ActionTone, { bg: string; fg: string }> = {
+  bet: { bg: '#c62828', fg: '#ffffff' },
+  allin: { bg: '#7f1414', fg: '#ffffff' },
+  call: { bg: '#1f8a4c', fg: '#ffffff' },
+  check: { bg: '#4b5563', fg: '#ffffff' },
+  fold: { bg: '#2b2b2b', fg: '#9b9b9b' },
+  post: { bg: '#a16207', fg: '#ffffff' },
+  win: { bg: '#16a34a', fg: '#ffffff' },
+  info: { bg: '#333333', fg: '#f1f1f1' },
+};
 
 interface Props {
   size: number;
@@ -126,7 +142,9 @@ function DealerButton({ slot }: { slot: SeatSlot }) {
 
 function SeatPlate({ view, slot, onClick }: { view: SeatView; slot: SeatSlot; onClick?: (seat: number) => void }) {
   const dim = view.folded || view.sittingOut;
-  const border = view.toAct
+  const border = view.winner
+    ? '0.22cqw solid #22c55e'
+    : view.toAct
     ? '0.22cqw solid var(--accent)'
     : view.selected
       ? '0.22cqw solid var(--accent-strong)'
@@ -160,7 +178,11 @@ function SeatPlate({ view, slot, onClick }: { view: SeatView; slot: SeatSlot; on
           borderRadius: '0.6cqw',
           border,
           background: view.empty ? 'rgba(20,20,20,0.6)' : 'linear-gradient(180deg, var(--plate-top), var(--plate))',
-          boxShadow: view.toAct ? '0 0 1.4cqw rgba(242,107,29,0.55)' : '0 0.4cqw 1cqw rgba(0,0,0,0.55)',
+          boxShadow: view.winner
+            ? '0 0 1.6cqw rgba(34,197,94,0.6)'
+            : view.toAct
+              ? '0 0 1.4cqw rgba(242,107,29,0.55)'
+              : '0 0.4cqw 1cqw rgba(0,0,0,0.55)',
           opacity: dim ? 0.55 : 1,
         }}
       >
@@ -183,13 +205,31 @@ function SeatPlate({ view, slot, onClick }: { view: SeatView; slot: SeatSlot; on
         </span>
       </button>
 
-      {/* Position as a tab on the bottom edge, clear of the name and the cards */}
+      {/* Tabs on the bottom edge, clear of the name and the cards: position left, action right */}
+      {view.action && (
+        <span
+          className="pointer-events-none absolute font-bold whitespace-nowrap"
+          style={{
+            bottom: '-1cqw',
+            right: '0.6cqw',
+            fontSize: '1.05cqw',
+            padding: '0.05cqw 0.6cqw',
+            borderRadius: '0.4cqw',
+            background: TONE_COLORS[view.action.tone].bg,
+            color: TONE_COLORS[view.action.tone].fg,
+            boxShadow: '0 0.2cqw 0.5cqw rgba(0,0,0,0.5)',
+          }}
+        >
+          {view.action.text}
+        </span>
+      )}
       {view.position && (
         <span
-          className="pointer-events-none absolute left-1/2 font-bold whitespace-nowrap"
+          className="pointer-events-none absolute font-bold whitespace-nowrap"
           style={{
             bottom: '-0.95cqw',
-            transform: 'translateX(-50%)',
+            left: view.action ? '0.6cqw' : '50%',
+            transform: view.action ? undefined : 'translateX(-50%)',
             fontSize: '1cqw',
             padding: '0.05cqw 0.6cqw',
             borderRadius: '0.4cqw',
