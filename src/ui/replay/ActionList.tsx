@@ -46,7 +46,7 @@ export function ActionList({ rows, step, atEnd, onJump }: { rows: ListRow[]; ste
                 {r.cards && (
                   <span className="flex shrink-0 gap-0.5">
                     {r.cards.map((c) => (
-                      <PlayingCard key={c} card={c} width="20px" />
+                      <PlayingCard key={c} card={c} width="20px" mini />
                     ))}
                   </span>
                 )}

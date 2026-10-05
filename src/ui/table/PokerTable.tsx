@@ -76,14 +76,14 @@ export function PokerTable({ size, anchorSeat, seats, buttonSeat, center, onSeat
             }}
           />
           <div className="absolute rounded-full" style={{ inset: '9% 4.5%', border: '0.2cqw solid var(--felt-line)', opacity: 0.85 }} />
-          {/* watermark */}
-          <div
-            className="pointer-events-none absolute inset-0 flex items-center justify-center font-black tracking-tight select-none"
-            style={{ fontSize: '5cqw', color: 'var(--text)', opacity: 0.05 }}
-          >
-            LogiStack
-          </div>
-          {center && <div className="absolute inset-0 flex items-center justify-center">{center}</div>}
+          {/* The center content (pot, board) brings its own logo; an empty table shows it in the middle. */}
+          {center ? (
+            <div className="absolute inset-0 flex items-center justify-center">{center}</div>
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <TableLogo size="5cqw" />
+            </div>
+          )}
 
           {seats.map((s) => (s.betText ? <Bet key={`bet-${s.seat}`} slot={slotFor(s.seat)} text={s.betText} /> : null))}
 
@@ -94,6 +94,15 @@ export function PokerTable({ size, anchorSeat, seats, buttonSeat, center, onSeat
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** The faint name printed on the felt. */
+export function TableLogo({ size }: { size: string }) {
+  return (
+    <div className="pointer-events-none font-black tracking-tight whitespace-nowrap select-none" style={{ fontSize: size, lineHeight: 1, color: 'var(--text)', opacity: 0.06 }}>
+      LogiStack
     </div>
   );
 }

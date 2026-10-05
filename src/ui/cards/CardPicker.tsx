@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { cardToString, parseCard, RANK_CHARS } from '../../core/cards';
 import type { CardStr } from '../../core/hand/types';
 import { Button, Modal } from '../controls';
-import { PlayingCard } from './PlayingCard';
+import { useSettings } from '../settings';
+import { PlayingCard, SUIT_VARS, suitTone } from './PlayingCard';
 
 const SUIT_ROWS = [0, 1, 2, 3]; // s h d c
 const RANKS_HIGH_FIRST = [...RANK_CHARS].map((_, i) => 12 - i);
@@ -29,6 +30,7 @@ export function CardPicker({
   onDone: (cards: CardStr[] | null) => void;
   onClose: () => void;
 }) {
+  const { settings } = useSettings();
   const [picked, setPicked] = useState<number[]>(initial ? initial.map(parseCard) : []);
 
   // Clicking a picked card removes it; when full, a new pick replaces the oldest one.
@@ -82,10 +84,7 @@ export function CardPicker({
                 className={`rounded py-1.5 text-center text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-20 ${
                   isPicked ? 'ring-2 ring-accent' : 'hover:brightness-110'
                 }`}
-                style={{
-                  background: 'var(--card-face)',
-                  color: ['var(--suit-s)', 'var(--suit-h)', 'var(--suit-d)', 'var(--suit-c)'][suit],
-                }}
+                style={{ background: 'var(--card-face)', color: SUIT_VARS[suitTone(suit, settings.fourColor)] }}
               >
                 {RANK_CHARS[rank] === 'T' ? '10' : RANK_CHARS[rank]}
                 {['♠', '♥', '♦', '♣'][suit]}

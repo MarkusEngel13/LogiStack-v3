@@ -65,6 +65,9 @@ engine, saved-hand format and Django backend are replaced. v3 lives on GitHub as
        - Click a line in the action list to go back to just before it; entering there replaces
          what came after (branch). Undo (button / Ctrl+Z) brings it back. Saved on every change.
        - Click a seat to set that player's hole cards.
+11. [x] **Felt and cards** (2026-10-05): the felt reads pot box → board → logo, top to bottom; the
+       board stays on the centre line, the pot box grows upward. v2's four card faces (Standard,
+       Modernist, Royal, HUD) and the four-colour toggle are back, in Options.
 
 ## Next: ranges and decisions
 

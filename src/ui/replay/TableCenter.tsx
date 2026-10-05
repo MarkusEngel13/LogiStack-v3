@@ -1,18 +1,29 @@
 import { currentPots, potOdds, potTotal } from '../../core/engine/replay';
 import type { TableState } from '../../core/engine/state';
 import { PlayingCard } from '../cards/PlayingCard';
+import { TableLogo } from '../table/PokerTable';
 import type { Money } from './views';
 
-/** HM3-style pot box (pot, pot odds for the player facing a bet, side pots) above the board. */
+const BOARD_CARD_W = 4.9; // cqw
+const GAP = 1.3; // cqw between pot box, board and logo
+
+/**
+ * The felt, top to bottom: HM3-style pot box (pot, pot odds for the player facing a bet, side
+ * pots, result lines), the board, the logo. The board sits on the table's centre line; the pot box
+ * grows upward and the logo hangs below, so neither ever moves the cards.
+ */
 export function TableCenter({ state, money, summary = [] }: { state: TableState; money: Money; summary?: string[] }) {
   const odds = potOdds(state);
   const collected = currentPots(state, false).filter((p) => p.amount > 0);
 
   return (
-    <div className="flex flex-col items-center" style={{ gap: '1.4cqw', marginTop: '-1cqw' }}>
+    <div className="relative">
       <div
-        className="text-center leading-tight"
+        className="absolute left-1/2 text-center leading-tight"
         style={{
+          bottom: `calc(100% + ${GAP}cqw)`,
+          transform: 'translateX(-50%)',
+          width: 'max-content',
           background: 'rgba(0,0,0,0.85)',
           border: '0.1cqw solid #2c2c2c',
           borderRadius: '0.6cqw',
@@ -40,17 +51,22 @@ export function TableCenter({ state, money, summary = [] }: { state: TableState;
           </div>
         ))}
       </div>
+
       <div className="flex" style={{ gap: '0.5cqw' }}>
         {[0, 1, 2, 3, 4].map((i) =>
           state.board[i] !== undefined ? (
-            <PlayingCard key={i} card={state.board[i]!} width="4.9cqw" />
+            <PlayingCard key={i} card={state.board[i]!} width={`${BOARD_CARD_W}cqw`} />
           ) : (
             <div
               key={i}
-              style={{ width: '4.9cqw', aspectRatio: '5 / 7', borderRadius: '0.5cqw', border: '0.12cqw dashed rgba(255,255,255,0.08)' }}
+              style={{ width: `${BOARD_CARD_W}cqw`, aspectRatio: '5 / 7', borderRadius: '0.5cqw', border: '0.12cqw dashed rgba(255,255,255,0.08)' }}
             />
           ),
         )}
+      </div>
+
+      <div className="absolute left-1/2" style={{ top: `calc(100% + ${GAP}cqw)`, transform: 'translateX(-50%)' }}>
+        <TableLogo size="2.6cqw" />
       </div>
     </div>
   );

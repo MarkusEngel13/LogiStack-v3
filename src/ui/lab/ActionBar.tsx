@@ -289,7 +289,7 @@ function ShowdownControls({ state, money, onEvent, onNewHand }: Props) {
             ) : s.cards ? (
               <span className="flex gap-0.5">
                 {s.cards.map((c) => (
-                  <PlayingCard key={c} card={c} width="22px" />
+                  <PlayingCard key={c} card={c} width="22px" mini />
                 ))}
               </span>
             ) : (

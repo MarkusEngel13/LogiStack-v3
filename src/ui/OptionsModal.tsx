@@ -1,5 +1,9 @@
+import { parseCard } from '../core/cards';
+import { CARD_FACES, PlayingCard } from './cards/PlayingCard';
 import { Button, Field, Modal, Segmented, Toggle } from './controls';
 import { useSettings } from './settings';
+
+const PREVIEW = [parseCard('As'), parseCard('Kd')];
 
 export function OptionsModal({ onClose }: { onClose: () => void }) {
   const { settings, update } = useSettings();
@@ -25,6 +29,37 @@ export function OptionsModal({ onClose }: { onClose: () => void }) {
           onChange={(showAllCards) => update({ showAllCards })}
           label="Show all known hole cards"
           hint="Off: only Hero's cards are face up; everyone else's stay hidden until showdown."
+        />
+        <Field label="Card faces">
+          <div className="grid grid-cols-4 gap-2">
+            {CARD_FACES.map((f) => {
+              const active = settings.cardFace === f.id;
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => update({ cardFace: f.id })}
+                  className={`flex flex-col items-center gap-2 rounded-lg border-2 bg-surface-2 px-1 pt-3 pb-2 transition-colors ${
+                    active ? 'border-accent' : 'border-transparent hover:border-line'
+                  }`}
+                >
+                  <span className="flex gap-1">
+                    {PREVIEW.map((c) => (
+                      <PlayingCard key={c} card={c} width="40px" face={f.id} />
+                    ))}
+                  </span>
+                  <span className={`text-xs ${active ? 'font-semibold text-ink' : 'text-muted'}`}>{f.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </Field>
+        <Toggle
+          checked={settings.fourColor}
+          onChange={(fourColor) => update({ fourColor })}
+          label="Four-colour deck"
+          hint="Diamonds blue, clubs green: flushes are easier to spot."
         />
       </div>
     </Modal>

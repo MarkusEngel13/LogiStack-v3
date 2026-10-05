@@ -1,15 +1,21 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { AmountDisplay } from './format';
 
+/** The four card designs from v2 (Settings → Deck & Cards there). */
+export type CardFace = 'standard' | 'modernist' | 'royal' | 'hud';
+
 /** Viewer preferences from the Options modal. Stored per browser. */
 export interface Settings {
   theme: 'dark';
   amounts: AmountDisplay;
   /** true: show every known hole card; false: only Hero's (others until showdown). */
   showAllCards: boolean;
+  cardFace: CardFace;
+  /** Diamonds blue and clubs green; off: the usual red and black. */
+  fourColor: boolean;
 }
 
-const DEFAULTS: Settings = { theme: 'dark', amounts: 'currency', showAllCards: true };
+const DEFAULTS: Settings = { theme: 'dark', amounts: 'currency', showAllCards: true, cardFace: 'standard', fourColor: true };
 const KEY = 'logistack.settings.v1';
 
 function load(): Settings {
