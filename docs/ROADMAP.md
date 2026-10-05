@@ -90,6 +90,11 @@ engine, saved-hand format and Django backend are replaced. v3 lives on GitHub as
        vs a limp, ...; nearest position, 200 BB charts when deep, yours before the library's),
        or from your own painted range at that point (saved with the hand; dropped by a branch).
        Equity, pot odds needed, call / fold and EV(call), assuming the hand is checked down.
+18. [x] **EQ page** (2026-10-06): 2-6 players, each an exact hand or a range (text, chart part, or
+       painted with the Lab's range editor), board of 0/3/4/5 cards. Two players exact - range vs
+       range from the table preflop, after the flop every runout with a sorted sweep (win and tie
+       split too); 3+ players Monte Carlo (200,000 deals). Heat map: each hand class of a player
+       against the others, per combo on hover. The setup is remembered in the browser.
 
 ## Next: villain response model and bet-size EV (agreed 2026-10-06, start next session)
 

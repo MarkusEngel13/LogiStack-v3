@@ -1,21 +1,23 @@
 import { useEffect, useState } from 'react';
 import type { Card } from '../../core/cards';
+import type { FieldResult } from '../../core/equity/field';
 import type { Weights } from '../../core/ranges/range';
 
-export interface EquityQuestion {
-  id: number;
-  hero: Card[];
-  board: Card[];
-  villains: Weights[];
-}
+/** Hero's hand against villain ranges (the Lab), or every player a range (the EQ page). */
+export type Question = { kind: 'hero'; hero: Card[]; board: Card[]; villains: Weights[] } | { kind: 'field'; ranges: Weights[]; board: Card[] };
+
+export type EquityQuestion = Question & { id: number };
 
 export interface EquityAnswer {
   id: number;
+  /** kind 'hero' */
   equity?: number;
   method?: 'table' | 'exact' | 'monte-carlo';
   /** Monte Carlo only. */
   stdError?: number;
   combos?: number[];
+  /** kind 'field' */
+  field?: FieldResult;
   error?: string;
 }
 
@@ -35,10 +37,10 @@ function getWorker(): Worker {
 }
 
 /**
- * Equity of `hero` against the villain ranges, worked out in the background. `key` must change
- * whenever the question does (cards, board or any range); answers to older questions are ignored.
+ * The answer to an equity question, worked out in the background. `key` must change whenever
+ * the question does (cards, board or any range); answers to older questions are ignored.
  */
-export function useEquity(question: Omit<EquityQuestion, 'id'> | null, key: string) {
+export function useEquity(question: Question | null, key: string) {
   const [state, setState] = useState<{ key: string; answer: EquityAnswer | null }>({ key: '', answer: null });
 
   useEffect(() => {

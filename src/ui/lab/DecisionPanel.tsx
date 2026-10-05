@@ -47,7 +47,8 @@ export function DecisionPanel({
   // opponents come from state, so these four cover it
   const ranges = useMemo(() => opponents.map((o) => playerRange(hand, state, step, o.seat, charts)), [hand, state, step, charts]);
   const dead = me?.cards ? [...me.cards, ...state.board] : [...state.board];
-  const question = me?.cards && ranges.length > 0 ? { hero: me.cards, board: state.board, villains: ranges.map((r) => r.weights) } : null;
+  const question =
+    me?.cards && ranges.length > 0 ? { kind: 'hero' as const, hero: me.cards, board: state.board, villains: ranges.map((r) => r.weights) } : null;
   const key = JSON.stringify([me?.cards, state.board, ranges.map((r) => r.note?.range ?? `${r.auto.chart?.id}:${r.auto.spot.took}`)]);
   const { answer, pending } = useEquity(question, key);
 

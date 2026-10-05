@@ -5,11 +5,12 @@ import { HandsList } from './ui/HandsList';
 import { nextHandNo, saveHand } from './ui/library';
 import { OptionsModal } from './ui/OptionsModal';
 import { RangesPage } from './ui/ranges/RangesPage';
+import { EquityPage } from './ui/equity/EquityPage';
 import { HandScreen } from './ui/replay/HandScreen';
 import { SettingsProvider } from './ui/settings';
 import { HandWizard } from './ui/wizard/HandWizard';
 
-type Page = 'new' | 'hands' | 'hand' | 'ranges';
+type Page = 'new' | 'hands' | 'hand' | 'ranges' | 'equity';
 
 export default function App() {
   const [page, setPage] = useState<Page>('new');
@@ -54,6 +55,7 @@ export default function App() {
                     ['new', 'New hand'],
                     ['hands', 'Hands'],
                     ['ranges', 'Ranges'],
+                    ['equity', 'EQ'],
                   ] as const
                 ).map(([id, label]) => (
                   <button
@@ -86,6 +88,7 @@ export default function App() {
         )}
         {page === 'hands' && <HandsList onOpen={openHand} />}
         {page === 'ranges' && <RangesPage />}
+        {page === 'equity' && <EquityPage />}
         {page === 'hand' && open && (
           <HandScreen
             key={`${open.hand.id}-${open.editable}`}

@@ -24,6 +24,13 @@ export interface EquityResult {
   method: 'table' | 'exact';
 }
 
+export function checkBoard(board: readonly Card[]) {
+  if (![0, 3, 4, 5].includes(board.length)) throw new Error('The board has 0, 3, 4 or 5 cards');
+  if (board.some((c) => !Number.isInteger(c) || c < 0 || c > 51) || new Set(board).size !== board.length) {
+    throw new Error('Board cards must be distinct, 0..51');
+  }
+}
+
 function checkCards(hero: readonly Card[], board: readonly Card[]) {
   if (hero.length !== 2) throw new Error('Hero needs two cards');
   if (![0, 3, 4, 5].includes(board.length)) throw new Error('The board has 0, 3, 4 or 5 cards');
@@ -33,15 +40,15 @@ function checkCards(hero: readonly Card[], board: readonly Card[]) {
   }
 }
 
-interface VillainCombo {
+export interface VillainCombo {
   combo: number;
   lo: number;
   hi: number;
   weight: number;
 }
 
-/** Villain combos with weight that don't use a dead card. */
-function liveCombos(villain: Weights, deadLo: number, deadHi: number): VillainCombo[] {
+/** Combos with weight that don't use a dead card. */
+export function liveCombos(villain: Weights, deadLo: number, deadHi: number): VillainCombo[] {
   const out: VillainCombo[] = [];
   for (let combo = 0; combo < 1326; combo++) {
     const weight = villain[combo]!;
@@ -55,7 +62,7 @@ function liveCombos(villain: Weights, deadLo: number, deadHi: number): VillainCo
   return out;
 }
 
-const packed = (cards: readonly Card[]) => {
+export const packed = (cards: readonly Card[]) => {
   let lo = 0;
   let hi = 0;
   for (const c of cards) {
@@ -139,7 +146,7 @@ export interface MonteCarloResult {
 }
 
 /** Small seeded generator (mulberry32), so results can be repeated in tests. */
-function rng(seed: number) {
+export function rng(seed: number) {
   let s = seed >>> 0;
   return () => {
     s = (s + 0x6d2b79f5) >>> 0;

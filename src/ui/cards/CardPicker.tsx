@@ -14,6 +14,7 @@ const RANKS_HIGH_FIRST = [...RANK_CHARS].map((_, i) => 12 - i);
  */
 export function CardPicker({
   count = 2,
+  validCounts,
   initial,
   taken,
   title,
@@ -22,6 +23,8 @@ export function CardPicker({
   onClose,
 }: {
   count?: number;
+  /** Instead of exactly `count`: any of these numbers of cards (a board: 0, 3, 4 or 5). */
+  validCounts?: number[];
   initial: CardStr[] | null;
   taken: Set<number>;
   title: string;
@@ -33,9 +36,12 @@ export function CardPicker({
   const { settings } = useSettings();
   const [picked, setPicked] = useState<number[]>(initial ? initial.map(parseCard) : []);
 
+  const max = validCounts ? Math.max(...validCounts) : count;
+  const complete = validCounts ? validCounts.includes(picked.length) : picked.length === count;
+
   // Clicking a picked card removes it; when full, a new pick replaces the oldest one.
   const toggle = (card: number) =>
-    setPicked((p) => (p.includes(card) ? p.filter((c) => c !== card) : p.length < count ? [...p, card] : [...p.slice(1), card]));
+    setPicked((p) => (p.includes(card) ? p.filter((c) => c !== card) : p.length < max ? [...p, card] : [...p.slice(1), card]));
 
   return (
     <Modal
@@ -51,14 +57,14 @@ export function CardPicker({
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="primary" disabled={picked.length !== count} onClick={() => onDone(picked.map(cardToString))}>
+          <Button variant="primary" disabled={!complete} onClick={() => onDone(picked.map(cardToString))}>
             Done
           </Button>
         </>
       }
     >
       <div className="mb-4 flex h-24 items-center justify-center gap-2">
-        {Array.from({ length: count }, (_, i) =>
+        {Array.from({ length: max }, (_, i) =>
           picked[i] !== undefined ? (
             <PlayingCard key={i} card={picked[i]!} width="60px" />
           ) : (

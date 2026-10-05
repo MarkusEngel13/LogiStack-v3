@@ -1,10 +1,14 @@
 /**
- * Equity off the main thread. Heads-up: exact (the preflop table before the flop, every runout
- * after it). Multiway: Monte Carlo. The preflop table is fetched once, on first need.
+ * Equity off the main thread.
+ * - 'hero': a hand against villain ranges. Heads-up exact (the preflop table before the flop,
+ *   every runout after it), multiway Monte Carlo.
+ * - 'field': every player a range. Two players exact, more by Monte Carlo.
+ * The preflop table is fetched once, on first need.
  */
 
 import tableUrl from '../../core/equity/preflop-hu.bin?url';
 import { equityVsRange, monteCarloEquity } from '../../core/equity/equity';
+import { monteCarloField, rangeVsRange } from '../../core/equity/field';
 import { PreflopTable } from '../../core/equity/preflopTable';
 import type { EquityAnswer, EquityQuestion } from './useEquity';
 
@@ -24,15 +28,22 @@ const loadTable = () =>
     .then((buf) => PreflopTable.fromBuffer(buf)));
 
 ctx.onmessage = async (e) => {
-  const { id, hero, board, villains } = e.data;
-  const answer = (a: Omit<EquityAnswer, 'id'>) => ctx.postMessage({ id, ...a });
+  const q = e.data;
+  const answer = (a: Omit<EquityAnswer, 'id'>) => ctx.postMessage({ id: q.id, ...a });
   try {
-    if (villains.length === 1) {
-      const preflop = board.length === 0 ? await loadTable() : undefined;
-      const r = equityVsRange(hero, board, villains[0]!, preflop);
+    if (q.kind === 'field') {
+      if (q.ranges.length === 2) {
+        const preflop = q.board.length === 0 ? await loadTable() : undefined;
+        answer({ field: rangeVsRange(q.ranges[0]!, q.ranges[1]!, q.board, preflop) });
+      } else {
+        answer({ field: monteCarloField(q.ranges, q.board, { samples: 200_000, seed: 1 }) });
+      }
+    } else if (q.villains.length === 1) {
+      const preflop = q.board.length === 0 ? await loadTable() : undefined;
+      const r = equityVsRange(q.hero, q.board, q.villains[0]!, preflop);
       answer({ equity: r.equity, method: r.method, combos: [r.combos] });
     } else {
-      const r = monteCarloEquity(hero, board, villains, { samples: 60_000, seed: 1 });
+      const r = monteCarloEquity(q.hero, q.board, q.villains, { samples: 60_000, seed: 1 });
       answer({ equity: r.equity, method: 'monte-carlo', stdError: r.stdError });
     }
   } catch (err) {
