@@ -2,7 +2,8 @@ import { describe, expect, test } from 'vitest';
 import { FIXTURES } from '../fixtures';
 import type { HandRecord } from '../hand/types';
 import { buildPots } from './pots';
-import { HandError, currentPots, legalActions, potOdds, replay, replaySteps } from './replay';
+import { migrateHand } from '../hand/migrate';
+import { HandError, currentPots, legalActions, potOdds, replay, replaySteps, straddleOptions } from './replay';
 
 const positions = (rec: HandRecord) =>
   Object.fromEntries(replay(rec, 0).seats.map((s) => [s.seat, s.position]));
@@ -122,31 +123,31 @@ describe('04 straddle, short all-in, 7-2 game', () => {
   const rec = FIXTURES.straddle72;
 
   test('first to act is left of the straddle; min raise is twice the straddle', () => {
-    const s = replay(rec, 0);
+    const s = replay(rec, 1); // event 0 = Cal's straddle
     expect(s.currentBet).toBe(400);
     expect(legalActions(s)).toMatchObject({ seat: 3, toCall: 400, minTo: 800 });
   });
 
   test('the straddler gets an option', () => {
-    const s = replay(rec, 4);
+    const s = replay(rec, 5);
     expect(s.toAct).toBe(2);
     expect(legalActions(s)).toMatchObject({ canCheck: true, canRaise: true });
   });
 
   test('a short all-in raise does not re-open the betting for the original bettor', () => {
-    const s = replay(rec, 9); // Cal bet 500, Dex all-in 600, Fritz called
+    const s = replay(rec, 10); // Cal bet 500, Dex all-in 600, Fritz called
     expect(s.toAct).toBe(2);
     expect(legalActions(s)).toMatchObject({ canCall: true, canRaise: false, toCall: 100 });
     const illegal: HandRecord = {
       ...rec,
-      events: [...rec.events.slice(0, 9), { type: 'action', seat: 2, action: 'raise', to: 2000 }],
+      events: [...rec.events.slice(0, 10), { type: 'action', seat: 2, action: 'raise', to: 2000 }],
     };
     expect(() => replay(illegal)).toThrow(/only call or fold/);
   });
 
   test('uncalled turn bet comes back, then the river runs out', () => {
-    const s = replay(rec, 14);
-    expect(s.log).toContainEqual({ kind: 'refund', event: 13, seat: 5, amount: 2000 });
+    const s = replay(rec, 15);
+    expect(s.log).toContainEqual({ kind: 'refund', event: 14, seat: 5, amount: 2000 });
     expect(s.phase).toBe('dealing');
   });
 
@@ -162,6 +163,64 @@ describe('04 straddle, short all-in, 7-2 game', () => {
   });
 
   test('chips conserved', () => expectChipsConserved(rec));
+});
+
+describe('straddles as events', () => {
+  const rec = FIXTURES.straddle72; // 5 players: SB 0, BB 1, UTG 2 (Cal), Dex 3, button 5 (Fritz)
+  const withEvents = (base: HandRecord, events: HandRecord['events']): HandRecord => ({ ...base, events });
+
+  test('before any action: UTG or the button may straddle', () => {
+    expect(straddleOptions(replay(rec, 0))).toEqual([
+      { seat: 2, kind: 'utg', suggested: 400 },
+      { seat: 5, kind: 'button', suggested: 400 },
+    ]);
+  });
+
+  test('after a straddle, the next player may re-straddle for double', () => {
+    expect(straddleOptions(replay(rec, 1))).toEqual([{ seat: 3, kind: 'restraddle', suggested: 800 }]);
+    const s = replay(withEvents(rec, [rec.events[0]!, { type: 'straddle', seat: 3, amount: 800 }]));
+    expect(s.currentBet).toBe(800);
+    expect(s.toAct).toBe(5); // left of the last straddler
+    expect(s.log.at(-1)).toEqual({ kind: 'post', event: 1, seat: 3, post: 'straddle', amount: 800, allIn: false });
+  });
+
+  test('no straddles once someone has acted', () => {
+    expect(straddleOptions(replay(rec, 2))).toEqual([]);
+    expect(() => replay(withEvents(rec, [rec.events[0]!, rec.events[1]!, { type: 'straddle', seat: 5, amount: 800 }]))).toThrow(
+      /before the first preflop action/,
+    );
+  });
+
+  test('button straddle (Mississippi): the small blind acts first, the button last', () => {
+    const s = replay(withEvents(FIXTURES.steal, [{ type: 'straddle', seat: 3, amount: 400 }])); // button = 3
+    expect(s.toAct).toBe(4);
+    const all = replay(
+      withEvents(FIXTURES.steal, [
+        { type: 'straddle', seat: 3, amount: 400 },
+        ...[4, 5, 0, 1, 2].map((seat) => ({ type: 'action' as const, seat, action: 'call' as const })),
+      ]),
+    );
+    expect(all.toAct).toBe(3);
+    expect(legalActions(all)).toMatchObject({ canCheck: true });
+  });
+
+  test('wrong seat or too small', () => {
+    expect(() => replay(withEvents(rec, [{ type: 'straddle', seat: 3, amount: 400 }]))).toThrow(/can't straddle now/);
+    expect(() => replay(withEvents(rec, [{ type: 'straddle', seat: 2, amount: 200 }]))).toThrow(/more than 200/);
+  });
+
+  test('no straddles heads-up', () => {
+    expect(straddleOptions(replay(FIXTURES.headsUpSplit, 0))).toEqual([]);
+  });
+
+  test('old saved hands with setup straddles are converted to events', () => {
+    const { events, houseRules: _h, ...setup } = rec;
+    const old = { ...setup, straddles: [{ seat: 2, amount: 400 }], events: events.slice(1) };
+    const migrated = migrateHand(old);
+    expect(migrated.events[0]).toEqual({ type: 'straddle', seat: 2, amount: 400 });
+    expect('straddles' in migrated).toBe(false);
+    expect(replay(migrated).result!.net).toEqual(replay(rec).result!.net);
+  });
 });
 
 describe('05 squid game', () => {

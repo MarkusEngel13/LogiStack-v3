@@ -239,7 +239,7 @@ function PlayerEditor({
           taken={taken}
           onClose={() => setPicking(false)}
           onDone={(cards) => {
-            updateSeat((x) => ({ ...x, cards }));
+            updateSeat((x) => ({ ...x, cards: cards ? [cards[0]!, cards[1]!] : null }));
             setPicking(false);
           }}
         />

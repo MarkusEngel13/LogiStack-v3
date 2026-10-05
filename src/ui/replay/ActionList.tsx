@@ -7,7 +7,7 @@ import { streetName, type ListRow } from './views';
  * The hand history on the right. Rows after the current step are dimmed; clicking a row jumps
  * there. Result rows appear once the replay reaches the end.
  */
-export function ActionList({ rows, step, atEnd, onJump }: { rows: ListRow[]; step: number; atEnd: boolean; onJump: (step: number) => void }) {
+export function ActionList({ rows, step, atEnd, onJump }: { rows: ListRow[]; step: number; atEnd: boolean; onJump: (row: ListRow) => void }) {
   const isFuture = (r: ListRow) => (r.event === Infinity ? !atEnd : r.event >= step);
   let current = -1;
   rows.forEach((r, i) => {
@@ -36,7 +36,7 @@ export function ActionList({ rows, step, atEnd, onJump }: { rows: ListRow[]; ste
               )}
               <div
                 role={r.step !== null ? 'button' : undefined}
-                onClick={r.step !== null ? () => onJump(r.step!) : undefined}
+                onClick={r.step !== null ? () => onJump(r) : undefined}
                 className={`flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] ${r.step !== null ? 'cursor-pointer hover:bg-surface-3' : ''} ${
                   i === current ? 'bg-surface-3 ring-1 ring-accent' : 'bg-surface-2'
                 }`}

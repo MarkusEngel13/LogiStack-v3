@@ -8,8 +8,8 @@ import {
   resizeTable,
   setBlinds,
   setCurrency,
-  straddlesFor,
   toHandRecord,
+  upgradeDraft,
   validateDraft,
   type WizardDraft,
 } from './draft';
@@ -103,28 +103,23 @@ describe('wizard draft', () => {
     expect(niceRound(1250)).toBe(1000);
   });
 
-  test('UTG straddle and re-straddle follow the button', () => {
-    // 9 seats, button on seat 0: SB 1, BB 2, UTG 3, UTG+1 4
-    const d = draft((d) => ({ ...d, straddle: { kind: 'utg', amount: 400, restraddle: true } }));
-    expect(straddlesFor(d)).toEqual([
-      { seat: 3, amount: 400 },
-      { seat: 4, amount: 800 },
-    ]);
-    expect(replay(toHandRecord(d, meta)).toAct).toBe(5);
+  test('straddles are house rules: allowed kinds go into the hand, nothing is posted', () => {
+    const d = draft((d) => ({ ...d, straddle: { utg: true, button: false, restraddle: true, amount: 400 } }));
+    const rec = toHandRecord(d, meta);
+    expect(rec.houseRules).toEqual({ straddle: { utg: true, button: false, restraddle: true, amount: 400 } });
+    expect(rec.events).toEqual([]);
+    expect(replay(rec).currentBet).toBe(200); // only the blinds
+    expect(toHandRecord(draft(), meta).houseRules).toBeUndefined();
+    expect(validateDraft(draft((d) => ({ ...d, straddle: { ...d.straddle, utg: true, amount: 200 } }))).errors).toContain(
+      'The straddle must be bigger than the big blind.',
+    );
   });
 
-  test('button (Mississippi) straddle: the small blind acts first', () => {
-    const d = draft((d) => ({ ...d, straddle: { kind: 'button', amount: 400, restraddle: false } }));
-    expect(straddlesFor(d)).toEqual([{ seat: 0, amount: 400 }]);
-    expect(replay(toHandRecord(d, meta)).toAct).toBe(1);
-  });
-
-  test('no straddle heads-up', () => {
-    const d = draft((d) => ({
-      ...resizeTable(d, 2),
-      straddle: { kind: 'utg', amount: 400, restraddle: false },
-    }));
-    expect(straddlesFor(d)).toEqual([]);
+  test('a draft remembered from version 1 is upgraded', () => {
+    const v1 = { ...draft(), version: 1, straddle: { kind: 'button', amount: 400, restraddle: false } };
+    expect(upgradeDraft(v1).straddle).toEqual({ utg: false, button: true, restraddle: false, amount: 400 });
+    expect(upgradeDraft(v1).version).toBe(2);
+    expect(upgradeDraft(null)).toEqual(defaultDraft());
   });
 
   test('validation messages', () => {

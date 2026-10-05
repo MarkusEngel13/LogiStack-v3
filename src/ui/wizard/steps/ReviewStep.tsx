@@ -3,7 +3,7 @@ import { Field, Section, TextInput } from '../../controls';
 import { formatAmount } from '../../format';
 import { useSettings } from '../../settings';
 import { PokerTable } from '../../table/PokerTable';
-import { isDealtIn, straddlesFor, type DraftCheck, type WizardDraft } from '../draft';
+import { isDealtIn, straddlesAllowed, type DraftCheck, type WizardDraft } from '../draft';
 import { draftSeatViews } from '../seatViews';
 
 interface Props {
@@ -21,14 +21,17 @@ export function ReviewStep({ draft, setDraft, check, handNo }: Props) {
   const positions = new Map(state?.seats.map((s) => [s.seat, s.position]) ?? []);
   const dealt = draft.seats.filter(isDealtIn).length;
   const sittingOut = draft.seats.filter((p) => p?.sittingOut).length;
-  const straddles = straddlesFor(draft);
+  const st = draft.straddle;
+  const straddleText = straddlesAllowed(draft)
+    ? `${[st.utg && 'UTG', st.button && 'button', st.restraddle && 're-straddles'].filter(Boolean).join(', ')} · usually ${money(st.amount)}`
+    : 'not allowed';
 
   const rows: [string, string][] = [
     ['Table', `${draft.tableSize}-max ${draft.venue === 'home' ? 'home game' : 'casino'}${draft.tableName ? ` · ${draft.tableName}` : ''}`],
     ['Stakes', `${money(draft.blinds.sb)} / ${money(draft.blinds.bb)}${draft.ante.kind !== 'none' ? ` · ${draft.ante.kind === 'bb' ? 'BB ante' : 'ante'} ${money(draft.ante.amount)}` : ''}`],
     ['Rake', draft.venue === 'casino' ? `${Math.round(draft.rake.percent * 1000) / 10} %${draft.rake.cap ? `, cap ${money(draft.rake.cap)}` : ''}${draft.rake.noFlopNoDrop ? ', no flop no drop' : ''}` : 'none (home game)'],
     ['Players', `${dealt} dealt in${sittingOut ? `, ${sittingOut} sitting out` : ''}`],
-    ['Straddle', straddles.length ? straddles.map((s) => `${name(s.seat)} ${money(s.amount)}`).join(', ') : 'none'],
+    ['Straddles', straddleText],
     [
       'Side games',
       [draft.sevenDeuce.enabled && `7-2 (${money(draft.sevenDeuce.bounty)})`, draft.squid.enabled && `squid (${money(draft.squid.value)})`].filter(Boolean).join(', ') || 'none',

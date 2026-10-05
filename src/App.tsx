@@ -2,31 +2,47 @@ import { useState } from 'react';
 import type { HandRecord } from './core/hand/types';
 import { Button } from './ui/controls';
 import { HandsList } from './ui/HandsList';
-import { downloadJson, saveHand } from './ui/library';
+import { nextHandNo, saveHand } from './ui/library';
 import { OptionsModal } from './ui/OptionsModal';
-import { ReplayScreen } from './ui/replay/ReplayScreen';
+import { HandScreen } from './ui/replay/HandScreen';
 import { SettingsProvider } from './ui/settings';
 import { HandWizard } from './ui/wizard/HandWizard';
 
-type Page = 'new' | 'hands' | 'replay';
+type Page = 'new' | 'hands' | 'hand';
 
 export default function App() {
   const [page, setPage] = useState<Page>('new');
   const [optionsOpen, setOptionsOpen] = useState(false);
-  const [created, setCreated] = useState<{ hand: HandRecord; saved: boolean } | null>(null);
   const [wizardKey, setWizardKey] = useState(0);
-  const [replayHand, setReplayHand] = useState<HandRecord | null>(null);
+  const [open, setOpen] = useState<{ hand: HandRecord; editable: boolean } | null>(null);
 
-  const openHand = (hand: HandRecord) => {
-    setReplayHand(hand);
-    setPage('replay');
+  const openHand = (hand: HandRecord, editable: boolean) => {
+    setOpen({ hand, editable });
+    setPage('hand');
+  };
+
+  const newHand = () => {
+    setWizardKey((k) => k + 1);
+    setPage('new');
+  };
+
+  const editCopy = (hand: HandRecord) => {
+    const copy: HandRecord = {
+      ...hand,
+      id: crypto.randomUUID(),
+      handNo: nextHandNo(),
+      createdAt: new Date().toISOString(),
+      title: `${hand.title ?? 'Hand'} (copy)`,
+    };
+    saveHand(copy);
+    openHand(copy, true);
   };
 
   return (
     <SettingsProvider>
       <div className="min-h-screen">
         <header className="sticky top-0 z-40 border-b border-line bg-bg/90 backdrop-blur">
-          <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-4 px-6 py-3">
+          <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-4 px-6 py-3">
             <div className="flex items-center gap-8">
               <span className="text-lg font-black tracking-tight">
                 Logi<span className="text-accent">Stack</span>
@@ -41,12 +57,9 @@ export default function App() {
                   <button
                     key={id}
                     type="button"
-                    onClick={() => {
-                      setPage(id);
-                      setCreated(null);
-                    }}
+                    onClick={() => (id === 'new' ? newHand() : setPage(id))}
                     className={`rounded-md px-3 py-1.5 text-sm ${
-                      page === id || (page === 'replay' && id === 'hands') ? 'bg-surface-2 text-ink' : 'text-muted hover:text-ink'
+                      page === id || (page === 'hand' && id === 'hands') ? 'bg-surface-2 text-ink' : 'text-muted hover:text-ink'
                     }`}
                   >
                     {label}
@@ -60,37 +73,26 @@ export default function App() {
           </div>
         </header>
 
-        {page === 'new' && !created && (
-          <HandWizard key={wizardKey} onCreated={(hand) => setCreated({ hand, saved: saveHand(hand) })} />
-        )}
-        {page === 'new' && created && (
-          <div className="mx-auto max-w-xl px-6 py-16 text-center">
-            <h1 className="mb-2 text-2xl font-bold">Hand #{created.hand.handNo} created</h1>
-            <p className="mb-8 text-muted">
-              {created.saved ? 'Saved in this browser.' : 'Could not save in this browser (storage blocked) - export it to keep it.'} Entering
-              the actions comes with the Lab, the next step.
-            </p>
-            <div className="flex justify-center gap-3">
-              <Button variant="secondary" onClick={() => openHand(created.hand)}>
-                Open hand
-              </Button>
-              <Button variant="secondary" onClick={() => downloadJson(`hand-${created.hand.handNo}.json`, created.hand)}>
-                Export JSON
-              </Button>
-              <Button
-                variant="primary"
-                onClick={() => {
-                  setCreated(null);
-                  setWizardKey((k) => k + 1);
-                }}
-              >
-                New hand, same table
-              </Button>
-            </div>
-          </div>
+        {page === 'new' && (
+          <HandWizard
+            key={wizardKey}
+            onCreated={(hand) => {
+              saveHand(hand);
+              openHand(hand, true); // straight into the Lab to enter the actions
+            }}
+          />
         )}
         {page === 'hands' && <HandsList onOpen={openHand} />}
-        {page === 'replay' && replayHand && <ReplayScreen key={replayHand.id} hand={replayHand} onBack={() => setPage('hands')} />}
+        {page === 'hand' && open && (
+          <HandScreen
+            key={`${open.hand.id}-${open.editable}`}
+            initial={open.hand}
+            editable={open.editable}
+            onBack={() => setPage('hands')}
+            onNewHand={newHand}
+            onEditCopy={editCopy}
+          />
+        )}
 
         {optionsOpen && <OptionsModal onClose={() => setOptionsOpen(false)} />}
       </div>

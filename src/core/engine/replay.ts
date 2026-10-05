@@ -148,6 +148,9 @@ export function initialState(record: HandRecord): TableState {
         lastAction: null,
       })),
     toAct: null,
+    blindSeats: { sb: -1, bb: -1 },
+    blindLevel: table.blinds.bb,
+    straddlers: [],
     currentBet: 0,
     lastFullRaise: table.blinds.bb,
     needCards: 0,
@@ -188,12 +191,13 @@ export function initialState(record: HandRecord): TableState {
     bb = nextSeat(state, sb.seat, (s) => s.dealtIn)!;
   }
 
+  state.blindSeats = { sb: sb.seat, bb: bb.seat };
   const order = [sb, ...seatsFrom(state, sb.seat, (s) => s.dealtIn && s !== sb)];
   const labels = positionLabels(order.map((s) => s.seat), buttonDealtIn);
   for (const s of state.seats) s.position = labels.get(s.seat) ?? '';
 
   // Antes (dead money)
-  const post = (s: SeatState, kind: 'ante' | 'sb' | 'bb' | 'straddle', amount: Chips) => {
+  const post = (s: SeatState, kind: 'ante' | 'sb' | 'bb', amount: Chips) => {
     if (kind === 'ante') {
       const paid = Math.min(amount, s.stack);
       s.stack -= paid;
@@ -216,24 +220,78 @@ export function initialState(record: HandRecord): TableState {
   post(sb, 'sb', table.blinds.sb);
   post(bb, 'bb', table.blinds.bb);
 
-  let lastBlind = bb;
-  let level = table.blinds.bb;
-  for (const st of record.straddles ?? []) {
-    const s = state.seats.find((x) => x.seat === st.seat);
-    if (!s || !s.dealtIn) throw new HandError(`straddle from seat ${st.seat}, which isn't dealt in`, null);
-    if (s.allIn) throw new HandError(`seat ${st.seat} is already all-in and can't straddle`, null);
-    if (st.amount <= level) throw new HandError(`a straddle must be bigger than ${level}`, null);
-    post(s, 'straddle', st.amount);
-    lastBlind = s;
-    level = st.amount;
-  }
+  // The big blind is the bet to call, and the first raise must add at least that much again.
+  state.currentBet = table.blinds.bb;
+  state.lastFullRaise = table.blinds.bb;
 
-  // The biggest blind is the bet to call, and the first raise must add at least that much again.
-  state.currentBet = level;
-  state.lastFullRaise = level;
-
-  advanceAfter(state, lastBlind.seat, null);
+  advanceAfter(state, bb.seat, null);
   return state;
+}
+
+// ---------------------------------------------------------------------------------------------
+// straddles
+
+export interface StraddleOption {
+  seat: SeatNo;
+  kind: 'utg' | 'button' | 'restraddle';
+  /** Usual size: double the current blind level. */
+  suggested: Chips;
+}
+
+/**
+ * Who may straddle right now. Only before any voluntary preflop action, with three or more
+ * players: first the player after the big blind or the button (Mississippi), then re-straddles
+ * from the seat after the last straddler. The blinds never straddle.
+ */
+export function straddleOptions(state: TableState): StraddleOption[] {
+  if (state.street !== 'preflop' || state.phase !== 'betting') return [];
+  if (state.seats.some((s) => s.acted)) return [];
+  if (state.seats.filter((s) => s.dealtIn).length < 3) return [];
+
+  const { sb, bb } = state.blindSeats;
+  const ok = (s: SeatState | null | undefined): s is SeatState =>
+    !!s && s.dealtIn && !s.allIn && s.seat !== sb && s.seat !== bb && !state.straddlers.includes(s.seat) && s.stack > state.blindLevel;
+  const suggested = state.blindLevel * 2;
+  const out: StraddleOption[] = [];
+
+  const last = state.straddlers[state.straddlers.length - 1];
+  if (last === undefined) {
+    const utg = nextSeat(state, bb, (s) => s.dealtIn);
+    if (ok(utg)) out.push({ seat: utg.seat, kind: 'utg', suggested });
+    const btn = state.seats.find((s) => s.seat === state.button);
+    if (ok(btn) && btn.seat !== utg?.seat) out.push({ seat: btn.seat, kind: 'button', suggested });
+  } else {
+    const next = nextSeat(state, last, (s) => s.dealtIn);
+    if (ok(next)) out.push({ seat: next.seat, kind: 'restraddle', suggested });
+  }
+  return out;
+}
+
+function applyStraddle(state: TableState, ev: Extract<HandEvent, { type: 'straddle' }>, index: number) {
+  if (!straddleOptions(state).some((o) => o.seat === ev.seat)) {
+    const why = state.street !== 'preflop' || state.seats.some((s) => s.acted) ? 'straddles come before the first preflop action' : `seat ${ev.seat} can't straddle now`;
+    throw new HandError(why, index);
+  }
+  const s = seatOf(state, ev.seat);
+  if (!Number.isInteger(ev.amount) || ev.amount <= state.blindLevel)
+    throw new HandError(`a straddle must be more than ${state.blindLevel}`, index);
+  if (ev.amount > s.stack) throw new HandError(`seat ${s.seat} doesn't have ${ev.amount} to straddle`, index);
+
+  const paid = pay(s, ev.amount);
+  s.lastAction = { action: 'post', to: s.streetBet, allIn: s.allIn, blind: false };
+  state.log.push({ kind: 'post', event: index, seat: s.seat, post: 'straddle', amount: paid, allIn: s.allIn });
+  state.straddlers.push(s.seat);
+  state.blindLevel = ev.amount;
+  state.currentBet = ev.amount;
+  state.lastFullRaise = ev.amount;
+  // The player after the straddler acts first; the straddler gets the option last.
+  advanceAfter(state, s.seat, index);
+}
+
+/** Cards not seen anywhere yet (board and known hole cards excluded), for dealing at random. */
+export function unknownCards(state: TableState): Card[] {
+  const known = new Set(knownCards(state));
+  return Array.from({ length: 52 }, (_, c) => c).filter((c) => !known.has(c));
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -632,6 +690,9 @@ export function applyEvent(prev: TableState, event: HandEvent, index: number): T
   switch (event.type) {
     case 'action':
       applyAction(state, event, index);
+      break;
+    case 'straddle':
+      applyStraddle(state, event, index);
       break;
     case 'board':
       applyBoard(state, event, index);

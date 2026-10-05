@@ -6,8 +6,8 @@ engine, saved-hand format and Django backend are replaced. v3 lives on GitHub as
 
 ## Principles
 
-- **Local-first.** No backend. Hands live in the browser (localStorage now, IndexedDB with the Lab)
-  with JSON export.
+- **Local-first.** No backend. Hands live in the browser (localStorage; a hand is a few KB, so this
+  holds well over a thousand hands - move to IndexedDB when that gets tight) with JSON export.
 - **Hand = setup + events.** Everything else is derived by replaying. Amounts are integer minor units.
 - **Core is pure and tested.** `src/core` has no React; every rule has a test.
 - **Parked:** strategy tree / YAML strategies, solver, auth, tiers, quizzes.
@@ -52,16 +52,21 @@ engine, saved-hand format and Django backend are replaced. v3 lives on GitHub as
          future rows dimmed, click a row to jump, result rows at the end.
        - A broken event (e.g. an imported file) stops the replay there with a message.
 
-## Next: the Lab (entering a hand)
+9. [x] **Straddles as actions** (2026-10-05): the wizard's house rules say what's allowed
+       (UTG, button/Mississippi, re-straddles, usual amount); the straddle itself is an event entered
+       before the first preflop action. Older saved hands are converted on load (`hand/migrate.ts`).
+10. [x] **The Lab** (`src/ui/lab/`, `replay/HandScreen.tsx`): your own hands open editable,
+       "Create hand" goes straight in, sample hands are replay-only with "Edit a copy".
+       - Player to act: fold / check / call, bet or raise with an amount box and presets
+         (2-4× preflop, 2.5-4× and pot facing a raise, ⅓-pot after the flop), all-in, "Blind" tick.
+       - Straddle offers (per house rules) before the first preflop action.
+       - Board: choose the cards or deal at random from the unseen cards.
+       - Showdown: show unknown hands or muck; a winner without showdown can still show (7-2).
+       - Click a line in the action list to go back to just before it; entering there replaces
+         what came after (branch). Undo (button / Ctrl+Z) brings it back. Saved on every change.
+       - Click a seat to set that player's hole cards.
 
-The replay screen with editing on. "Create hand" opens it straight away.
-- Buttons for the player to act: fold / check / call / bet / raise, sizing presets (pot fractions,
-  BB multiples), all-in; a "blind" tick on bets and raises.
-- Card picker when the flop / turn / river is due; show / muck at showdown.
-- Click an earlier action to rewind; acting from there replaces the old line (branch).
-- Undo; autosave; storage moves to IndexedDB.
-
-## Then: ranges and decisions
+## Next: ranges and decisions
 
 - Range painter (port v2 `RangeGrid` / `PokerMatrix`), assign a range to a villain at the current spot.
 - Equity worker on Card52 (exact on flop/turn/river, Monte Carlo preflop).

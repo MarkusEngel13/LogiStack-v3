@@ -10,6 +10,9 @@
     "currency": { "code": "EUR", "minorPerMajor": 100 },
     "blinds": { "sb": 100, "bb": 200 }
   },
+  "houseRules": {
+    "straddle": { "utg": true, "button": false, "restraddle": true, "amount": 400 }
+  },
   "sideGames": {
     "sevenDeuce": { "bounty": 500, "payers": "dealt-in", "suitedCounts": false, "showdownOnly": false }
   },
@@ -22,8 +25,8 @@
     { "seat": 3, "name": "Dex", "stack": 1000, "playerType": "Fish", "cards": ["Ks", "Qs"], "tags": ["tilt"] },
     { "seat": 5, "name": "Fritz", "stack": 20000, "playerType": "Maniac", "cards": ["7h", "2c"], "tags": ["drinking"] }
   ],
-  "straddles": [{ "seat": 2, "amount": 400 }],
   "events": [
+    { "type": "straddle", "seat": 2, "amount": 400 },
     { "type": "action", "seat": 3, "action": "call" },
     { "type": "action", "seat": 5, "action": "call" },
     { "type": "action", "seat": 0, "action": "fold" },

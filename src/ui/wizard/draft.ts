@@ -15,7 +15,7 @@ import {
   type PlayerTag,
   type RakeRule,
   type SevenDeuceRule,
-  type Straddle,
+  type StraddleRule,
   type Venue,
 } from '../../core/hand/types';
 import { CURRENCIES } from '../format';
@@ -30,11 +30,10 @@ export interface DraftPlayer {
   squids: number;
 }
 
-export type StraddleKind = 'none' | 'utg' | 'button';
 export type AnteKind = 'none' | 'each' | 'bb';
 
 export interface WizardDraft {
-  version: 1;
+  version: 2;
   tableSize: number;
   venue: Venue;
   tableName: string;
@@ -47,7 +46,8 @@ export interface WizardDraft {
   seats: (DraftPlayer | null)[];
   heroSeat: number | null;
   button: number;
-  straddle: { kind: StraddleKind; amount: Chips; restraddle: boolean };
+  /** Which straddles the table allows; the straddle itself is entered with the hand. */
+  straddle: StraddleRule;
   sevenDeuce: { enabled: boolean } & SevenDeuceRule;
   squid: { enabled: boolean; value: Chips };
   title: string;
@@ -69,7 +69,7 @@ export function defaultDraft(): WizardDraft {
   const bb = 200;
   const size = 9;
   return {
-    version: 1,
+    version: 2,
     tableSize: size,
     venue: 'home',
     tableName: '',
@@ -80,10 +80,35 @@ export function defaultDraft(): WizardDraft {
     seats: Array.from({ length: size }, (_, i) => newPlayer(i, bb, i === 0)),
     heroSeat: 0,
     button: 0,
-    straddle: { kind: 'none', amount: 2 * bb, restraddle: false },
+    straddle: { utg: false, button: false, restraddle: false, amount: 2 * bb },
     sevenDeuce: { enabled: false, bounty: 500, payers: 'dealt-in', suitedCounts: false, showdownOnly: false },
     squid: { enabled: false, value: 500 },
     title: '',
+  };
+}
+
+/**
+ * A draft remembered in the browser, brought up to date. Version 1 (2026-10-04) had
+ * `straddle: { kind: 'none' | 'utg' | 'button', ... }`, meaning "post this straddle".
+ */
+export function upgradeDraft(raw: unknown): WizardDraft {
+  const base = defaultDraft();
+  if (!raw || typeof raw !== 'object') return base;
+  type V1Straddle = { kind?: string; amount?: number; restraddle?: boolean };
+  const d = raw as Omit<Partial<WizardDraft>, 'version' | 'straddle'> & { version?: number; straddle?: unknown };
+  if (d.version === 2) return { ...base, ...(d as WizardDraft) };
+  if (d.version !== 1) return base;
+  const old = (d.straddle ?? {}) as V1Straddle;
+  return {
+    ...base,
+    ...(d as unknown as WizardDraft),
+    version: 2,
+    straddle: {
+      utg: old.kind === 'utg',
+      button: old.kind === 'button',
+      restraddle: !!old.restraddle,
+      amount: old.amount ?? 2 * (d.blinds?.bb ?? base.blinds.bb),
+    },
   };
 }
 
@@ -155,7 +180,9 @@ export function setBlinds(d: WizardDraft, blinds: { sb: Chips; bb: Chips }): Wiz
 
 export const isDealtIn = (p: DraftPlayer | null): p is DraftPlayer => !!p && !p.sittingOut && p.stack > 0;
 
-function baseRecord(d: WizardDraft, straddles: Straddle[]): HandRecord {
+export const straddlesAllowed = (d: WizardDraft) => d.straddle.utg || d.straddle.button;
+
+function baseRecord(d: WizardDraft): HandRecord {
   const anyRule = d.sevenDeuce.enabled || d.squid.enabled;
   const { enabled: _sd, ...sevenDeuce } = d.sevenDeuce;
   return {
@@ -172,6 +199,7 @@ function baseRecord(d: WizardDraft, straddles: Straddle[]): HandRecord {
       ante: d.ante.kind === 'none' || d.ante.amount <= 0 ? undefined : { kind: d.ante.kind, amount: d.ante.amount },
       rake: d.venue === 'casino' ? { ...d.rake } : undefined,
     },
+    houseRules: straddlesAllowed(d) ? { straddle: { ...d.straddle } } : undefined,
     sideGames: anyRule
       ? {
           sevenDeuce: d.sevenDeuce.enabled ? sevenDeuce : undefined,
@@ -196,45 +224,12 @@ function baseRecord(d: WizardDraft, straddles: Straddle[]): HandRecord {
           ]
         : [],
     ),
-    straddles: straddles.length ? straddles : undefined,
     events: [],
   };
 }
 
-/** Which seats straddle, derived from the button like at the table. Empty if not possible. */
-export function straddlesFor(d: WizardDraft): Straddle[] {
-  if (d.straddle.kind === 'none') return [];
-  let state: TableState;
-  try {
-    state = initialState(baseRecord(d, []));
-  } catch {
-    return [];
-  }
-  const dealt = state.seats.filter((s) => s.dealtIn);
-  if (dealt.length < 3) return [];
-  const next = (from: number) => {
-    for (let step = 1; step <= d.tableSize; step++) {
-      const seat = (from + step) % d.tableSize;
-      if (dealt.some((s) => s.seat === seat)) return seat;
-    }
-    return from;
-  };
-  const sb = state.seats.find((s) => s.position === 'SB')?.seat;
-  const bb = state.seats.find((s) => s.position === 'BB')!.seat;
-  const btn = state.seats.find((s) => s.position === 'BTN')?.seat;
-
-  const first = d.straddle.kind === 'utg' ? next(bb) : btn;
-  if (first === undefined || first === sb || first === bb) return [];
-  const list: Straddle[] = [{ seat: first, amount: d.straddle.amount }];
-  if (d.straddle.kind === 'utg' && d.straddle.restraddle) {
-    const second = next(first);
-    if (second !== sb && second !== bb && second !== first) list.push({ seat: second, amount: d.straddle.amount * 2 });
-  }
-  return list;
-}
-
 export function toHandRecord(d: WizardDraft, meta: { id: string; createdAt: string; handNo?: number }): HandRecord {
-  return { ...baseRecord(d, straddlesFor(d)), ...meta };
+  return { ...baseRecord(d), ...meta };
 }
 
 export interface DraftCheck {
@@ -256,10 +251,7 @@ export function validateDraft(d: WizardDraft): DraftCheck {
   });
   if (d.heroSeat !== null && !d.seats[d.heroSeat]) errors.push('Hero sits in an empty seat.');
   if (!isDealtIn(d.seats[d.button] ?? null)) errors.push('Put the dealer button on a player who is dealt in.');
-  if (d.straddle.kind !== 'none') {
-    if (d.straddle.amount <= d.blinds.bb) errors.push('The straddle must be bigger than the big blind.');
-    else if (dealt.length >= 3 && straddlesFor(d).length === 0) errors.push('Nobody can straddle from this button position.');
-  }
+  if (straddlesAllowed(d) && d.straddle.amount <= d.blinds.bb) errors.push('The straddle must be bigger than the big blind.');
 
   let state: TableState | null = null;
   if (errors.length === 0) {
@@ -275,7 +267,7 @@ export function validateDraft(d: WizardDraft): DraftCheck {
 /** Positions only (BTN, SB, ...), even while other parts of the draft are still invalid. */
 export function previewPositions(d: WizardDraft): Map<number, string> {
   try {
-    const state = initialState(baseRecord(d, []));
+    const state = initialState(baseRecord(d));
     return new Map(state.seats.map((s) => [s.seat, s.position]));
   } catch {
     return new Map();

@@ -8,7 +8,8 @@
  *
  * Money: every amount is an integer in minor units (cents for EUR/USD, 1 for plain chips),
  * so a 1/2 EUR game has sb = 100, bb = 200. No floats anywhere in the engine.
- * Blinds, antes and straddles are posted automatically from the setup; they are not events.
+ * Blinds and antes are posted automatically from the setup; straddles are events, because a
+ * player chooses to straddle.
  */
 
 export const HAND_FORMAT = 'logistack.hand/0' as const;
@@ -66,9 +67,19 @@ export interface PlayerSetup {
   sittingOut?: boolean;
 }
 
-/** A live straddle, listed in posting order (re-straddles follow the first one). */
-export interface Straddle {
-  seat: SeatNo;
+/** What the table allows. The Lab only offers what's allowed; the engine checks positions, not these. */
+export interface HouseRules {
+  straddle?: StraddleRule;
+}
+
+export interface StraddleRule {
+  /** The player after the big blind may straddle. */
+  utg: boolean;
+  /** The button may straddle (Mississippi); then the small blind acts first. */
+  button: boolean;
+  /** After a straddle, the next player may straddle again. */
+  restraddle: boolean;
+  /** Suggested first straddle (usually 2 BB); re-straddles suggest double the previous one. */
   amount: Chips;
 }
 
@@ -99,6 +110,11 @@ export type HandEvent =
    * `blind` = made without looking at the cards (a "blind raise"); marked when entering the action.
    */
   | { type: 'action'; seat: SeatNo; action: ActionKind; to?: Chips; blind?: boolean }
+  /**
+   * A live straddle, before any preflop action: the player after the big blind (or the button),
+   * then re-straddles from the next seat. `amount` = the straddle total ("straddles to 400").
+   */
+  | { type: 'straddle'; seat: SeatNo; amount: Chips }
   /** Flop (3 cards), turn (1) or river (1). */
   | { type: 'board'; cards: CardStr[] }
   /** Reveal hole cards: at showdown, or a voluntary show after winning. */
@@ -115,10 +131,10 @@ export interface HandRecord {
   title?: string;
   notes?: string;
   table: TableSetup;
+  houseRules?: HouseRules;
   sideGames?: SideGames;
   button: SeatNo;
   hero?: SeatNo;
   players: PlayerSetup[];
-  straddles?: Straddle[];
   events: HandEvent[];
 }

@@ -50,7 +50,8 @@ export interface Pot {
 }
 
 export type LogEntry =
-  | { kind: 'post'; event: null; seat: SeatNo; post: 'ante' | 'sb' | 'bb' | 'straddle'; amount: Chips; allIn: boolean }
+  /** Blinds and antes come from the setup (event null); a straddle is an event. */
+  | { kind: 'post'; event: number | null; seat: SeatNo; post: 'ante' | 'sb' | 'bb' | 'straddle'; amount: Chips; allIn: boolean }
   | {
       kind: 'action';
       event: number;
@@ -117,6 +118,12 @@ export interface TableState {
   /** Sorted by seat number. Includes players who sit out (dealtIn = false). */
   seats: SeatState[];
   toAct: SeatNo | null;
+  /** Who posted the blinds (heads-up the button is the small blind). */
+  blindSeats: { sb: SeatNo; bb: SeatNo };
+  /** The biggest blind so far: the big blind, or the last straddle. */
+  blindLevel: Chips;
+  /** Straddlers in posting order. */
+  straddlers: SeatNo[];
   /** Highest street bet a player must match. */
   currentBet: Chips;
   /** Size of the last full bet or raise on this street; the next raise must add at least this much. */

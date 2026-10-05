@@ -2,7 +2,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { Field, MoneyInput, Section, Segmented, Stepper, Toggle } from '../../controls';
 import { formatAmount } from '../../format';
 import { SQUID_ICON } from '../../playerTypes';
-import { isDealtIn, straddlesFor, type StraddleKind, type WizardDraft } from '../draft';
+import { isDealtIn, straddlesAllowed, type WizardDraft } from '../draft';
 
 interface Props {
   draft: WizardDraft;
@@ -11,53 +11,52 @@ interface Props {
 
 export function RulesStep({ draft, setDraft }: Props) {
   const c = draft.currency;
-  const money = (v: number) => formatAmount(v, c, draft.blinds.bb);
   const set = (patch: Partial<WizardDraft>) => setDraft((d) => ({ ...d, ...patch }));
+  const setStraddle = (patch: Partial<WizardDraft['straddle']>) => setDraft((d) => ({ ...d, straddle: { ...d.straddle, ...patch } }));
   const players = draft.seats.flatMap((p, seat) => (p ? [{ p, seat }] : []));
   const dealtCount = draft.seats.filter(isDealtIn).length;
-  const straddles = straddlesFor(draft);
-  const name = (seat: number) => draft.seats[seat]?.name ?? `Seat ${seat + 1}`;
 
   const updatePlayer = (seat: number, patch: Partial<NonNullable<WizardDraft['seats'][number]>>) =>
     setDraft((d) => ({ ...d, seats: d.seats.map((p, i) => (i === seat && p ? { ...p, ...patch } : p)) }));
 
   return (
     <div className="grid items-start gap-5 lg:grid-cols-2 2xl:grid-cols-3">
-      <Section title="Straddle">
-        <div className="space-y-4">
-          <Segmented<StraddleKind>
-            value={draft.straddle.kind}
-            options={[
-              { value: 'none', label: 'None' },
-              { value: 'utg', label: 'UTG straddle' },
-              { value: 'button', label: 'Button straddle', title: 'Mississippi: the button straddles, the small blind acts first' },
-            ]}
-            onChange={(kind) => set({ straddle: { ...draft.straddle, kind } })}
+      <Section title="Straddles allowed">
+        <div className="space-y-3">
+          <Toggle
+            checked={draft.straddle.utg}
+            onChange={(utg) => setStraddle({ utg })}
+            label="UTG straddle"
+            hint="The player after the big blind may straddle."
           />
-          {draft.straddle.kind !== 'none' && (
+          <Toggle
+            checked={draft.straddle.button}
+            onChange={(button) => setStraddle({ button })}
+            label="Button straddle (Mississippi)"
+            hint="The button may straddle; the small blind then acts first."
+          />
+          {straddlesAllowed(draft) && (
             <>
-              <Field label="Straddle amount">
+              <Toggle
+                checked={draft.straddle.restraddle}
+                onChange={(restraddle) => setStraddle({ restraddle })}
+                label="Re-straddles"
+                hint="After a straddle, the next player may straddle again (double)."
+              />
+              <Field label="Usual straddle" hint={`${formatAmount(draft.straddle.amount, c, draft.blinds.bb, 'bb')} · suggested when you enter the hand; you can change it there.`}>
                 <div className="w-40">
-                  <MoneyInput value={draft.straddle.amount} currency={c} onChange={(amount) => set({ straddle: { ...draft.straddle, amount } })} />
+                  <MoneyInput value={draft.straddle.amount} currency={c} onChange={(amount) => setStraddle({ amount })} />
                 </div>
               </Field>
-              {draft.straddle.kind === 'utg' && (
-                <Toggle
-                  checked={draft.straddle.restraddle}
-                  onChange={(restraddle) => set({ straddle: { ...draft.straddle, restraddle } })}
-                  label="Re-straddle"
-                  hint="The next player straddles again for double."
-                />
-              )}
-              <p className="text-sm text-muted">
-                {dealtCount < 3
-                  ? 'Straddles need at least three players.'
-                  : straddles.length === 0
-                    ? 'Nobody can straddle from this button position.'
-                    : straddles.map((s) => `${name(s.seat)} straddles ${money(s.amount)}`).join(' · ')}
-              </p>
             </>
           )}
+          <p className="text-sm text-muted">
+            {dealtCount < 3
+              ? 'Straddles need at least three players.'
+              : straddlesAllowed(draft)
+                ? 'Who straddles (and for how much) is entered with the hand, before the first preflop action.'
+                : 'No straddles in this game.'}
+          </p>
         </div>
       </Section>
 

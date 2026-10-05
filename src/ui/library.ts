@@ -1,3 +1,4 @@
+import { migrateHand } from '../core/hand/migrate';
 import type { HandRecord } from '../core/hand/types';
 
 /**
@@ -10,7 +11,7 @@ export function loadHands(): HandRecord[] {
   try {
     const raw = localStorage.getItem(KEY);
     const parsed: unknown = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? (parsed as HandRecord[]) : [];
+    return Array.isArray(parsed) ? parsed.map(migrateHand) : [];
   } catch {
     return [];
   }

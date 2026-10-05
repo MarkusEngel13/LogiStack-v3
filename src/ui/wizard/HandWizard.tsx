@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { HandRecord } from '../../core/hand/types';
 import { Button } from '../controls';
 import { nextHandNo } from '../library';
-import { defaultDraft, toHandRecord, validateDraft, type WizardDraft } from './draft';
+import { defaultDraft, toHandRecord, upgradeDraft, validateDraft, type WizardDraft } from './draft';
 import { PlayersStep } from './steps/PlayersStep';
 import { ReviewStep } from './steps/ReviewStep';
 import { RulesStep } from './steps/RulesStep';
@@ -15,8 +15,7 @@ const DRAFT_KEY = 'logistack.wizard.draft.v1';
 function loadDraft(): WizardDraft {
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
-    const parsed = raw ? (JSON.parse(raw) as WizardDraft) : null;
-    return parsed?.version === 1 ? { ...defaultDraft(), ...parsed } : defaultDraft();
+    return raw ? upgradeDraft(JSON.parse(raw)) : defaultDraft();
   } catch {
     return defaultDraft();
   }

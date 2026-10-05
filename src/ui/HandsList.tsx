@@ -42,7 +42,8 @@ function Row({ hand, onOpen, onDelete }: { hand: HandRecord; onOpen: () => void;
   );
 }
 
-export function HandsList({ onOpen }: { onOpen: (hand: HandRecord) => void }) {
+/** Your hands open in the Lab (editable); sample hands open as a replay. */
+export function HandsList({ onOpen }: { onOpen: (hand: HandRecord, editable: boolean) => void }) {
   const [hands, setHands] = useState(loadHands);
   return (
     <div className="mx-auto max-w-4xl space-y-5 px-6 py-6">
@@ -56,7 +57,7 @@ export function HandsList({ onOpen }: { onOpen: (hand: HandRecord) => void }) {
               <Row
                 key={h.id}
                 hand={h}
-                onOpen={() => onOpen(h)}
+                onOpen={() => onOpen(h, true)}
                 onDelete={() => {
                   if (window.confirm(`Delete hand #${h.handNo ?? ''}?`)) {
                     deleteHand(h.id);
@@ -71,7 +72,7 @@ export function HandsList({ onOpen }: { onOpen: (hand: HandRecord) => void }) {
       <Section title="Sample hands">
         <ul className="space-y-2">
           {Object.values(FIXTURES).map((h) => (
-            <Row key={h.id} hand={h} onOpen={() => onOpen(h)} />
+            <Row key={h.id} hand={h} onOpen={() => onOpen(h, false)} />
           ))}
         </ul>
       </Section>
