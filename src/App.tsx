@@ -4,11 +4,12 @@ import { Button } from './ui/controls';
 import { HandsList } from './ui/HandsList';
 import { nextHandNo, saveHand } from './ui/library';
 import { OptionsModal } from './ui/OptionsModal';
+import { RangesPage } from './ui/ranges/RangesPage';
 import { HandScreen } from './ui/replay/HandScreen';
 import { SettingsProvider } from './ui/settings';
 import { HandWizard } from './ui/wizard/HandWizard';
 
-type Page = 'new' | 'hands' | 'hand';
+type Page = 'new' | 'hands' | 'hand' | 'ranges';
 
 export default function App() {
   const [page, setPage] = useState<Page>('new');
@@ -52,6 +53,7 @@ export default function App() {
                   [
                     ['new', 'New hand'],
                     ['hands', 'Hands'],
+                    ['ranges', 'Ranges'],
                   ] as const
                 ).map(([id, label]) => (
                   <button
@@ -83,6 +85,7 @@ export default function App() {
           />
         )}
         {page === 'hands' && <HandsList onOpen={openHand} />}
+        {page === 'ranges' && <RangesPage />}
         {page === 'hand' && open && (
           <HandScreen
             key={`${open.hand.id}-${open.editable}`}

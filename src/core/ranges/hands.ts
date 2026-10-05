@@ -7,7 +7,7 @@
  * (cards.ts), which is what equity works on.
  */
 
-import { comboIndex, RANK_CHARS, type Card } from '../cards';
+import { cardsFromComboIndex, cardToString, comboIndex, prettyCard, RANK_CHARS, rankOf, type Card } from '../cards';
 
 export const CELLS = 169;
 
@@ -77,3 +77,12 @@ export const CELL_OF_COMBO: Uint8Array = (() => {
 
 /** The cell two cards fall in. */
 export const cellOfCards = (a: Card, b: Card) => CELL_OF_COMBO[comboIndex(a, b)]!;
+
+/** A combo as people write it: higher rank first, a pair in suit order ("AhKh", "AsAd"; pretty: "A♥K♥"). */
+export function comboLabel(combo: number, pretty = false): string {
+  const [a, b] = cardsFromComboIndex(combo);
+  const aFirst = rankOf(a) !== rankOf(b) ? rankOf(a) > rankOf(b) : a < b;
+  const [x, y] = aFirst ? [a, b] : [b, a];
+  const text = pretty ? prettyCard : cardToString;
+  return text(x) + text(y);
+}

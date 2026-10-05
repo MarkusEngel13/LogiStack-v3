@@ -3,7 +3,10 @@ import { HandError, applyEvent, initialState } from '../../core/engine/replay';
 import type { CardStr, HandEvent, HandRecord } from '../../core/hand/types';
 import { CardPicker } from '../cards/CardPicker';
 import { Button } from '../controls';
+import { notesBefore, withNote, withoutNote } from '../../core/ranges/handRanges';
 import { ActionBar } from '../lab/ActionBar';
+import { DecisionPanel } from '../lab/DecisionPanel';
+import { allCharts } from '../ranges/charts';
 import { downloadJson, saveHand } from '../library';
 import { SQUID_ICON } from '../playerTypes';
 import { useSettings } from '../settings';
@@ -64,7 +67,15 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onEditCopy }:
       setEditError(errorText(e));
       return;
     }
-    commit({ ...hand, events: [...hand.events.slice(0, cursor), ev] }, cursor + 1);
+    const events = [...hand.events.slice(0, cursor), ev];
+    // ranges set further along the old branch don't belong to the new one
+    commit(hand.ranges ? { ...hand, events, ranges: notesBefore(hand.ranges, cursor) } : { ...hand, events }, cursor + 1);
+  };
+
+  /** God mode: a player's range from this point on (null: back to the chart for their spot). */
+  const setRange = (seat: number, range: string | null) => {
+    const ranges = range === null ? withoutNote(hand.ranges, seat, cursor) : withNote(hand.ranges, { seat, fromEvent: cursor, range });
+    commit({ ...hand, ranges }, cursor);
   };
 
   const undo = () => {
@@ -126,6 +137,7 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onEditCopy }:
 
   // ---- view -------------------------------------------------------------------------------
   const money = useMemo(() => moneyFor(hand, settings.amounts), [hand, settings.amounts]);
+  const charts = useMemo(allCharts, []);
   const rows = useMemo(() => actionRows(hand, steps[last]!, money), [hand, steps, last, money]);
   const streets = useMemo(() => streetSteps(steps), [steps]);
   const state = steps[cursor]!;
@@ -246,8 +258,13 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onEditCopy }:
             onSpeed={setSpeed}
           />
         </div>
-        <div className="xl:h-[calc(100vh-170px)] xl:max-h-[820px]">
-          <ActionList rows={rows} step={cursor} atEnd={cursor === last} onJump={jump} />
+        <div className="flex flex-col gap-3 xl:h-[calc(100vh-170px)] xl:max-h-[820px]">
+          {!error && (
+            <DecisionPanel hand={hand} state={state} step={cursor} editable={editable} money={money} charts={charts} onSetRange={setRange} />
+          )}
+          <div className="min-h-[260px] flex-1">
+            <ActionList rows={rows} step={cursor} atEnd={cursor === last} onJump={jump} />
+          </div>
         </div>
       </div>
 

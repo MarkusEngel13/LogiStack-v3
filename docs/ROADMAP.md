@@ -11,6 +11,8 @@ engine, saved-hand format and Django backend are replaced. v3 lives on GitHub as
 - **Hand = setup + events.** Everything else is derived by replaying. Amounts are integer minor units.
 - **Core is pure and tested.** `src/core` has no React; every rule has a test.
 - **Parked:** strategy tree / YAML strategies, solver, auth, tiers, quizzes.
+- **Long jobs:** ask Marius before starting or re-running anything that takes minutes (the preflop
+  table build takes ~22 min).
 
 ## Done
 
@@ -71,13 +73,30 @@ engine, saved-hand format and Django backend are replaced. v3 lives on GitHub as
 12. [x] **Light theme** (2026-10-05): pale chrome and a grey felt; rail, pot box and cards as in dark.
        All colours are tokens in `index.css`; the saved theme is applied before first paint.
 
-## Next: ranges and decisions
+13. [x] **Range data** (`src/core/ranges/`): 13x13 grid in v2's layout, charts (raise / call / all-in %
+       per hand) and combo weights with card removal; range text both ways (AA, AKs, TT+, ATs+,
+       A5s-A2s, KQs-87s, AhKh, KQo:0.5). v2's 60 charts and 18 player types imported from v2's data
+       dump (`scripts/import-v2-ranges.mjs` → `library.json`).
+14. [x] **Fast evaluator** (`src/core/fastEval.ts`): bit masks, ~48 M seven-card hands/s in Node; equal to
+       the readable evaluator on every 5-card hand and (SLOW=1) all 133.8 M seven-card hands.
+15. [x] **Equity** (`src/core/equity/`): heads-up exact on every street - preflop from a table of all
+       47,008 matchup classes (`scripts/build-preflop-table.mjs`, ~22 min once, result committed),
+       after the flop every runout; multiway by Monte Carlo. Runs in a web worker in the app.
+16. [x] **Ranges page** (v2's `/preflop` editor ported): brush sliders (fold gives way first), presets,
+       Smart Paint, click-and-drag, combos on hover, stats bar, compare, text in/out, undo. Library
+       charts stay untouched; the first stroke makes your copy ("MINE"), which saves itself.
+17. [x] **Decision panel in the Lab**: the player to act against everyone who has put chips in.
+       Each range comes from the chart for their preflop spot (opened, called, 3-bet, squeezed,
+       vs a limp, ...; nearest position, 200 BB charts when deep, yours before the library's),
+       or from your own painted range at that point (saved with the hand; dropped by a branch).
+       Equity, pot odds needed, call / fold and EV(call), assuming the hand is checked down.
 
-- Range painter (port v2 `RangeGrid` / `PokerMatrix`), assign a range to a villain at the current spot.
-- Equity worker on Card52 (exact on flop/turn/river, Monte Carlo preflop).
-- Call vs fold: equity vs pot odds. Raise: one-street EV with villain's response split by hand class
-  (port v2 `HandEvaluatorInt` categorizer for that; fix its 2 failing tests).
-- v2's 60 preflop ranges and 18 player types: export from Postgres to JSON first.
+## Next
+
+- Bet / raise EV: villain's fold / call / raise response (a "continues with X %" slider first,
+  then hand categories from v2's `HandEvaluatorInt`, with its draw bug fixed).
+- Postflop range narrowing (today the automatic ranges stay preflop ranges after the flop).
+- Ranges page: top-x % selection, quick selects; v2's card backs.
 
 ## Decisions on record
 

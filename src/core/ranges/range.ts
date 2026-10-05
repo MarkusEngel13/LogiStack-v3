@@ -8,7 +8,7 @@
  */
 
 import { comboIndex, type Card } from '../cards';
-import { CELLS, CELL_OF_COMBO, combosOfCell } from './hands';
+import { CELL_NAMES, CELLS, CELL_OF_COMBO, cellByName, comboCount, combosOfCell } from './hands';
 
 export interface ActionMix {
   raise: number;
@@ -27,6 +27,39 @@ export const emptyChart = (): Chart => Array.from({ length: CELLS }, () => ({ ..
 
 /** Percent of the time a cell folds. */
 export const foldOf = (mix: ActionMix) => Math.max(0, 100 - mix.raise - mix.call - mix.allin);
+
+/** Stored form of a chart: { "AKs": [raise, call] or [raise, call, allin] }, folding cells left out. */
+export type ChartCells = Record<string, number[]>;
+
+export function chartFromCells(cells: ChartCells): Chart {
+  const chart = emptyChart();
+  for (const [name, [raise = 0, call = 0, allin = 0]] of Object.entries(cells)) {
+    const cell = cellByName(name);
+    if (cell === undefined) throw new Error(`Unknown hand "${name}"`);
+    chart[cell] = { raise, call, allin };
+  }
+  return chart;
+}
+
+export function chartToCells(chart: Chart): ChartCells {
+  const cells: ChartCells = {};
+  chart.forEach((m, cell) => {
+    if (m.raise || m.call || m.allin) cells[CELL_NAMES[cell]!] = m.allin ? [m.raise, m.call, m.allin] : [m.raise, m.call];
+  });
+  return cells;
+}
+
+/** Share of all 1326 combos taking each action (0..1); fold is the rest. */
+export function chartShares(chart: Chart): ActionMix & { fold: number } {
+  const s = { raise: 0, call: 0, allin: 0 };
+  chart.forEach((m, cell) => {
+    const n = comboCount(cell);
+    s.raise += (n * m.raise) / 100;
+    s.call += (n * m.call) / 100;
+    s.allin += (n * m.allin) / 100;
+  });
+  return { raise: s.raise / 1326, call: s.call / 1326, allin: s.allin / 1326, fold: 1 - (s.raise + s.call + s.allin) / 1326 };
+}
 
 export type Weights = Float32Array;
 

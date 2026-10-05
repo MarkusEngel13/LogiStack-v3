@@ -122,6 +122,18 @@ export type HandEvent =
   /** Give up at showdown without showing. */
   | { type: 'muck'; seat: SeatNo };
 
+/**
+ * A range you gave a player in the Lab. It holds from that point of the hand on, until a later
+ * one for the same player; entering a different action earlier (a branch) drops it.
+ */
+export interface RangeNote {
+  seat: SeatNo;
+  /** The step it was set at: the number of events entered before it. */
+  fromEvent: number;
+  /** Range text, e.g. "22+, A2s+, KQo:0.5". */
+  range: string;
+}
+
 export interface HandRecord {
   format: typeof HAND_FORMAT;
   id: string;
@@ -137,4 +149,6 @@ export interface HandRecord {
   hero?: SeatNo;
   players: PlayerSetup[];
   events: HandEvent[];
+  /** Ranges set in the Lab; players without one get the chart for their spot. */
+  ranges?: RangeNote[];
 }

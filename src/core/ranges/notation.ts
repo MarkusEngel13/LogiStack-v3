@@ -9,8 +9,8 @@
  * Items are separated by commas or spaces; a later item overrides an earlier one.
  */
 
-import { cardsFromComboIndex, cardToString, comboIndex, rankOf, RANK_CHARS } from '../cards';
-import { CELLS, cellKind, cellOf, cellRanks, combosOfCell } from './hands';
+import { comboIndex, RANK_CHARS } from '../cards';
+import { CELLS, cellKind, cellOf, cellRanks, comboLabel, combosOfCell } from './hands';
 import { cellWeights, emptyWeights, type Weights } from './range';
 
 export class RangeSyntaxError extends Error {
@@ -172,7 +172,7 @@ export function formatRange(weights: Weights): string {
       // combos of this cell differ: list them one by one
       for (const combo of combosOfCell(cell)) {
         const cw = weights[combo]!;
-        if (cw > 0) singles.push(comboText(combo) + formatWeight(cw));
+        if (cw > 0) singles.push(comboLabel(combo) + formatWeight(cw));
       }
     } else if (w! > 0) {
       const key = Number(w!.toFixed(4));
@@ -183,11 +183,4 @@ export function formatRange(weights: Weights): string {
     .sort((a, b) => b[0] - a[0])
     .flatMap(([w, cells]) => formatCells(cells).map((t) => t + formatWeight(w)));
   return [...parts, ...singles].join(', ');
-}
-
-function comboText(combo: number): string {
-  const [a, b] = cardsFromComboIndex(combo);
-  // higher rank first; a pair in suit order (s, h, d, c)
-  const aFirst = rankOf(a) !== rankOf(b) ? rankOf(a) > rankOf(b) : a < b;
-  return aFirst ? cardToString(a) + cardToString(b) : cardToString(b) + cardToString(a);
 }

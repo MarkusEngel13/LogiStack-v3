@@ -5,8 +5,7 @@
  */
 
 import data from './library.json';
-import { cellByName } from './hands';
-import { emptyChart, type Chart } from './range';
+import { chartFromCells, type Chart, type ChartCells } from './range';
 
 export const SCENARIOS = [
   'RFI',
@@ -46,22 +45,12 @@ export interface PlayerTypeInfo {
 
 interface LibraryFile {
   playerTypes: PlayerTypeInfo[];
-  ranges: (Omit<LibraryRange, 'chart'> & { cells: Record<string, number[]> })[];
-}
-
-function toChart(id: string, cells: Record<string, number[]>): Chart {
-  const chart = emptyChart();
-  for (const [name, [raise = 0, call = 0, allin = 0]] of Object.entries(cells)) {
-    const cell = cellByName(name);
-    if (cell === undefined) throw new Error(`${id}: unknown hand "${name}"`);
-    chart[cell] = { raise, call, allin };
-  }
-  return chart;
+  ranges: (Omit<LibraryRange, 'chart'> & { cells: ChartCells })[];
 }
 
 const file = data as unknown as LibraryFile;
 
-export const LIBRARY: readonly LibraryRange[] = file.ranges.map(({ cells, ...r }) => ({ ...r, chart: toChart(r.id, cells) }));
+export const LIBRARY: readonly LibraryRange[] = file.ranges.map(({ cells, ...r }) => ({ ...r, chart: chartFromCells(cells) }));
 export const PLAYER_TYPES: readonly PlayerTypeInfo[] = file.playerTypes;
 
 export function findRanges(q: { scenario?: Scenario; position?: string; stack?: string; env?: 'Live' | 'Online' }): LibraryRange[] {
