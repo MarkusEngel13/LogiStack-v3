@@ -91,12 +91,40 @@ engine, saved-hand format and Django backend are replaced. v3 lives on GitHub as
        or from your own painted range at that point (saved with the hand; dropped by a branch).
        Equity, pot odds needed, call / fold and EV(call), assuming the hand is checked down.
 
-## Next
+## Next: villain response model and bet-size EV (agreed 2026-10-06, start next session)
 
-- Bet / raise EV: villain's fold / call / raise response (a "continues with X %" slider first,
-  then hand categories from v2's `HandEvaluatorInt`, with its draw bug fixed).
-- Postflop range narrowing (today the automatic ranges stay preflop ranges after the flop).
-- Ranges page: top-x % selection, quick selects; v2's card backs.
+Goal: approximate how a villain answers every Hero bet size, realistic but with few inputs, then
+the EV of each size (Marius's old Excel "03 - New GUI.xlsm" did this with 4 numbers per hand class
+per spot: raise % at 1 BB and at pot, continue 100 % up to A BB and 0 % at B BB, linear in BB).
+
+Design decisions:
+- One decision rule for every villain combo and Hero size: scores for fold (0), call (what the
+  call wins at that price x realisation + call incentive - fear + sunk cost) and raise (value at the
+  top, bluff-raises with draws; aggression; less against big bets; a raise that is all-in is a shove),
+  turned into probabilities by a soft choice (noise). S-curves come out of the rule.
+- Sizes in % of pot, but absolute money counts: fear grows once a call passes the player's comfort
+  amount in BB (a 300 BB shove at 400 BB deep is not "just 80 % pot"); sunk cost when committed.
+- ~7 settings per player type (presets: station, reg, nit, maniac, ...): call incentive (GTO Wizard
+  style), price-driven vs hand-class-driven, comfort/fear, sunk cost, big-bet read (respects vs
+  suspicious; chosen instead of modelling a perceived Hero range per size), aggression, noise.
+- Player statuses already in the wizard shift the settings: tilt, drinking, winning.
+- Draw strength matters: draws to strong hands (nut flush draw, draws that can stack the opponent)
+  get a bigger calling boost than weak gutshots ("people love to call with draws").
+- God-mode override per hand class stays possible, as the exception.
+- Marius's Excel table becomes the first preset by fitting the settings to it (a calibration test:
+  if the fit is poor, a setting is missing).
+
+Build order:
+1. Hand classes for any board (port v2 `HandEvaluatorInt`, fix its draw bug).
+2. Villain's equity per combo against Hero's range on the board (exact engine, range-vs-range mode).
+3. Response model as pure tested functions (presets, statuses, overrides); checks: a neutral
+   noise-free player defends near MDF, stronger classes never continue less than weaker ones.
+4. Fit to the Excel table → first preset.
+5. Lab: villain profile + sliders, S-curve preview per class, EV-by-size curve with the best size;
+   the same model for Hero facing a bet.
+
+Later: postflop range narrowing (today the automatic ranges stay preflop ranges after the flop);
+Ranges page top-x % and quick selects; v2's card backs.
 
 ## Decisions on record
 
