@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LogiStack</title>
+    <script>
+      // Apply the saved theme before the first paint, so a light-theme page doesn't flash dark.
+      try {
+        var theme = JSON.parse(localStorage.getItem('logistack.settings.v1') || '{}').theme;
+        if (theme) document.documentElement.dataset.theme = theme;
+      } catch (e) {}
+    </script>
     <link
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23f26b1d'/%3E%3Ctext x='16' y='23' font-family='Arial' font-weight='900' font-size='19' text-anchor='middle' fill='%23151515'%3EL%3C/text%3E%3C/svg%3E"

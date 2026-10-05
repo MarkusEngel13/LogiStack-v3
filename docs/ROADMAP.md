@@ -34,8 +34,8 @@ engine, saved-hand format and Django backend are replaced. v3 lives on GitHub as
        The last setup is remembered for the next hand (hole cards and title cleared).
 5. [x] Table component (`src/ui/table/`): HM3-style dark stadium table; seat positions computed
        for every size 2-10 (`geometry.ts`), Hero always bottom centre.
-6. [x] Options modal: theme (dark only so far), amounts as money / chips / BB,
-       show all known hole cards or only Hero's.
+6. [x] Options modal: theme (dark / light), amounts as money / chips / BB,
+       show all known hole cards or only Hero's, card faces, four-colour deck.
 7. [x] Stack controls in the wizard: ±1 / ±10 / ±50 BB buttons, presets 50 / 100 / 150 / 200 / 300 BB,
        ↑/↓ in the stack field (Shift = ±10 BB).
 8. [x] **Replay screen** (`src/ui/replay/`), opened from the Hands list (sample and saved hands)
@@ -68,6 +68,8 @@ engine, saved-hand format and Django backend are replaced. v3 lives on GitHub as
 11. [x] **Felt and cards** (2026-10-05): the felt reads pot box → board → logo, top to bottom; the
        board stays on the centre line, the pot box grows upward. v2's four card faces (Standard,
        Modernist, Royal, HUD) and the four-colour toggle are back, in Options.
+12. [x] **Light theme** (2026-10-05): pale chrome and a grey felt; rail, pot box and cards as in dark.
+       All colours are tokens in `index.css`; the saved theme is applied before first paint.
 
 ## Next: ranges and decisions
 

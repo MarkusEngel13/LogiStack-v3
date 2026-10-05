@@ -228,7 +228,7 @@ export function Modal({ title, onClose, children, footer }: { title: string; onC
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'var(--overlay)' }} onMouseDown={onClose}>
       <div
         className="max-h-[90vh] w-full max-w-lg overflow-auto rounded-xl border border-line bg-surface shadow-2xl"
         onMouseDown={(e) => e.stopPropagation()}

@@ -6,7 +6,8 @@ export type CardFace = 'standard' | 'modernist' | 'royal' | 'hud';
 
 /** Viewer preferences from the Options modal. Stored per browser. */
 export interface Settings {
-  theme: 'dark';
+  /** Sets data-theme on <html>; the colours live in index.css. index.html applies it before first paint. */
+  theme: 'dark' | 'light';
   amounts: AmountDisplay;
   /** true: show every known hole card; false: only Hero's (others until showdown). */
   showAllCards: boolean;

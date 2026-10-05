@@ -72,7 +72,7 @@ export function PokerTable({ size, anchorSeat, seats, buttonSeat, center, onSeat
             style={{
               inset: '6% 3%',
               background: 'radial-gradient(ellipse at center, var(--felt-center) 0%, var(--felt) 70%)',
-              boxShadow: 'inset 0 0 3cqw rgba(0,0,0,0.6)',
+              boxShadow: 'inset 0 0 3cqw var(--felt-shadow)',
             }}
           />
           <div className="absolute rounded-full" style={{ inset: '9% 4.5%', border: '0.2cqw solid var(--felt-line)', opacity: 0.85 }} />
@@ -186,7 +186,7 @@ function SeatPlate({ view, slot, onClick }: { view: SeatView; slot: SeatSlot; on
           height: `${PLATE_H}cqw`,
           borderRadius: '0.6cqw',
           border,
-          background: view.empty ? 'rgba(20,20,20,0.6)' : 'linear-gradient(180deg, var(--plate-top), var(--plate))',
+          background: view.empty ? 'var(--plate-empty)' :'linear-gradient(180deg, var(--plate-top), var(--plate))',
           boxShadow: view.winner
             ? '0 0 1.6cqw rgba(34,197,94,0.6)'
             : view.toAct

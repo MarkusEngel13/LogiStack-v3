@@ -2,7 +2,8 @@
 
 /*
  * Theme tokens. Every color in the app comes from these variables, so a theme is just
- * another set of values under [data-theme="..."]. Dark (Holdem Manager style) is the default.
+ * another set of values under [data-theme="..."]. Dark (Holdem Manager style) is the default;
+ * light overrides it below.
  */
 :root,
 [data-theme="dark"] {
@@ -21,18 +22,27 @@
   --accent-text: #1a0d05;
   --danger: #f05252;
   --ok: #3ccf75;
+  --warn: #fcd34d;
+  --overlay: rgba(0, 0, 0, 0.7);
 
   --rail: #0f0f0f;
   --rail-edge: #2b2b2b;
   --felt: #262626;
   --felt-center: #2e2e2e;
   --felt-line: #f26b1d;
+  --felt-shadow: rgba(0, 0, 0, 0.6);
   --plate: #2b2b2b;
   --plate-top: #343434;
   --plate-border: #444444;
+  --plate-empty: rgba(20, 20, 20, 0.6);
   --chip-text: #f1f1f1;
   --dealer: #f26b1d;
   --dealer-text: #ffffff;
+  --pot-bg: rgba(0, 0, 0, 0.85);
+  --pot-border: #2c2c2c;
+  --pot-text: #f1f1f1;
+  --pot-muted: #9b9b9b;
+  --board-slot: rgba(255, 255, 255, 0.08);
 
   --card-face: #ffffff;
   --card-back: #7a2a12;
@@ -41,6 +51,46 @@
   --suit-h: #d6262b;
   --suit-d: #1e63d6;
   --suit-c: #18893a;
+}
+
+/* Light: pale chrome and a grey felt; the rail, the pot box and the cards stay as on a real table. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #ececea;
+  --bg-stripe: rgba(0, 0, 0, 0.022);
+  --surface: #ffffff;
+  --surface-2: #f4f4f2;
+  --surface-3: #e4e4e1;
+  --border: #d4d4d0;
+  --text: #1b1b1d;
+  --text-muted: #5c5c62;
+  --text-faint: #8e8e95;
+  --accent: #ea6412;
+  --accent-strong: #c2500a;
+  --accent-text: #1a0d05;
+  --danger: #d42a2a;
+  --ok: #15803d;
+  --warn: #92400e;
+  --overlay: rgba(20, 20, 20, 0.45);
+
+  --rail: #2c2c30;
+  --rail-edge: #46464c;
+  --felt: #c3c7cb;
+  --felt-center: #dcdfe2;
+  --felt-line: #ea6412;
+  --felt-shadow: rgba(0, 0, 0, 0.28);
+  --plate: #efeff0;
+  --plate-top: #ffffff;
+  --plate-border: #c8c8cc;
+  --plate-empty: rgba(255, 255, 255, 0.45);
+  --chip-text: #1b1b1d;
+  --dealer: #ea6412;
+  --dealer-text: #ffffff;
+  --pot-bg: rgba(24, 24, 27, 0.9);
+  --pot-border: #3a3a40;
+  --pot-text: #ffffff;
+  --pot-muted: #b8b8be;
+  --board-slot: rgba(0, 0, 0, 0.16);
 }
 
 @theme inline {
@@ -57,6 +107,7 @@
   --color-accent-ink: var(--accent-text);
   --color-danger: var(--danger);
   --color-ok: var(--ok);
+  --color-warn: var(--warn);
 }
 
 html,

@@ -10,8 +10,15 @@ export function OptionsModal({ onClose }: { onClose: () => void }) {
   return (
     <Modal title="Options" onClose={onClose} footer={<Button variant="primary" onClick={onClose}>Done</Button>}>
       <div className="space-y-5">
-        <Field label="Theme" hint="More themes are coming.">
-          <Segmented value={settings.theme} options={[{ value: 'dark', label: 'Dark' }]} onChange={(theme) => update({ theme })} />
+        <Field label="Theme">
+          <Segmented
+            value={settings.theme}
+            options={[
+              { value: 'dark', label: 'Dark' },
+              { value: 'light', label: 'Light' },
+            ]}
+            onChange={(theme) => update({ theme })}
+          />
         </Field>
         <Field label="Show amounts as">
           <Segmented

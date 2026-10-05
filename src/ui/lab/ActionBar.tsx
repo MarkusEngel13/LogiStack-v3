@@ -29,7 +29,7 @@ export function ActionBar(props: Props) {
   return (
     <div className="space-y-3 rounded-lg border border-line bg-surface px-4 py-3">
       {laterEvents > 0 && (
-        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-sm text-amber-200">
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-sm text-warn">
           You are back in the hand. Entering something here replaces the {laterEvents} {laterEvents === 1 ? 'entry' : 'entries'} after this
           point (Undo brings {laterEvents === 1 ? 'it' : 'them'} back).
         </div>

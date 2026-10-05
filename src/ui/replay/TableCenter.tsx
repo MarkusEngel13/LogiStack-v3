@@ -24,8 +24,9 @@ export function TableCenter({ state, money, summary = [] }: { state: TableState;
           bottom: `calc(100% + ${GAP}cqw)`,
           transform: 'translateX(-50%)',
           width: 'max-content',
-          background: 'rgba(0,0,0,0.85)',
-          border: '0.1cqw solid #2c2c2c',
+          background: 'var(--pot-bg)',
+          border: '0.1cqw solid var(--pot-border)',
+          color: 'var(--pot-text)',
           borderRadius: '0.6cqw',
           padding: '0.7cqw 1.8cqw',
           minWidth: '14cqw',
@@ -36,17 +37,17 @@ export function TableCenter({ state, money, summary = [] }: { state: TableState;
           Pot: {money(potTotal(state))}
         </div>
         {odds && (
-          <div style={{ fontSize: '1.15cqw', color: 'var(--text-muted)' }}>
+          <div style={{ fontSize: '1.15cqw', color: 'var(--pot-muted)' }}>
             Pot odds: {odds.ratio.toFixed(2)}:1 ({odds.percent.toFixed(1)}%)
           </div>
         )}
         {collected.length > 1 && (
-          <div style={{ fontSize: '1.05cqw', color: 'var(--text-muted)' }}>
+          <div style={{ fontSize: '1.05cqw', color: 'var(--pot-muted)' }}>
             {collected.map((p, i) => `${i === 0 ? 'Main' : `Side ${i}`} ${money(p.amount)}`).join(' · ')}
           </div>
         )}
         {summary.map((line) => (
-          <div key={line} style={{ fontSize: '1.1cqw', color: line.startsWith('7-2') || line.includes('squid') ? '#4ade80' : 'var(--text-muted)' }}>
+          <div key={line} style={{ fontSize: '1.1cqw', color: line.startsWith('7-2') || line.includes('squid') ? '#4ade80' : 'var(--pot-muted)' }}>
             {line}
           </div>
         ))}
@@ -59,7 +60,7 @@ export function TableCenter({ state, money, summary = [] }: { state: TableState;
           ) : (
             <div
               key={i}
-              style={{ width: `${BOARD_CARD_W}cqw`, aspectRatio: '5 / 7', borderRadius: '0.5cqw', border: '0.12cqw dashed rgba(255,255,255,0.08)' }}
+              style={{ width: `${BOARD_CARD_W}cqw`, aspectRatio: '5 / 7', borderRadius: '0.5cqw', border: '0.12cqw dashed var(--board-slot)' }}
             />
           ),
         )}
