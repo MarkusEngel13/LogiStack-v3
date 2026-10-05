@@ -28,19 +28,21 @@ export function TableStep({ draft, setDraft }: Props) {
                 onChange={(n) => setDraft((d) => resizeTable(d, n))}
               />
             </Field>
-            <Field label="Game">
-              <Segmented
-                value={draft.venue}
-                options={[
-                  { value: 'home', label: 'Home game' },
-                  { value: 'casino', label: 'Casino' },
-                ]}
-                onChange={(venue) => set({ venue })}
-              />
-            </Field>
-            <Field label="Table name" hint="Optional, e.g. “Thursday Home Game” or the casino.">
-              <TextInput value={draft.tableName} onChange={(tableName) => set({ tableName })} placeholder="Thursday Home Game" />
-            </Field>
+            <div className="grid items-end gap-4 sm:grid-cols-[auto_minmax(0,1fr)]">
+              <Field label="Game">
+                <Segmented
+                  value={draft.venue}
+                  options={[
+                    { value: 'home', label: 'Home game' },
+                    { value: 'casino', label: 'Casino' },
+                  ]}
+                  onChange={(venue) => set({ venue })}
+                />
+              </Field>
+              <Field label="Table name (optional)">
+                <TextInput value={draft.tableName} onChange={(tableName) => set({ tableName })} placeholder="e.g. Thursday Home Game" />
+              </Field>
+            </div>
           </div>
         </Section>
 

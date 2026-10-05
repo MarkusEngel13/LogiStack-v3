@@ -114,7 +114,7 @@ export function Toggle({ checked, onChange, label, hint }: { checked: boolean; o
 }
 
 const inputClass =
-  'w-full rounded-md border border-line bg-surface-2 px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-accent focus:outline-none';
+  'w-full rounded-md border border-line bg-surface-2 px-3 py-2.5 text-sm text-ink placeholder:text-faint focus:border-accent focus:outline-none';
 
 export function TextInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
   return <input className={inputClass} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />;
