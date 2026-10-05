@@ -81,8 +81,10 @@ engine, saved-hand format and Django backend are replaced. v3 lives on GitHub as
 
 ## Decisions on record
 
-- **Position names** (v2 SDD §2.1, matches the v2 range library): seats between BB and BTN take the
-  last N of `UTG, UTG+1, UTG+2, UTG+3, LJ, HJ, CO`. 6-max = LJ, HJ, CO; 9-max starts at UTG+1.
+- **Position names** (Marius, 2026-10-05): SB, BB, BTN; back from the button CO, HJ, LJ; any seats
+  before those are UTG, UTG+1, UTG+2, ... from the first to act. 6-max = LJ HJ CO,
+  9-max = UTG UTG+1 UTG+2 LJ HJ CO, 10-max adds UTG+3. The v2 range library uses 10-max names, so
+  range lookup goes by the number of players still to act behind (9-max UTG ↔ 10-max UTG+1).
 - **Seat layouts:** only 10-max coordinates ever existed (v2 / PkApp v3); v3 computes all sizes
   along the rail. A drag-to-place layout editor (v1 `LayoutEditor.jsx`) can store per-size tweaks later.
 - **Blind raise** = a raise made without looking at the cards (home games, usually a drinking player).
@@ -91,7 +93,6 @@ engine, saved-hand format and Django backend are replaced. v3 lives on GitHub as
 
 ## Open questions
 
-- 9-max naming: keep UTG+1 … CO (the v2 convention), or UTG, UTG+1, UTG+2, LJ, HJ, CO?
 - Where do hands come from besides the wizard/Lab: also imports of online hand histories (which sites)?
 - More home-game rules for the wizard (bomb pot, run it twice, double board, ...)?
 - Sessions (several hands at one table, for squid rounds and running statuses): now or later?
