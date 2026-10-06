@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Card } from '../../core/cards';
 import type { FieldResult } from '../../core/equity/field';
 import type { FearResult } from '../../core/fear';
+import type { SizeAnswer, SizeQuestion } from '../../core/motives/sizes';
 import type { StoryInput, StoryStep } from '../../core/motives/story';
 import type { Weights } from '../../core/ranges/range';
 
@@ -13,7 +14,8 @@ export type Question =
   | { kind: 'hero'; hero: Card[]; board: Card[]; villains: Weights[] }
   | { kind: 'field'; ranges: Weights[]; board: Card[] }
   | { kind: 'fear'; a: Weights; b: Weights; board: Card[] }
-  | { kind: 'story'; input: StoryInput };
+  | { kind: 'story'; input: StoryInput }
+  | { kind: 'sizes'; q: SizeQuestion };
 
 export type EquityQuestion = Question & { id: number };
 
@@ -31,6 +33,8 @@ export interface EquityAnswer {
   fear?: FearResult;
   /** kind 'story' */
   story?: StoryStep[];
+  /** kind 'sizes' */
+  sizes?: SizeAnswer;
   error?: string;
 }
 

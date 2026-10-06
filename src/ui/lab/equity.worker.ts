@@ -5,6 +5,7 @@
  * - 'field': every player a range. Two players exact, more by Monte Carlo.
  * - 'fear': fear numbers of one range against another, on a flop or turn.
  * - 'story': every postflop action of a hand through the motive model (ranges narrowed).
+ * - 'sizes': the size explorer for the player to act.
  * The preflop table is fetched once, on first need.
  */
 
@@ -13,6 +14,7 @@ import { equityVsRange, monteCarloEquity } from '../../core/equity/equity';
 import { monteCarloField, rangeVsRange } from '../../core/equity/field';
 import { PreflopTable } from '../../core/equity/preflopTable';
 import { fearNumbers } from '../../core/fear';
+import { exploreSizes } from '../../core/motives/sizes';
 import { runStory, type StoryCache } from '../../core/motives/story';
 import type { EquityAnswer, EquityQuestion } from './useEquity';
 
@@ -38,7 +40,9 @@ ctx.onmessage = async (e) => {
   const q = e.data;
   const answer = (a: Omit<EquityAnswer, 'id'>) => ctx.postMessage({ id: q.id, ...a });
   try {
-    if (q.kind === 'story') {
+    if (q.kind === 'sizes') {
+      answer({ sizes: exploreSizes(q.q) });
+    } else if (q.kind === 'story') {
       if (storyCache.size > 400) storyCache.clear();
       answer({ story: runStory(q.input, storyCache) });
     } else if (q.kind === 'fear') {

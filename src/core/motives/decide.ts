@@ -108,11 +108,15 @@ const MAX_JAM_POTS = 3;
 const OPP_BETS = 0.6;
 export const DEFAULT_RAISES = [2.5, 3.5];
 
-/** Tversky-Kahneman probability weighting. */
+/**
+ * Tversky-Kahneman probability weighting, overweighting side only: long shots feel bigger than
+ * they are (draws get chased), but a big favourite is not shrunk - a set facing a shove feels
+ * like a set. (The full inverse-S made sets fold to shoves; the fear of big bets is `respect`.)
+ */
 const weigh = (p: number, g: number) => {
   if (g === 1 || p <= 0 || p >= 1) return p;
   const a = p ** g;
-  return a / (a + (1 - p) ** g) ** (1 / g);
+  return Math.max(p, a / (a + (1 - p) ** g) ** (1 / g));
 };
 /** 1 for a coin flip, 0 for a sure winner or loser: how hard a spot is with this equity. */
 const mid = (x: number) => Math.max(0, 4 * x * (1 - x));
@@ -211,7 +215,11 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
 
   // ---- scores ----------------------------------------------------------------------------
   const c = C / P;
-  const read = facing ? Math.min(4, Math.max(0.4, 1 + 2 * p.respect * Math.max(0, c - 0.75))) : 1;
+  // Respect for a big bet: from ¾ pot up, growing with the size up to 2.25 pots (a shove is not
+  // 20x scarier), more on the turn and most on the river - big late bets are underbluffed, and
+  // players know it (HHP: they overfold to them).
+  const late = 1 + 0.5 * (board.length - 3);
+  const read = facing ? Math.min(4, Math.max(0.4, 1 + 2 * p.respect * late * Math.min(1.5, Math.max(0, c - 0.75)))) : 1;
   // past the comfortable amount, every further comfort-sized chunk weighs one more loss aversion
   const lambda = (chips: number) => p.lossAversion * (1 + Math.max(0, chips / bb / p.comfortBB - 1));
   // tough decisions loom when little is left behind: pressure = pot / stack behind after the action
@@ -260,19 +268,22 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
       case 'raise': {
         const a = aggro.find((x) => x.option === o)!;
         const ec = a.eq[combo]!;
-        const wc = weigh(Number.isNaN(ec) ? 1 : ec, p.longShot);
+        // raising into a bet that reads strong (respect): fewer folds expected, less equity felt
+        const rd = o.kind === 'raise' ? read : 1;
+        const wc = weigh(Number.isNaN(ec) ? 1 : ec, p.longShot) ** rd;
+        const fold = a.fold / rd;
         const won = o.kind === 'bet' ? 1 : 1 + c; // what a fold wins
         const r = o.amount / P;
         return {
           ...none,
-          gain: a.fold * won + (1 - a.fold) * wc * (1 + r),
-          loss: (1 - a.fold) * (1 - wc) * r,
-          fear: (fearNow * (1 - a.fold)) / (1 + a.size),
-          trap: TRAP * (Number.isNaN(a.ahead[combo]!) ? 0 : a.ahead[combo]!) * keep * (1 - a.fold) * streetsLeft,
+          gain: fold * won + (1 - fold) * wc * (1 + r),
+          loss: (1 - fold) * (1 - wc) * r,
+          fear: (fearNow * (1 - fold)) / (1 + a.size),
+          trap: TRAP * (Number.isNaN(a.ahead[combo]!) ? 0 : a.ahead[combo]!) * keep * (1 - fold) * streetsLeft,
           // betting or raising a medium hand invites a raise or re-raise: the tough spot is right there
-          tough: o.allIn ? 0 : 0.7 * mid(wc) * (1 - a.fold),
+          tough: o.allIn ? 0 : 0.7 * mid(wc) * (1 - fold),
           // a bluff that gets called (shown on the river, caught earlier) is embarrassing
-          embarrassment: 0.5 * (river ? 1 : 0.8) * (1 - a.fold) * (1 - (Number.isNaN(ec) ? 1 : ec)) * (1 + r),
+          embarrassment: 0.5 * (river ? 1 : 0.8) * (1 - fold) * (1 - (Number.isNaN(ec) ? 1 : ec)) * (1 + r),
           liking: 0,
         };
       }

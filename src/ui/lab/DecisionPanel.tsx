@@ -1,14 +1,16 @@
 import { useMemo, useState } from 'react';
 import { legalActions, potOdds, potTotal } from '../../core/engine/replay';
 import type { TableState } from '../../core/engine/state';
-import type { HandRecord, SeatNo } from '../../core/hand/types';
-import { fingerprint, rangesAt } from '../../core/motives/story';
+import type { HandEvent, HandRecord, SeatNo } from '../../core/hand/types';
+import { profileFor } from '../../core/motives/profile';
+import { fingerprint, rangesAt, situationOf } from '../../core/motives/story';
 import { playerRange } from '../../core/ranges/handRanges';
 import { comboTotal, withoutCards } from '../../core/ranges/range';
 import type { ChartChoice } from '../../core/ranges/spot';
 import { PlayingCard } from '../cards/PlayingCard';
 import type { Money } from '../replay/views';
 import { RangeModal } from './RangeModal';
+import { SizeExplorer } from './SizeExplorer';
 import { BucketBar, RangeStory } from './RangeStory';
 import { useEquity } from './useEquity';
 import type { StoryView } from './useStory';
@@ -32,6 +34,7 @@ export function DecisionPanel({
   charts,
   story,
   onSetRange,
+  onAction,
 }: {
   hand: HandRecord;
   state: TableState;
@@ -42,9 +45,12 @@ export function DecisionPanel({
   story: StoryView;
   /** A range text for this player from this step on, or null to go back to the chart. */
   onSetRange: (seat: SeatNo, range: string | null) => void;
+  /** The Lab: enter an action (the size explorer's "Bet" buttons). */
+  onAction?: (ev: HandEvent) => void;
 }) {
   const [editing, setEditing] = useState<SeatNo | null>(null);
   const [viewing, setViewing] = useState<SeatNo | null>(null);
+  const [exploring, setExploring] = useState(false);
   const me = state.phase === 'betting' && state.toAct !== null ? state.seats.find((s) => s.seat === state.toAct) : undefined;
   // Opponents are the players who have put chips in by choice; those still to act (who mostly
   // fold) are left out rather than counted as random hands.
@@ -76,10 +82,17 @@ export function DecisionPanel({
   const key = JSON.stringify([me?.cards, state.board, ranges.map((r) => fingerprint(r.weights))]);
   const { answer, pending } = useEquity(question, key);
   const myLine = me ? narrowed?.get(me.seat) : undefined;
+  // the ranges as each player sees the other's (their range reading), for the size explorer
+  const seenRanges = useMemo(
+    () => (inStory && story.input && story.steps ? rangesAt(story.input, story.steps, step, 'seen') : null),
+    [inStory, story.input, story.steps, step],
+  );
 
   if (!me) return null;
 
   const legal = legalActions(state);
+  const villain = ranges.length === 1 ? state.seats.find((s) => s.seat === ranges[0]!.seat) : undefined;
+  const canExplore = !!(legal && (legal.canBet || legal.canRaise) && villain && myLine && narrowed?.get(villain.seat) && seenRanges);
   const odds = potOdds(state);
   const toCall = legal?.toCall ?? 0;
   const equity = answer?.equity;
@@ -141,6 +154,16 @@ export function DecisionPanel({
               <div className="rounded-md px-3 py-1.5 text-center text-sm font-bold" style={{ background: verdict.tone, color: verdict.fg }}>
                 {verdict.text}
               </div>
+            )}
+            {canExplore && (
+              <button
+                type="button"
+                onClick={() => setExploring(true)}
+                className="w-full rounded-md border border-line px-3 py-1.5 text-sm text-muted hover:border-accent hover:text-ink"
+                title="Every bet size against their range: who folds, calls or raises, bucket by bucket, and your EV"
+              >
+                Explore bet sizes…
+              </button>
             )}
             {answer?.error && <p className="text-xs text-danger">{answer.error}</p>}
             <p className="text-xs text-faint">
@@ -235,6 +258,32 @@ export function DecisionPanel({
           </p>
         )}
       </div>
+
+      {exploring && canExplore && villain && (
+        <SizeExplorer
+          title={`${me.name} (${me.position}): bet sizes against ${villain.name} (${villain.position}${villain.playerType ? `, ${villain.playerType}` : ''})`}
+          otherName={villain.name}
+          money={money}
+          q={{
+            situation: situationOf(state, me.seat).situation,
+            actor: { profile: profileFor(me), range: myLine!, seen: seenRanges!.get(me.seat), cards: me.cards ?? undefined },
+            other: { profile: profileFor(villain), range: narrowed!.get(villain.seat)!, seen: seenRanges!.get(villain.seat) },
+          }}
+          onUse={
+            onAction
+              ? (r) => {
+                  setExploring(false);
+                  onAction(
+                    r.allIn
+                      ? { type: 'action', seat: me.seat, action: 'allin' }
+                      : { type: 'action', seat: me.seat, action: r.kind === 'bet' ? 'bet' : 'raise', to: r.kind === 'bet' ? r.amount : me.streetBet + r.amount },
+                  );
+                }
+              : undefined
+          }
+          onClose={() => setExploring(false)}
+        />
+      )}
 
       {viewing !== null && narrowed?.get(viewing) && story.steps && (
         <RangeModal

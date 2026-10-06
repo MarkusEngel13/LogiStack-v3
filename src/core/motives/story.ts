@@ -16,13 +16,13 @@
 import { bucketAll, type Bucket } from '../buckets';
 import type { Card } from '../cards';
 import { potTotal } from '../engine/replay';
-import type { Street, TableState } from '../engine/state';
+import type { SeatState, Street, TableState } from '../engine/state';
 import type { HandRecord, SeatNo } from '../hand/types';
 import { playerRange } from '../ranges/handRanges';
 import { parseRange } from '../ranges/notation';
 import type { Weights } from '../ranges/range';
 import type { ChartChoice } from '../ranges/spot';
-import { DEFAULT_BETS, DEFAULT_RAISES, decide, type Motives, type OptionKind, type Situation } from './decide';
+import { DEFAULT_BETS, DEFAULT_RAISES, decide, type Decision, type Motives, type OptionKind, type Situation } from './decide';
 import { profileFor, type MotiveProfile } from './profile';
 
 /** One action after the flop, as the model sees it. */
@@ -81,6 +81,8 @@ export interface StoryStep {
   nextCards: number;
   before: Weights;
   after: Weights;
+  /** The actor's range after the action as the other player sees it (their range reading). */
+  seen: Weights;
   /** Why the range wasn't narrowed. */
   skipped?: 'multiway' | 'no range';
 }
@@ -100,6 +102,38 @@ function withSize(defaults: readonly number[], taken: number): number[] {
     if (Math.abs(Math.log(d / taken)) < Math.abs(Math.log(defaults[nearest]! / taken))) nearest = i;
   });
   return defaults.map((d, i) => (i === nearest ? taken : d));
+}
+
+/**
+ * The model's view of one decision: the situation of `seat` in `state` (pot before the bet faced,
+ * chips to call, stacks, position, who has the initiative) and the one other player still in
+ * (null when more are in).
+ */
+export function situationOf(state: TableState, seat: SeatNo): { situation: Situation; opp: SeatState | null } {
+  const me = state.seats.find((s) => s.seat === seat)!;
+  const others = state.seats.filter((s) => s.dealtIn && !s.folded && s.seat !== me.seat);
+  const opp = others.length === 1 ? others[0]! : null;
+  const owed = Math.max(0, state.currentBet - me.streetBet);
+  const situation: Situation = {
+    board: [...state.board],
+    pot: potTotal(state) - owed,
+    toCall: Math.min(owed, me.stack),
+    stack: me.stack,
+    oppStack: opp?.stack ?? 0,
+    bb: state.rules.bb,
+    inPosition: opp ? postflopOrder(state, me.seat) > postflopOrder(state, opp.seat) : false,
+  };
+  if (owed === 0 && opp) {
+    // the last bet or raise of the hand so far was the opponent's: they have the initiative
+    for (let k = state.log.length - 1; k >= 0; k--) {
+      const e = state.log[k]!;
+      if (e.kind === 'action' && (e.action === 'bet' || e.action === 'raise')) {
+        if (e.seat === opp.seat) situation.oppInitiative = true;
+        break;
+      }
+    }
+  }
+  return { situation, opp };
 }
 
 /** The model's view of a hand: start ranges, Lab resets, profiles and every postflop action. */
@@ -133,36 +167,13 @@ export function storyInput(hand: HandRecord, steps: readonly TableState[], chart
       }
     }
     if (!entry || entry.kind !== 'action' || entry.action === 'fold') continue;
-    const me = before.seats.find((s) => s.seat === entry.seat)!;
-    const others = before.seats.filter((s) => s.dealtIn && !s.folded && s.seat !== me.seat);
-    const opp = others.length === 1 ? others[0]! : null;
-    const owed = Math.max(0, before.currentBet - me.streetBet);
-    const toCall = Math.min(owed, me.stack);
-    const pot = potTotal(before) - owed;
+    const { situation, opp } = situationOf(before, entry.seat);
+    const { pot, toCall } = situation;
     const kind = entry.action;
-    const situation: Situation = {
-      board: [...before.board],
-      pot,
-      toCall,
-      stack: me.stack,
-      oppStack: opp?.stack ?? 0,
-      bb: before.rules.bb,
-      inPosition: opp ? postflopOrder(before, me.seat) > postflopOrder(before, opp.seat) : false,
-    };
-    if (owed === 0 && opp) {
-      // the last bet or raise of the hand so far was the opponent's: they have the initiative
-      for (let k = before.log.length - 1; k >= 0; k--) {
-        const e = before.log[k]!;
-        if (e.kind === 'action' && (e.action === 'bet' || e.action === 'raise')) {
-          if (e.seat === opp.seat) situation.oppInitiative = true;
-          break;
-        }
-      }
-    }
     if (entry.allIn && (kind === 'bet' || kind === 'raise')) situation.allInAlways = true;
     else if (kind === 'bet' && pot > 0) situation.betSizes = withSize(DEFAULT_BETS, entry.added / pot);
     else if (kind === 'raise' && toCall > 0) situation.raiseSizes = withSize(DEFAULT_RAISES, entry.added / toCall);
-    points.push({ event: i, street: entry.street, seat: me.seat, opp: opp?.seat ?? null, situation, taken: { kind, amount: entry.added, allIn: entry.allIn } });
+    points.push({ event: i, street: entry.street, seat: entry.seat, opp: opp?.seat ?? null, situation, taken: { kind, amount: entry.added, allIn: entry.allIn } });
   }
   return { start, resets, profiles, points };
 }
@@ -180,7 +191,7 @@ export function fingerprint(w: Weights): string {
   return (h >>> 0).toString(36);
 }
 
-type Narrowed = Pick<StoryStep, 'options' | 'taken' | 'byBucket' | 'after'>;
+type Narrowed = Pick<StoryStep, 'options' | 'taken' | 'byBucket' | 'after' | 'seen'>;
 /** Decisions already made, by situation and ranges. */
 export type StoryCache = Map<string, Narrowed>;
 
@@ -189,14 +200,16 @@ export type StoryCache = Map<string, Narrowed>;
  * 1 = the model's size choice taken at its word. Mostly: sizes are a real tell (HHP), but players
  * pick them loosely and the model's size preferences are its least calibrated part.
  */
-const SIZE_TELL = 0.75;
+export const SIZE_TELL = 0.75;
 
 /**
  * Every postflop action through the model, in order. `cache` (kept by the caller between runs)
  * skips decisions already made with the same ranges, so entering one more action only costs one.
  */
 export function runStory(input: StoryInput, cache?: StoryCache): StoryStep[] {
+  // each player's range as the model has it, and as the other player sees it (heads-up: one observer)
   const current = new Map(input.start.map((s) => [s.seat, s.weights]));
+  const seen = new Map(input.start.map((s) => [s.seat, s.weights]));
   const profiles = new Map(input.profiles.map((p) => [p.seat, p.profile]));
   const resets = [...input.resets].sort((a, b) => a.event - b.event);
   let r = 0;
@@ -205,6 +218,7 @@ export function runStory(input: StoryInput, cache?: StoryCache): StoryStep[] {
   for (const pt of input.points) {
     while (r < resets.length && resets[r]!.event <= pt.event) {
       current.set(resets[r]!.seat, resets[r]!.weights);
+      seen.set(resets[r]!.seat, resets[r]!.weights);
       r++;
     }
     const before = current.get(pt.seat);
@@ -212,28 +226,54 @@ export function runStory(input: StoryInput, cache?: StoryCache): StoryStep[] {
     const nextCards = pt.situation.board.length < 5 ? 50 - pt.situation.board.length : 0;
     const base = { event: pt.event, street: pt.street, seat: pt.seat, board: pt.situation.board, action, options: [], taken: -1, byBucket: {}, nextCards };
     if (!before) {
-      out.push({ ...base, before: new Float32Array(1326), after: new Float32Array(1326), skipped: 'no range' });
+      out.push({ ...base, before: new Float32Array(1326), after: new Float32Array(1326), seen: new Float32Array(1326), skipped: 'no range' });
       continue;
     }
-    const oppRange = pt.opp !== null ? current.get(pt.opp) : undefined;
+    const mySeen = seen.get(pt.seat) ?? before;
+    const oppRange = pt.opp !== null ? seen.get(pt.opp) : undefined;
     if (pt.opp === null || !oppRange) {
-      out.push({ ...base, before, after: before, skipped: pt.opp === null ? 'multiway' : 'no range' });
+      out.push({ ...base, before, after: before, seen: mySeen, skipped: pt.opp === null ? 'multiway' : 'no range' });
       continue;
     }
     const profile = profiles.get(pt.seat)!;
-    const key = JSON.stringify([pt.situation, pt.taken, profile, fingerprint(before), fingerprint(oppRange)]);
+    const reading = profiles.get(pt.opp)?.rangeReading ?? 1;
+    const key = JSON.stringify([pt.situation, pt.taken, profile, reading, fingerprint(before), fingerprint(oppRange), fingerprint(mySeen)]);
     let n = cache?.get(key);
     if (!n) {
-      n = narrow(profile, pt, before, oppRange);
+      n = narrow(profile, pt, before, oppRange, mySeen, reading);
       cache?.set(key, n);
     }
     current.set(pt.seat, n.after);
+    seen.set(pt.seat, n.seen);
     out.push({ ...base, ...n, action: n.options[n.taken]!.label, before });
   }
   return out;
 }
 
-function narrow(profile: MotiveProfile, pt: StoryPoint, mine: Weights, opp: Weights): Narrowed {
+/**
+ * How much of each combo's weight an action keeps: its chance of the action (bet, raise, ...) at
+ * any size, tilted by how much it likes the size taken - a soft size tell, never above the
+ * action's own chance. NaN where the combo isn't in the decision.
+ */
+export function keeper(d: Decision, taken: number, tell = SIZE_TELL): (combo: number) => number {
+  const same = d.options.flatMap((o, i) => (o.kind === d.options[taken]!.kind ? [i] : []));
+  const n = same.length;
+  const top = 1 - tell + tell * n;
+  return (c) => {
+    const pr = d.probs[taken]![c]!;
+    if (Number.isNaN(pr)) return NaN;
+    let kind = 0;
+    for (const i of same) kind += d.probs[i]![c]!;
+    return n > 1 && kind > 0 ? (kind * (1 - tell + tell * n * (pr / kind))) / top : kind;
+  };
+}
+
+/**
+ * One action: the decision of the actor's range (against the other range as the actor sees it),
+ * the range kept, and the range as the other player sees it after (`reading` = how much they
+ * read actions: the kept share counts that much, the rest stays as it was).
+ */
+function narrow(profile: MotiveProfile, pt: StoryPoint, mine: Weights, opp: Weights, mineSeen: Weights, reading: number): Narrowed {
   const d = decide(profile, pt.situation, mine, opp);
   let taken = -1;
   d.options.forEach((o, i) => {
@@ -243,23 +283,21 @@ function narrow(profile: MotiveProfile, pt: StoryPoint, mine: Weights, opp: Weig
   });
   if (taken < 0) throw new Error(`No ${pt.taken.kind} option for event ${pt.event}`);
 
-  // Each combo keeps its chance of the action (bet, raise, ...) at any size, tilted by how much it
-  // likes the size taken: a soft size tell, never above the action's own chance.
-  const same = d.options.flatMap((o, i) => (o.kind === d.options[taken]!.kind ? [i] : []));
-  const n = same.length;
-  const top = 1 - SIZE_TELL + SIZE_TELL * n;
+  const keepOf = keeper(d, taken);
   const after = new Float32Array(1326);
+  const seen = new Float32Array(1326);
+  for (let c = 0; c < 1326; c++) {
+    const k = keepOf(c);
+    if (mineSeen[c]! > 0 && !Number.isNaN(k)) seen[c] = mineSeen[c]! * (1 - reading + reading * k);
+  }
   const buckets = bucketAll(pt.situation.board);
   const blank = (): Motives => ({ gain: 0, loss: 0, fear: 0, trap: 0, tough: 0, embarrassment: 0, liking: 0 });
   const acc: Partial<Record<Bucket, { combos: number; kept: number; parts: Motives[]; bites: number }>> = {};
   for (let c = 0; c < 1326; c++) {
     const w = mine[c]!;
-    const pr = d.probs[taken]![c]!;
     const b = buckets[c];
-    if (!(w > 0) || Number.isNaN(pr) || !b) continue;
-    let kind = 0;
-    for (const i of same) kind += d.probs[i]![c]!;
-    const keep = n > 1 && kind > 0 ? (kind * (1 - SIZE_TELL + SIZE_TELL * n * (pr / kind))) / top : kind;
+    const keep = keepOf(c);
+    if (!(w > 0) || Number.isNaN(keep) || !b) continue;
     after[c] = w * keep;
     const row = (acc[b] ??= { combos: 0, kept: 0, parts: d.options.map(blank), bites: 0 });
     row.combos += w;
@@ -285,11 +323,15 @@ function narrow(profile: MotiveProfile, pt: StoryPoint, mine: Weights, opp: Weig
     taken,
     byBucket,
     after,
+    seen,
   };
 }
 
-/** Each player's range at a step: the latest of their start range, your resets and the narrowings before it. */
-export function rangesAt(input: StoryInput, steps: readonly StoryStep[], step: number): Map<SeatNo, Weights> {
+/**
+ * Each player's range at a step: the latest of their start range, your resets and the narrowings
+ * before it. `as: 'seen'` = the range as the other player sees it (their range reading).
+ */
+export function rangesAt(input: StoryInput, steps: readonly StoryStep[], step: number, as: 'model' | 'seen' = 'model'): Map<SeatNo, Weights> {
   const out = new Map(input.start.map((s) => [s.seat, s.weights]));
   const at = new Map<SeatNo, number>(input.start.map((s) => [s.seat, -1]));
   for (const x of input.resets) {
@@ -301,7 +343,7 @@ export function rangesAt(input: StoryInput, steps: readonly StoryStep[], step: n
   for (const s of steps) {
     // an action at step k comes after a range you set at step k
     if (s.event < step && !s.skipped && s.event >= (at.get(s.seat) ?? -1)) {
-      out.set(s.seat, s.after);
+      out.set(s.seat, as === 'seen' ? s.seen : s.after);
       at.set(s.seat, s.event);
     }
   }

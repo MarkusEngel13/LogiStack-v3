@@ -268,7 +268,7 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onEditCopy }:
         </div>
         <div className="flex flex-col gap-3 xl:h-[calc(100vh-170px)] xl:max-h-[820px]">
           {!error && (
-            <DecisionPanel hand={hand} state={state} step={cursor} editable={editable} money={money} charts={charts} story={story} onSetRange={setRange} />
+            <DecisionPanel hand={hand} state={state} step={cursor} editable={editable} money={money} charts={charts} story={story} onSetRange={setRange} onAction={editable ? addEvent : undefined} />
           )}
           <div className="min-h-[260px] flex-1">
             <ActionList rows={rows} step={cursor} atEnd={cursor === last} onJump={jump} />

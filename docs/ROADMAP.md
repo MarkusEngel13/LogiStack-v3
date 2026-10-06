@@ -209,8 +209,25 @@ Defaults unless Marius says otherwise: HHP's bucket names; heads-up first, multi
        of the next card against the other range. Still heads-up only (multiway: later).
 
 ### Phase 3: choose it (sizes and lines)
-7. [ ] Size explorer (was step 5): continue % per bucket by size (elastic or not), EV per size,
-       value and bluff side by side (the inverse question); the same for Hero facing a bet.
+7. [x] Size explorer (2026-10-06, `motives/sizes.ts`, Lab: "Explore bet sizes…"): for the player
+       to act (heads-up, after the flop) every bet - or raise, when facing a bet - from ⅓ pot to
+       all-in: the other range's fold / call / raise, what the size says about your range (bucket
+       bar), your EV with known cards (one street: checked down after a call, the better of fold
+       and call against a raise), and the grid of who keeps going by bucket and size (elastic or
+       inelastic). "Bet" enters the size in the Lab. Doctrine tests in `sizes.test.ts`.
+       Model changes it forced (all HHP-backed, see the tests):
+       - range reading per player (`rangeReading`, Fish 0.2, Reg 0.75): how much they narrow the
+         other's range from what the other does. Recreational players think about their own hand:
+         top pair calls any normal size (inelastic). Each player sees the other's range through
+         their own reading (story.ts keeps a "seen" range per player).
+       - respect for big bets (from ¾ pot) grows on later streets and is capped (turn 1.5x, river
+         2x): big late bets are underbluffed and players know it, so they overfold to overbets
+         (Marius, 2026-10-06; HHP-S7eq8103TDg-52, HHP-vsSFecrDrb0-32). It also makes raising into
+         a big bet scary: raises against big bets are the nuts (HHP-hb5V55q-tTU-41/42).
+       - probability weighting only overweights long shots; it no longer shrinks a big favourite
+         (sets folded to shoves).
+       Still smells (for the "does it smell right?" page): thick value raises small flop bets a lot
+       (fear of the draws); the EV is one street only.
 8. [ ] "What happens if": check / bet small / bet big → the villain's range on the next street,
        on a blank and on a scare card.
 
