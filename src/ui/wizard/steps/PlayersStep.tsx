@@ -5,7 +5,7 @@ import { CardPicker } from '../../cards/CardPicker';
 import { PlayingCard } from '../../cards/PlayingCard';
 import { Button, Field, MoneyInput, TextInput, Toggle } from '../../controls';
 import { formatAmount } from '../../format';
-import { PLAYER_TYPES, STATUS_TAGS } from '../../playerTypes';
+import { PLAYER_TYPES, STATUS_TAGS, toggleStatus } from '../../playerTypes';
 import { useSettings } from '../../settings';
 import { PokerTable } from '../../table/PokerTable';
 import { newPlayer, previewPositions, type DraftPlayer, type WizardDraft } from '../draft';
@@ -101,7 +101,7 @@ function PlayerEditor({
   /** Add or remove whole big blinds; never below 1 BB. */
   const addBB = (n: number) => updateSeat((x) => ({ ...x, stack: Math.max(bb, x.stack + n * bb) }));
   const toggleTag = (tag: PlayerTag) =>
-    updateSeat((x) => ({ ...x, tags: x.tags.includes(tag) ? x.tags.filter((t) => t !== tag) : [...x.tags, tag] }));
+    updateSeat((x) => ({ ...x, tags: toggleStatus(x.tags, tag) }));
 
   // Cards held by everyone else, so the picker can grey them out
   const taken = new Set(draft.seats.flatMap((x, i) => (i !== seat && x?.cards ? x.cards.map(parseCard) : [])));

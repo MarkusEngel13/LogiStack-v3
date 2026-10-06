@@ -218,8 +218,8 @@ describe('fear of tough decisions, sessions and statuses', { timeout: 60_000 }, 
   test('drinking: both fold less than sober; lively ones raise more, tired ones raise less and call more', () => {
     const s = facingCbet(WET);
     const sober = decide(fish, s, bb, hero);
-    const lively = decide(withState(fish, { tags: ['drinking'], drinkingPhase: 'lively' }), s, bb, hero);
-    const tired = decide(withState(fish, { tags: ['drinking'], drinkingPhase: 'tired' }), s, bb, hero);
+    const lively = decide(withState(fish, { tags: ['drinking'] }), s, bb, hero);
+    const tired = decide(withState(fish, { tags: ['drinking-tired'] }), s, bb, hero);
     const all = () => true;
     const at = (d: Decision, k: string) => shareOf(d, bb, [k], all);
     expect(at(lively, 'fold')).toBeLessThan(at(sober, 'fold'));

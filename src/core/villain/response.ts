@@ -76,7 +76,7 @@ export function withStatuses(p: VillainProfile, tags: readonly string[] = []): V
   if (tags.includes('tilt')) {
     q = { ...q, callIncentive: q.callIncentive + 0.1, handThinking: Math.min(1, q.handThinking + 0.15), fear: q.fear * 0.7, aggression: q.aggression * 1.3, noise: q.noise + 0.05 };
   }
-  if (tags.includes('drinking')) {
+  if (tags.includes('drinking') || tags.includes('drinking-tired')) {
     q = { ...q, handThinking: Math.min(1, q.handThinking + 0.2), fear: q.fear * 0.5, aggression: q.aggression * 1.2, drawLove: q.drawLove + 0.05, noise: q.noise + 0.08 };
   }
   if (tags.includes('winning')) {

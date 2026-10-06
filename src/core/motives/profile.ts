@@ -71,17 +71,9 @@ export const MOTIVE_PRESETS: Record<string, MotiveProfile> = {
 };
 MOTIVE_PRESETS.Unknown = { ...MOTIVE_PRESETS.Reg!, name: 'Unknown' };
 
-/**
- * Drinking, from the research (see docs/ROADMAP.md, Phase 1 step 3): less loss aversion, long
- * shots overweighted, less embarrassment, noisier; "lively" (rising alcohol, stimulant) adds
- * aggression, "tired" (falling alcohol, sedative) turns it into calling.
- */
-export type DrinkingPhase = 'lively' | 'tired';
-
 export interface PlayerState {
-  /** The wizard's statuses: 'winning', 'tilt', 'drinking'. */
+  /** The wizard's statuses: 'winning', 'tilt', 'drinking' (lively), 'drinking-tired'. */
   tags?: readonly string[];
-  drinkingPhase?: DrinkingPhase;
   /** Won (+) or lost (-) this session, in big blinds: losses make players chase. */
   sessionBB?: number;
 }
@@ -89,7 +81,8 @@ export interface PlayerState {
 export function withState(p: MotiveProfile, s: PlayerState = {}): MotiveProfile {
   const tags = s.tags ?? [];
   let q = { ...p };
-  const drinking = tags.includes('drinking');
+  const tired = tags.includes('drinking-tired');
+  const drinking = tired || tags.includes('drinking');
   if (tags.includes('winning')) {
     // protecting the win (Marius's simulator; Eil & Lien 2014: less risk when ahead)
     q = { ...q, lossAversion: q.lossAversion * 1.2, comfortBB: q.comfortBB * 0.8, embarrassment: q.embarrassment + 0.05 };
@@ -97,9 +90,12 @@ export function withState(p: MotiveProfile, s: PlayerState = {}): MotiveProfile 
   if (tags.includes('tilt')) {
     q = { ...q, lossAversion: q.lossAversion * 0.75, fear: q.fear * 0.8, aggression: q.aggression + 0.08, stickiness: q.stickiness + 0.05, longShot: q.longShot * 0.9, noise: q.noise + 0.05 };
   }
+  // Drinking, from the research (docs/ROADMAP.md, Phase 1 step 3): less loss aversion, long shots
+  // overweighted, less embarrassment, noisier; lively (rising alcohol, stimulant) adds aggression,
+  // tired (falling alcohol, sedative) turns it into calling.
   if (drinking) {
     q = { ...q, lossAversion: q.lossAversion * 0.85, comfortBB: q.comfortBB * 1.3, embarrassment: q.embarrassment * 0.7, longShot: q.longShot * 0.9, noise: q.noise + 0.04 };
-    q = s.drinkingPhase === 'tired' ? { ...q, aggression: q.aggression - 0.12, stickiness: q.stickiness + 0.12 } : { ...q, aggression: q.aggression + 0.04 };
+    q = tired ? { ...q, aggression: q.aggression - 0.12, stickiness: q.stickiness + 0.12 } : { ...q, aggression: q.aggression + 0.04 };
   }
   // behind in the session: chasing (break-even effect; stronger after drinking - Tobias-Webb et al. 2019)
   if ((s.sessionBB ?? 0) < -30) q = { ...q, lossAversion: q.lossAversion * (drinking ? 0.75 : 0.85), longShot: q.longShot * 0.95 };
