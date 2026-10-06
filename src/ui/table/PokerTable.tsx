@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { PlayingCard } from '../cards/PlayingCard';
 import { seatSlots, slotOfSeat, type SeatSlot } from './geometry';
 
@@ -46,6 +46,10 @@ interface Props {
   buttonSeat: number | null;
   center?: ReactNode;
   onSeatClick?: (seat: number) => void;
+  /** Click on a seat's cards (face or back). */
+  onCardsClick?: (seat: number) => void;
+  /** What to show while the pointer is on a seat plate (null: nothing). */
+  seatHover?: (seat: number) => ReactNode;
 }
 
 // Sizes in cqw: percent of the table component's width.
@@ -53,7 +57,7 @@ const PLATE_W = 13.5;
 const PLATE_H = 5.4;
 const CARD_W = 4.4;
 
-export function PokerTable({ size, anchorSeat, seats, buttonSeat, center, onSeatClick }: Props) {
+export function PokerTable({ size, anchorSeat, seats, buttonSeat, center, onSeatClick, onCardsClick, seatHover }: Props) {
   const slots = seatSlots(size);
   const slotFor = (seat: number) => slots[slotOfSeat(seat, anchorSeat, size)]!;
 
@@ -90,7 +94,7 @@ export function PokerTable({ size, anchorSeat, seats, buttonSeat, center, onSeat
           {buttonSeat !== null && buttonSeat < size && <DealerButton slot={slotFor(buttonSeat)} />}
 
           {seats.map((s) => (
-            <SeatPlate key={s.seat} view={s} slot={slotFor(s.seat)} onClick={onSeatClick} />
+            <SeatPlate key={s.seat} view={s} slot={slotFor(s.seat)} onClick={onSeatClick} onCardsClick={onCardsClick} hover={seatHover} />
           ))}
         </div>
       </div>
@@ -149,7 +153,23 @@ function DealerButton({ slot }: { slot: SeatSlot }) {
   );
 }
 
-function SeatPlate({ view, slot, onClick }: { view: SeatView; slot: SeatSlot; onClick?: (seat: number) => void }) {
+function SeatPlate({
+  view,
+  slot,
+  onClick,
+  onCardsClick,
+  hover,
+}: {
+  view: SeatView;
+  slot: SeatSlot;
+  onClick?: (seat: number) => void;
+  onCardsClick?: (seat: number) => void;
+  hover?: (seat: number) => ReactNode;
+}) {
+  const [pointing, setPointing] = useState(false);
+  const popup = pointing && hover && !view.empty ? hover(view.seat) : null;
+  // seats in the top half get the popup below them, the others above (over their cards)
+  const below = slot.plate.y < 50;
   const dim = view.folded || view.sittingOut;
   const border = view.winner
     ? '0.22cqw solid #22c55e'
@@ -164,21 +184,36 @@ function SeatPlate({ view, slot, onClick }: { view: SeatView; slot: SeatSlot; on
   return (
     <div
       className="absolute"
-      style={{ left: `${slot.plate.x}%`, top: `${slot.plate.y}%`, transform: 'translate(-50%, -50%)', zIndex: view.selected ? 3 : 2 }}
+      style={{ left: `${slot.plate.x}%`, top: `${slot.plate.y}%`, transform: 'translate(-50%, -50%)', zIndex: popup ? 20 : view.selected ? 3 : 2 }}
     >
       {view.cards && view.cards.length > 0 && (
-        <div
-          className="absolute left-1/2 flex gap-[0.3cqw]"
+        <button
+          type="button"
+          disabled={!onCardsClick}
+          onClick={onCardsClick ? () => onCardsClick(view.seat) : undefined}
+          title={onCardsClick ? `Set ${view.name}'s hole cards` : undefined}
+          className={`absolute left-1/2 flex gap-[0.3cqw] ${onCardsClick ? 'cursor-pointer hover:brightness-110' : 'cursor-default'}`}
           style={{ bottom: `calc(100% - ${PLATE_H * 0.18}cqw)`, transform: 'translateX(-50%)', opacity: dim ? 0.45 : 1 }}
         >
           {view.cards.map((c, i) => (
             <PlayingCard key={i} card={c} width={`${CARD_W}cqw`} />
           ))}
+        </button>
+      )}
+
+      {popup && (
+        <div
+          className="pointer-events-none absolute left-1/2 w-64 -translate-x-1/2 rounded-lg border border-line bg-surface p-3 text-left shadow-2xl"
+          style={below ? { top: 'calc(100% + 1.6cqw)' } : { bottom: `calc(100% + ${CARD_W * 1.2}cqw)` }}
+        >
+          {popup}
         </div>
       )}
 
       <button
         type="button"
+        onMouseEnter={() => setPointing(true)}
+        onMouseLeave={() => setPointing(false)}
         onClick={onClick ? () => onClick(view.seat) : undefined}
         className={`relative flex flex-col items-center justify-center overflow-hidden text-center ${onClick ? 'cursor-pointer' : 'cursor-default'}`}
         style={{

@@ -9,6 +9,7 @@ import { FearPanel } from '../equity/FearPanel';
 import { RangeGrid, type Segment } from '../ranges/RangeGrid';
 import { streetName } from '../replay/views';
 import { BUCKET_COLORS, BUCKET_SHORT, BucketBar, combosText, RangeStory } from './RangeStory';
+import { weightSegments } from './VillainRangeModal';
 
 /** Suit colours as on the four-colour deck: ♠ text, ♥ red, ♦ blue, ♣ green. */
 const SUIT_COLOURS: Record<string, string> = { '♠': 'var(--text)', '♥': '#d6262b', '♦': '#2f6fd6', '♣': '#1f8a4c' };
@@ -64,6 +65,7 @@ export function RangeModal({
   board,
   known,
   opponent,
+  note,
   onClose,
 }: {
   title: string;
@@ -77,6 +79,8 @@ export function RangeModal({
   known: readonly Card[];
   /** The other player's range at this step (heads-up), for the fear map. */
   opponent?: Weights;
+  /** Where the range comes from (chart for the preflop spot, your range, ...). */
+  note?: string;
   onClose: () => void;
 }) {
   const mine = useMemo(() => steps.filter((s) => s.seat === seat && s.event < step && !s.skipped), [steps, seat, step]);
@@ -87,6 +91,8 @@ export function RangeModal({
   const kept = shown ? shown.after : current;
   const from = shown ? shown.before : (mine[0]?.before ?? current);
   const onBoard = shown ? shown.board : board;
+  // before the flop there are no buckets: the range is the chart, filled by weight
+  const preflop = onBoard.length < 3;
   const dead = useMemo(() => [...known, ...onBoard], [known, onBoard]);
 
   const { fills, keptLive, fromLive, removed } = useMemo(() => {
@@ -94,10 +100,10 @@ export function RangeModal({
     const f = withoutCards(from, dead);
     const r = new Float32Array(1326);
     for (let c = 0; c < 1326; c++) r[c] = Math.max(0, f[c]! - k[c]!);
-    return { fills: storySegments(k, r, onBoard), keptLive: k, fromLive: f, removed: r };
-  }, [kept, from, dead, onBoard]);
+    return { fills: preflop ? weightSegments(k) : storySegments(k, r, onBoard), keptLive: k, fromLive: f, removed: r };
+  }, [kept, from, dead, onBoard, preflop]);
 
-  const buckets = useMemo(() => bucketAll(onBoard), [onBoard]);
+  const buckets = useMemo(() => (preflop ? [] : bucketAll(onBoard)), [onBoard, preflop]);
   const hovered =
     hover === null
       ? []
@@ -138,10 +144,12 @@ export function RangeModal({
               </span>
             )}
           </div>
-          <BucketBar weights={keptLive} board={onBoard} />
+          {!preflop && <BucketBar weights={keptLive} board={onBoard} />}
           <div className="min-h-[72px] rounded-md border border-line bg-surface-2 px-3 py-2 text-xs">
             {hover === null ? (
-              <span className="text-faint">Point at a cell to see its combos: what is left of each, and its bucket on this board.</span>
+              <span className="text-faint">
+                Point at a cell to see its combos: {preflop ? 'how much of each is in the range.' : 'what is left of each, and its bucket on this board.'}
+              </span>
             ) : (
               <>
                 <div className="mb-1 font-semibold">{CELL_NAMES[hover]}</div>
@@ -171,6 +179,13 @@ export function RangeModal({
         </div>
 
         <div className="space-y-4">
+          {note && <p className="text-sm leading-snug text-muted">{note}</p>}
+          {preflop ? (
+            <p className="text-sm leading-snug text-faint">
+              After the flop the range narrows at every action, by the fear-and-greed model; this window then shows the buckets, what each
+              action took out and why.
+            </p>
+          ) : (
           <div>
             <div className="mb-1 text-xs font-bold tracking-wider text-muted uppercase">Its actions, bucket by bucket</div>
             {mine.length === 0 ? (
@@ -184,6 +199,7 @@ export function RangeModal({
               hands kept in, ...).
             </p>
           </div>
+          )}
           {fearOk && (
             <FearPanel
               player={seat}

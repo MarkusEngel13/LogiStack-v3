@@ -7,6 +7,8 @@ import { notesBefore, withNote, withoutNote } from '../../core/ranges/handRanges
 import { rangesAt } from '../../core/motives/story';
 import { ActionBar } from '../lab/ActionBar';
 import { DecisionPanel } from '../lab/DecisionPanel';
+import { RangeModal } from '../lab/RangeModal';
+import { seatRange, SeatRangeSummary } from '../lab/SeatRange';
 import { useStory } from '../lab/useStory';
 import { allCharts } from '../ranges/charts';
 import { downloadJson, saveHand } from '../library';
@@ -37,6 +39,7 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onEditCopy }:
   const [undoStack, setUndoStack] = useState<{ hand: HandRecord; step: number }[]>([]);
   const [editError, setEditError] = useState<string | null>(null);
   const [cardsFor, setCardsFor] = useState<number | null>(null);
+  const [rangeFor, setRangeFor] = useState<number | null>(null);
 
   const { steps, error } = useMemo(() => safeSteps(hand), [hand]);
   const last = steps.length - 1;
@@ -171,6 +174,13 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onEditCopy }:
     hand.sideGames?.squid ? `${SQUID_ICON} Squid ${money(hand.sideGames.squid.value)}` : null,
   ].filter(Boolean);
 
+  /** A player's range at the cursor: the story's after the flop, the chart (or yours) before. */
+  const seatRangeAt = (seat: number) => seatRange(hand, state, cursor, seat, charts, story, storyRanges);
+  const rangeSeat = rangeFor !== null ? seatRangeAt(rangeFor) : null;
+  // heads-up: the other player still in, for the fear map
+  const otherLive = rangeSeat ? state.seats.filter((s) => s.dealtIn && !s.folded && s.seat !== rangeSeat.seat) : [];
+  const rangeOpponent = otherLive.length === 1 ? (state.board.length >= 3 ? storyRanges?.get(otherLive[0]!.seat) : undefined) : undefined;
+
   const pickerTaken = (seat: number) =>
     new Set([...final.board, ...final.seats.filter((s) => s.seat !== seat && s.cards).flatMap((s) => s.cards!)]);
   const cardsPlayer = hand.players.find((p) => p.seat === cardsFor);
@@ -232,7 +242,12 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onEditCopy }:
               buttonSeat={hand.button}
               seats={replaySeatViews(hand, state, { money, showAllCards: settings.showAllCards || editable, isLastStep: cursor === last })}
               center={<TableCenter state={state} money={money} summary={cursor === last ? resultSummary(hand, state.result, money) : []} />}
-              onSeatClick={editable ? setCardsFor : undefined}
+              onSeatClick={(seat) => seatRangeAt(seat) && setRangeFor(seat)}
+              onCardsClick={editable ? setCardsFor : undefined}
+              seatHover={(seat) => {
+                const r = seatRangeAt(seat);
+                return r ? <SeatRangeSummary r={r} board={state.board} editable={editable} /> : null;
+              }}
             />
           </div>
           {editable && !error && (
@@ -249,7 +264,8 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onEditCopy }:
           )}
           {editable && (
             <p className="px-1 text-xs text-faint">
-              Click a seat to set its hole cards. Click a line in the action list to go back to it. Undo: Ctrl+Z.
+              Point at a player for their range, click for the whole of it; click their cards to set them. Click a line in the action list
+              to go back to it. Undo: Ctrl+Z.
             </p>
           )}
           <PlaybackBar
@@ -275,6 +291,21 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onEditCopy }:
           </div>
         </div>
       </div>
+
+      {rangeSeat && (
+        <RangeModal
+          title={`${rangeSeat.name} (${rangeSeat.position}${rangeSeat.playerType ? `, ${rangeSeat.playerType}` : ''}): range at this point`}
+          seat={rangeSeat.seat}
+          steps={story.steps ?? []}
+          step={cursor}
+          current={rangeSeat.weights}
+          board={state.board}
+          known={rangeSeat.known}
+          opponent={rangeOpponent}
+          note={rangeSeat.folded ? 'Folded - this was the range when they folded.' : rangeSeat.explanation}
+          onClose={() => setRangeFor(null)}
+        />
+      )}
 
       {cardsPlayer && (
         <CardPicker
