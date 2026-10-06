@@ -23,6 +23,7 @@ export function FearPanel({
   opponent,
   vsField,
   inputsKey,
+  title,
 }: {
   player: number;
   board: Card[];
@@ -34,6 +35,8 @@ export function FearPanel({
   vsField: Float32Array | undefined;
   /** Changes whenever weights, opponent or board change. */
   inputsKey: string;
+  /** Heading; "Player N: buckets and fear" by default. */
+  title?: string;
 }) {
   const [picked, setPicked] = useState<Bucket>('cpfs');
   const { answer, pending } = useEquity({ kind: 'fear', a: weights, b: opponent, board }, `fear:${inputsKey}`);
@@ -68,7 +71,7 @@ export function FearPanel({
   return (
     <section className="rounded-lg border border-line bg-surface p-4">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-xs font-bold tracking-wider text-muted uppercase">Player {player + 1}: buckets and fear</h2>
+        <h2 className="text-xs font-bold tracking-wider text-muted uppercase">{title ?? `Player ${player + 1}: buckets and fear`}</h2>
         {pending && <span className="text-xs text-muted">calculating…</span>}
       </div>
       {answer?.error && <p className="text-sm text-danger">{answer.error}</p>}
@@ -79,7 +82,7 @@ export function FearPanel({
               <tr className="text-left text-xs text-muted">
                 <th className="py-1 font-semibold">Bucket</th>
                 <th className="py-1 text-right font-semibold">Combos</th>
-                <th className="py-1 text-right font-semibold">Equity</th>
+                {vsField && <th className="py-1 text-right font-semibold">Equity</th>}
                 <th className="py-1 text-right font-semibold" title="Share of the other range this bucket beats right now">
                   Ahead now
                 </th>
@@ -104,7 +107,7 @@ export function FearPanel({
                     <td className="py-1.5 text-right tabular-nums">
                       {r.combos.toFixed(1).replace(/\.0$/, '')} <span className="text-xs text-faint">{pct(r.combos / total)}</span>
                     </td>
-                    <td className="py-1.5 text-right tabular-nums text-muted">{pct(r.equity)}</td>
+                    {vsField && <td className="py-1.5 text-right tabular-nums text-muted">{pct(r.equity)}</td>}
                     <td className="py-1.5 text-right tabular-nums">{pct(r.ahead)}</td>
                     <td className="py-1.5 text-right">
                       <span className="inline-block min-w-12 rounded px-1.5 text-center text-xs font-bold text-white tabular-nums" style={{ background: fearColour(r.fear * 2.5) }}>

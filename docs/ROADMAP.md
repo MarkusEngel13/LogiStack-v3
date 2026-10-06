@@ -198,11 +198,15 @@ Defaults unless Marius says otherwise: HHP's bucket names; heads-up first, multi
        donks are mostly weak); (b) believed folds grew too steeply with size, so every bluff was
        an overbet - beliefs now mostly inelastic (a small bet gets most of the folds); (c) the
        exact size narrowed too hard - now a soft size tell (75 % size, 25 % "a bet is a bet").
-6. [~] Range story: done - per player a bucket bar of the range now; per action "combos before →
-       after" and the share that can play for stacks (marked "capped" when it halves); click an
-       action for how much of each bucket took it and the whole range's split. To do: the 13x13
-       with removed combos greyed ("raised: 14 combos"); the motive per bucket ("99 raised: fear,
-       14 of 45 turn cards hurt it"); the fear map of the next card; multiway.
+6. [x] Range story (2026-10-06): per player a bucket bar of the range now; per action "combos
+       before → after" and the share that can play for stacks (marked "capped" when it halves);
+       click an action for how much of each bucket took it, why, and the whole range's split.
+       The why (`motives/why.ts`): the option the bucket preferred, the one it beat, and the
+       motives that tipped it, plus the next cards that hurt it - "Raise 3.5x over Call: fear of
+       being outdrawn, greed · 29 of 47 turn cards hurt it". "View" opens the range window: the
+       13x13 coloured by bucket with what was taken out greyed (since the flop, or by one action),
+       each combo on hover, the story with the motive amounts, and on the flop or turn the fear map
+       of the next card against the other range. Still heads-up only (multiway: later).
 
 ### Phase 3: choose it (sizes and lines)
 7. [ ] Size explorer (was step 5): continue % per bucket by size (elastic or not), EV per size,
@@ -226,6 +230,15 @@ Defaults unless Marius says otherwise: HHP's bucket names; heads-up first, multi
         range does, shown as ranges and bucket bars (raised / called / folded). Marius looks and
         says "feels right" or "smells fishy", with a note; the verdicts are saved with the spot so
         they become test cases (fishy ones point at the motive weight to fix).
+
+### Strategy Bible backlog (paused 2026-10-06, "for another night")
+The bible (`OneDrive\Poker\165 - HungryHorse Plan\Strategy Bible`): 34 videos, 1996 claims so far
+(pilot + HHP batches 1-3). Still to do, batches of 10, Marius OKs each:
+- [ ] HHP: 166 videos left in `videos_HHP.csv` - 122 videos and 44 vlog episodes (include them), ~89 h.
+- [ ] Charlie Carrel: all of `videos_CC.csv` (~399), the bankroll-challenge episodes too (he gives
+      advice while playing).
+- [ ] Clean-up: merge the claims that repeat across videos into one claim with several sources;
+      check them against the old 77-summary doc (vs_doc).
 
 Drinking: both, by phase (see step 3). "Winning" = "protect the win" (tighter), as in Marius's
 simulator and Eil & Lien (done in `motives/profile.ts`).

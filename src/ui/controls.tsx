@@ -232,7 +232,8 @@ export function Modal({
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
-  wide?: boolean;
+  /** true: up to 56rem; 'xl': up to 72rem. */
+  wide?: boolean | 'xl';
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -242,7 +243,7 @@ export function Modal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'var(--overlay)' }} onMouseDown={onClose}>
       <div
-        className={`max-h-[90vh] w-full ${wide ? 'max-w-4xl' : 'max-w-lg'} overflow-auto rounded-xl border border-line bg-surface shadow-2xl`}
+        className={`max-h-[90vh] w-full ${wide === 'xl' ? 'max-w-6xl' : wide ? 'max-w-4xl' : 'max-w-lg'} overflow-auto rounded-xl border border-line bg-surface shadow-2xl`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-line px-5 py-3">

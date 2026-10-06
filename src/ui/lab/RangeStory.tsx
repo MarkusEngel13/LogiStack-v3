@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { BUCKETS, BUCKET_LABELS, rangeBuckets, type Bucket } from '../../core/buckets';
 import type { Card } from '../../core/cards';
+import type { Motives } from '../../core/motives/decide';
 import type { StoryStep } from '../../core/motives/story';
+import { whyBucket } from '../../core/motives/why';
 import { withoutCards, type Weights } from '../../core/ranges/range';
 import { streetName } from '../replay/views';
 
@@ -16,7 +18,7 @@ export const BUCKET_COLORS: Record<Bucket, string> = {
   air: '#6b6b6b',
 };
 
-const SHORT: Record<Bucket, string> = {
+export const BUCKET_SHORT: Record<Bucket, string> = {
   cpfs: 'Stacks',
   thick: 'Thick',
   thin: 'Thin',
@@ -26,8 +28,33 @@ const SHORT: Record<Bucket, string> = {
   air: 'Air',
 };
 
+/** The motives in a few words, as the why line uses them. */
+const MOTIVE_SHORT: Record<keyof Motives, string> = {
+  gain: 'greed',
+  loss: 'loss aversion',
+  fear: 'fear of being outdrawn',
+  trap: 'trapping',
+  tough: 'fear of a tough spot',
+  embarrassment: 'embarrassment',
+  liking: 'habit',
+};
+
 const pct = (x: number) => (Number.isNaN(x) ? '–' : `${Math.round(x * 100)}%`);
-const combos = (n: number) => n.toFixed(n < 10 ? 1 : 0).replace(/\.0$/, '');
+export const combosText = (n: number) => n.toFixed(n < 10 ? 1 : 0).replace(/\.0$/, '');
+
+/** "Raise 3.5x over Call: fear of being outdrawn, greed · 16 of 47 turn cards hurt it". */
+export function whyLine(s: StoryStep, b: Bucket, numbers = false): string | null {
+  const w = whyBucket(s, b);
+  if (!w) return null;
+  const head = `${s.options[w.winner]!.label} over ${s.options[w.loser]!.label}`;
+  const reasons = w.reasons
+    .slice(0, numbers ? 3 : 2)
+    .map((r) => MOTIVE_SHORT[r.motive] + (numbers ? ` +${r.by.toFixed(2)}` : ''))
+    .join(', ');
+  const next = s.street === 'flop' ? 'turn' : 'river';
+  const cards = s.nextCards > 0 && w.scaryCards > 0 ? ` · ${w.scaryCards} of ${s.nextCards} ${next} cards hurt it` : '';
+  return `${head}${reasons ? `: ${reasons}` : ''}${cards}`;
+}
 
 /** A range on a board as one bar of HHP buckets, strongest on the left. */
 export function BucketBar({ weights, board }: { weights: Weights; board: Card[] }) {
@@ -40,7 +67,7 @@ export function BucketBar({ weights, board }: { weights: Weights; board: Card[] 
           rows[b].combos > 0 ? (
             <div
               key={b}
-              title={`${BUCKET_LABELS[b]}: ${combos(rows[b].combos)} combos (${pct(rows[b].combos / total)})`}
+              title={`${BUCKET_LABELS[b]}: ${combosText(rows[b].combos)} combos (${pct(rows[b].combos / total)})`}
               style={{ width: `${(rows[b].combos / total) * 100}%`, background: BUCKET_COLORS[b] }}
             />
           ) : null,
@@ -50,7 +77,7 @@ export function BucketBar({ weights, board }: { weights: Weights; board: Card[] 
         {BUCKETS.filter((b) => rows[b].combos / total >= 0.005).map((b) => (
           <span key={b} title={BUCKET_LABELS[b]}>
             <span className="mr-0.5 inline-block h-1.5 w-1.5 rounded-full align-middle" style={{ background: BUCKET_COLORS[b] }} />
-            {SHORT[b]} {pct(rows[b].combos / total)}
+            {BUCKET_SHORT[b]} {pct(rows[b].combos / total)}
           </span>
         ))}
       </div>
@@ -60,10 +87,23 @@ export function BucketBar({ weights, board }: { weights: Weights; board: Card[] 
 
 /**
  * One player's postflop actions and what each did to their range: combos before → after, the
- * share that can play for stacks (a call that drops it is a cap), and on a click, how often
- * each bucket took that action.
+ * share that can play for stacks (a call that drops it is a cap), and on a click, how much of
+ * each bucket took the action and why. `detailed` (the range window) opens every row and shows
+ * the motive amounts.
  */
-export function RangeStory({ seat, steps, step, known }: { seat: number; steps: readonly StoryStep[]; step: number; known: readonly Card[] }) {
+export function RangeStory({
+  seat,
+  steps,
+  step,
+  known,
+  detailed = false,
+}: {
+  seat: number;
+  steps: readonly StoryStep[];
+  step: number;
+  known: readonly Card[];
+  detailed?: boolean;
+}) {
   const [open, setOpen] = useState<number | null>(null);
   const rows = steps.filter((s) => s.seat === seat && s.event < step);
   if (rows.length === 0) return null;
@@ -76,15 +116,15 @@ export function RangeStory({ seat, steps, step, known }: { seat: number; steps: 
         const topBefore = before.total > 0 ? before.rows.cpfs.combos / before.total : NaN;
         const topAfter = after.total > 0 ? after.rows.cpfs.combos / after.total : NaN;
         const capped = topBefore >= 0.03 && topAfter < topBefore / 2;
-        const isOpen = open === s.event;
+        const isOpen = detailed || open === s.event;
         return (
           <div key={s.event} className="rounded border border-line/60 bg-surface-2/60 px-2 py-1">
             <button
               type="button"
-              disabled={!!s.skipped}
+              disabled={!!s.skipped || detailed}
               onClick={() => setOpen(isOpen ? null : s.event)}
               className="flex w-full items-baseline gap-2 text-left text-xs"
-              title={s.skipped ? undefined : 'How often each bucket took this action'}
+              title={s.skipped || detailed ? undefined : 'Which hands took this action, and why'}
             >
               <span className="w-9 shrink-0 text-faint">{streetName(s.street)}</span>
               <span className="font-semibold">{s.action}</span>
@@ -97,35 +137,37 @@ export function RangeStory({ seat, steps, step, known }: { seat: number; steps: 
                     {capped && ' · capped'}
                   </span>
                   <span className="ml-auto shrink-0 text-muted tabular-nums" title="Combos before → after">
-                    {combos(before.total)} → {combos(after.total)}
+                    {combosText(before.total)} → {combosText(after.total)}
                   </span>
                 </>
               )}
             </button>
             {isOpen && !s.skipped && (
               <div className="mt-1.5 space-y-1.5 border-t border-line/60 pt-1.5">
-                <table className="w-full text-[11px]">
-                  <tbody>
-                    {BUCKETS.filter((b) => (s.byBucket[b]?.combos ?? 0) > 0).map((b) => {
-                      const r = s.byBucket[b]!;
-                      return (
-                        <tr key={b}>
-                          <td className="py-0.5">
+                <div className="space-y-1">
+                  {BUCKETS.filter((b) => (s.byBucket[b]?.combos ?? 0) > 0).map((b) => {
+                    const r = s.byBucket[b]!;
+                    const why = r.combos >= 1 ? whyLine(s, b, detailed) : null;
+                    return (
+                      <div key={b} className="text-[11px]">
+                        <div className="flex items-center gap-2">
+                          <span className="min-w-0 flex-1 truncate">
                             <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full align-middle" style={{ background: BUCKET_COLORS[b] }} />
                             {BUCKET_LABELS[b]}
-                          </td>
-                          <td className="py-0.5 text-right text-faint tabular-nums">{combos(r.combos)}</td>
-                          <td className="w-24 py-0.5 pl-2">
-                            <div className="h-1.5 rounded-sm bg-surface-3">
-                              <div className="h-1.5 rounded-sm" style={{ width: `${r.took * 100}%`, background: BUCKET_COLORS[b] }} />
-                            </div>
-                          </td>
-                          <td className="w-9 py-0.5 text-right tabular-nums">{pct(r.took)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                          </span>
+                          <span className="text-faint tabular-nums">{combosText(r.combos)}</span>
+                          <span className="w-20 shrink-0">
+                            <span className="block h-1.5 rounded-sm bg-surface-3">
+                              <span className="block h-1.5 rounded-sm" style={{ width: `${r.took * 100}%`, background: BUCKET_COLORS[b] }} />
+                            </span>
+                          </span>
+                          <span className="w-8 shrink-0 text-right tabular-nums">{pct(r.took)}</span>
+                        </div>
+                        {why && <div className="pl-2.5 leading-snug text-faint">{why}</div>}
+                      </div>
+                    );
+                  })}
+                </div>
                 <p className="text-[11px] leading-snug text-faint">
                   The whole range here: {s.options.map((o) => `${o.label} ${pct(o.share)}`).join(' · ')}
                 </p>

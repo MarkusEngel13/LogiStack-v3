@@ -90,7 +90,9 @@ export interface Decision {
   shares: number[];
   /** The same per bucket (main bucket of the actor's combos). */
   byBucket: Partial<Record<Bucket, { combos: number; shares: number[] }>>;
-  facts: { equity: Float32Array; ahead: Float32Array; scary: Float32Array };
+  /** Per combo: equity, share of the other range beaten now, felt fear (scary, two cards to come
+   * count 1.5x) and the plain share of next cards that bite into the lead (0 on the river). */
+  facts: { equity: Float32Array; ahead: Float32Array; scary: Float32Array; bites: Float32Array };
   /** How one combo weighs each option. */
   explain(combo: number): Explained[];
 }
@@ -139,6 +141,7 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
   // scare more than one. 0 on the river.
   let ahead: Float32Array;
   const scary = new Float32Array(1326);
+  const bites = new Float32Array(1326);
   if (river) {
     ahead = aheadNow(mine, opp, board);
   } else {
@@ -156,7 +159,8 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
         seen++;
         if (o >= BITE * A) n++;
       }
-      scary[combo] = seen > 0 ? Math.min(1, (n / seen) * cardsToCome) : 0;
+      bites[combo] = seen > 0 ? n / seen : 0;
+      scary[combo] = Math.min(1, bites[combo]! * cardsToCome);
     }
   }
 
@@ -321,7 +325,7 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
     probs,
     shares,
     byBucket,
-    facts: { equity, ahead, scary },
+    facts: { equity, ahead, scary, bites },
     explain(combo) {
       return options.map((option) => {
         const motives = motivesOf(combo, option);

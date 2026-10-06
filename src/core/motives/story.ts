@@ -22,7 +22,7 @@ import { playerRange } from '../ranges/handRanges';
 import { parseRange } from '../ranges/notation';
 import type { Weights } from '../ranges/range';
 import type { ChartChoice } from '../ranges/spot';
-import { DEFAULT_BETS, DEFAULT_RAISES, decide, type OptionKind, type Situation } from './decide';
+import { DEFAULT_BETS, DEFAULT_RAISES, decide, type Motives, type OptionKind, type Situation } from './decide';
 import { profileFor, type MotiveProfile } from './profile';
 
 /** One action after the flop, as the model sees it. */
@@ -53,6 +53,18 @@ export interface StoryOption {
   share: number;
 }
 
+/** One bucket of the actor's range at one action. */
+export interface BucketStory {
+  /** Combos before the action. */
+  combos: number;
+  /** Share it kept: took the action (size-tilted). */
+  took: number;
+  /** Each option's score parts (the weighted motives, pots), averaged over the bucket: the why. */
+  parts: Motives[];
+  /** Average share of next cards that bite into its lead (0 on the river). */
+  bites: number;
+}
+
 export interface StoryStep {
   event: number;
   street: Street;
@@ -63,8 +75,10 @@ export interface StoryStep {
   /** The model's menu with each option's share; `taken` is the action that happened. */
   options: StoryOption[];
   taken: number;
-  /** Per bucket of the actor's range: combos before and the share it kept (took the action, size-tilted). */
-  byBucket: Partial<Record<Bucket, { combos: number; took: number }>>;
+  /** Per bucket of the actor's range: combos, share kept, and why. */
+  byBucket: Partial<Record<Bucket, BucketStory>>;
+  /** Possible next cards for a hand (47 on the flop, 46 on the turn, 0 on the river). */
+  nextCards: number;
   before: Weights;
   after: Weights;
   /** Why the range wasn't narrowed. */
@@ -195,7 +209,8 @@ export function runStory(input: StoryInput, cache?: StoryCache): StoryStep[] {
     }
     const before = current.get(pt.seat);
     const action = pt.taken.allIn ? 'All-in' : pt.taken.kind.charAt(0).toUpperCase() + pt.taken.kind.slice(1);
-    const base = { event: pt.event, street: pt.street, seat: pt.seat, board: pt.situation.board, action, options: [], taken: -1, byBucket: {} };
+    const nextCards = pt.situation.board.length < 5 ? 50 - pt.situation.board.length : 0;
+    const base = { event: pt.event, street: pt.street, seat: pt.seat, board: pt.situation.board, action, options: [], taken: -1, byBucket: {}, nextCards };
     if (!before) {
       out.push({ ...base, before: new Float32Array(1326), after: new Float32Array(1326), skipped: 'no range' });
       continue;
@@ -235,7 +250,8 @@ function narrow(profile: MotiveProfile, pt: StoryPoint, mine: Weights, opp: Weig
   const top = 1 - SIZE_TELL + SIZE_TELL * n;
   const after = new Float32Array(1326);
   const buckets = bucketAll(pt.situation.board);
-  const acc: Partial<Record<Bucket, { combos: number; kept: number }>> = {};
+  const blank = (): Motives => ({ gain: 0, loss: 0, fear: 0, trap: 0, tough: 0, embarrassment: 0, liking: 0 });
+  const acc: Partial<Record<Bucket, { combos: number; kept: number; parts: Motives[]; bites: number }>> = {};
   for (let c = 0; c < 1326; c++) {
     const w = mine[c]!;
     const pr = d.probs[taken]![c]!;
@@ -245,13 +261,24 @@ function narrow(profile: MotiveProfile, pt: StoryPoint, mine: Weights, opp: Weig
     for (const i of same) kind += d.probs[i]![c]!;
     const keep = n > 1 && kind > 0 ? (kind * (1 - SIZE_TELL + SIZE_TELL * n * (pr / kind))) / top : kind;
     after[c] = w * keep;
-    const row = (acc[b] ??= { combos: 0, kept: 0 });
+    const row = (acc[b] ??= { combos: 0, kept: 0, parts: d.options.map(blank), bites: 0 });
     row.combos += w;
     row.kept += w * keep;
+    row.bites += w * d.facts.bites[c]!;
+    d.explain(c).forEach((x, i) => {
+      const part = row.parts[i]!;
+      for (const k of Object.keys(part) as (keyof Motives)[]) part[k] += w * x.weighted[k];
+    });
   }
   const byBucket: Narrowed['byBucket'] = {};
-  for (const [b, row] of Object.entries(acc) as [Bucket, { combos: number; kept: number }][]) {
-    byBucket[b] = { combos: row.combos, took: row.combos > 0 ? row.kept / row.combos : 0 };
+  for (const [b, row] of Object.entries(acc) as [Bucket, NonNullable<(typeof acc)[Bucket]>][]) {
+    const avg = (x: number) => (row.combos > 0 ? x / row.combos : 0);
+    byBucket[b] = {
+      combos: row.combos,
+      took: avg(row.kept),
+      parts: row.parts.map((m) => Object.fromEntries(Object.entries(m).map(([k, v]) => [k, avg(v)])) as unknown as Motives),
+      bites: avg(row.bites),
+    };
   }
   return {
     options: d.options.map((o, i) => ({ label: o.label, kind: o.kind, share: d.shares[i]! })),

@@ -8,6 +8,7 @@ import { LIBRARY } from '../ranges/library';
 import { comboTotal } from '../ranges/range';
 import type { ChartChoice } from '../ranges/spot';
 import { rangesAt, runStory, storyInput, type StoryStep } from './story';
+import { whyBucket } from './why';
 
 const CHARTS: ChartChoice[] = LIBRARY.map((r) => ({ ...r }));
 
@@ -103,6 +104,24 @@ describe('the quantum villain: postflop actions narrow the ranges', { timeout: 1
     const dryAfter = share(dry[2]!.after, STATIC, 'cpfs');
     expect(wetAfter / wetBefore).toBeLessThan(0.3);
     expect(dryAfter / dryBefore).toBeGreaterThan(0.7);
+  });
+
+  // HHP: strong hands fast-play wet boards out of fear (Strategy Bible, e.g. HHP-sQTa32Rfsqs);
+  // on a static board they trap.
+  test('why: the Fish raises its sets on the wet board for fear of the draws, traps them on the static one', () => {
+    const wetWhy = whyBucket(story[2]!, 'cpfs')!;
+    expect(wetWhy.tookIt).toBe(false); // the action taken was a call; sets mostly raised
+    expect(story[2]!.options[wetWhy.winner]!.kind).toBe('raise');
+    expect(wetWhy.reasons.slice(0, 2).map((r) => r.motive)).toContain('fear');
+    expect(wetWhy.scaryCards).toBeGreaterThan(8);
+    expect(story[2]!.nextCards).toBe(47);
+
+    const dryHand = btnVsBb(STATIC, checkBetCall);
+    const dry = runStory(storyInput(dryHand, replaySteps(dryHand), CHARTS)!);
+    const dryWhy = whyBucket(dry[2]!, 'cpfs')!;
+    expect(dryWhy.tookIt).toBe(true); // called: the trap
+    expect(dryWhy.reasons.map((r) => r.motive)).toContain('trap');
+    expect(dryWhy.scaryCards).toBeLessThan(wetWhy.scaryCards);
   });
 
   test('rangesAt: the start range before the flop action, the narrowed one after', () => {

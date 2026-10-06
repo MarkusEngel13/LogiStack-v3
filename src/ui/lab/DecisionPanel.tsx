@@ -8,6 +8,7 @@ import { comboTotal, withoutCards } from '../../core/ranges/range';
 import type { ChartChoice } from '../../core/ranges/spot';
 import { PlayingCard } from '../cards/PlayingCard';
 import type { Money } from '../replay/views';
+import { RangeModal } from './RangeModal';
 import { BucketBar, RangeStory } from './RangeStory';
 import { useEquity } from './useEquity';
 import type { StoryView } from './useStory';
@@ -43,6 +44,7 @@ export function DecisionPanel({
   onSetRange: (seat: SeatNo, range: string | null) => void;
 }) {
   const [editing, setEditing] = useState<SeatNo | null>(null);
+  const [viewing, setViewing] = useState<SeatNo | null>(null);
   const me = state.phase === 'betting' && state.toAct !== null ? state.seats.find((s) => s.seat === state.toAct) : undefined;
   // Opponents are the players who have put chips in by choice; those still to act (who mostly
   // fold) are left out rather than counted as random hands.
@@ -164,6 +166,16 @@ export function DecisionPanel({
                 <span className="font-semibold">{o.name}</span>
                 <span className="text-xs text-muted">{o.position}</span>
                 <span className="ml-auto text-xs text-muted">{combosText(live)}</span>
+                {r.narrowed && story.steps && (
+                  <button
+                    type="button"
+                    onClick={() => setViewing(r.seat)}
+                    title="The range up close: the 13x13 with what each action took out, why, and the fear of the next card"
+                    className="rounded border border-line px-2 py-0.5 text-xs text-muted hover:text-ink"
+                  >
+                    View
+                  </button>
+                )}
                 {editable && (
                   <button type="button" onClick={() => setEditing(r.seat)} className="rounded border border-line px-2 py-0.5 text-xs text-muted hover:text-ink">
                     Edit
@@ -193,6 +205,9 @@ export function DecisionPanel({
               <span className="font-semibold">{me.name}'s line</span>
               <span className="text-xs text-muted">what it tells the others</span>
               <span className="ml-auto text-xs text-muted">{combosText(comboTotal(withoutCards(myLine, state.board)))}</span>
+              <button type="button" onClick={() => setViewing(me.seat)} className="rounded border border-line px-2 py-0.5 text-xs text-muted hover:text-ink">
+                View
+              </button>
             </div>
             <div className="mt-1.5">
               <BucketBar weights={withoutCards(myLine, state.board)} board={state.board} />
@@ -220,6 +235,20 @@ export function DecisionPanel({
           </p>
         )}
       </div>
+
+      {viewing !== null && narrowed?.get(viewing) && story.steps && (
+        <RangeModal
+          title={`${state.seats.find((s) => s.seat === viewing)?.name ?? 'Player'}: ${viewing === me.seat ? 'the range your line shows' : 'range at this point'}`}
+          seat={viewing}
+          steps={story.steps}
+          step={step}
+          current={narrowed.get(viewing)!}
+          board={state.board}
+          known={viewing === me.seat ? [] : (me.cards ?? [])}
+          opponent={ranges.length === 1 ? (viewing === me.seat ? ranges[0]!.weights : myLine) : undefined}
+          onClose={() => setViewing(null)}
+        />
+      )}
 
       {editedRange && editedSeat && (
         <VillainRangeModal
