@@ -127,6 +127,8 @@ export function situationOf(state: TableState, seat: SeatNo): { situation: Situa
     // players who still have to match the bet after this one
     const behind = opps.filter((o) => !o.allIn && o.streetBet < state.currentBet).length;
     if (behind > 0) situation.behind = behind;
+    // their own bet got raised (a check-raise, a re-raise)
+    if (me.streetBet > 0 && state.street !== 'preflop') situation.facingRaise = true;
   } else if (opps.length > 0) {
     // the last bet or raise of the hand so far was someone else's: they have the initiative
     for (let k = state.log.length - 1; k >= 0; k--) {

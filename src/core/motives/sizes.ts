@@ -113,6 +113,8 @@ export function theirAnswer(q: SizeQuestion, mine: Decision, i: number): TheirAn
     oppStack: s.stack - A,
     bb: s.bb,
     inPosition: !s.inPosition,
+    // the actor raises their bet: they face a raise
+    facingRaise: facing && o.kind === 'raise',
   };
   const d = decide(q.other.profile, theirs, q.other.range, theySee);
   let fold = 0;

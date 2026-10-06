@@ -54,6 +54,8 @@ export interface Situation {
    * strong hand flats to string them along (HHP: a call next to act is not capped).
    */
   behind?: number;
+  /** The bet faced is a raise of this player's own bet (a check-raise, a re-raise). */
+  facingRaise?: boolean;
 }
 
 export type OptionKind = 'fold' | 'check' | 'call' | 'bet' | 'raise';
@@ -109,6 +111,16 @@ const BITE = 0.03;
 const TRAP = 0.5;
 /** All-in is on the menu only when it is not absurd: at most this many pots (after a call). */
 const MAX_JAM_POTS = 3;
+/** Facing a raise of one's own bet, it reads like a bet this many pots bigger (see `read`). */
+const RAISE_READ = 0.75;
+/**
+ * How embarrassing a called bluff is before the river, against a river bluff shown down (1): a
+ * called flop or turn stab isn't seen yet (players over-stab, HHP), a called bluff-raise is.
+ */
+const EMBARRASS_BET = { flop: 0.4, turn: 0.6 };
+/** Each extra player in the pot is one more witness to a caught bluff (the audience effect). */
+const AUDIENCE = 0.5;
+const EMBARRASS_RAISE = 0.8;
 /** How often a player expects the one with the initiative to bet when checked to. */
 const OPP_BETS = 0.6;
 /**
@@ -273,7 +285,11 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
   // 20x scarier), more on the turn and most on the river - big late bets are underbluffed, and
   // players know it (HHP: they overfold to them).
   const late = 1 + 0.5 * (board.length - 3);
-  const read = facing ? Math.min(4, Math.max(0.4, 1 + 2 * p.respect * late * Math.min(1.5, Math.max(0, c - 0.75)))) : 1;
+  // A raise of one's own bet reads strong at any size (raises are underbluffed: HHP's check-raise
+  // = two pair or better), even for players who ignore big bets - not for those who suspect them.
+  const cRead = s.facingRaise ? c + RAISE_READ : c;
+  const respect = s.facingRaise && p.respect >= 0 ? Math.max(p.respect, 0.3) : p.respect;
+  const read = facing ? Math.min(4, Math.max(0.4, 1 + 2 * respect * late * Math.min(1.5, Math.max(0, cRead - 0.75)))) : 1;
   // past the comfortable amount, every further comfort-sized chunk weighs one more loss aversion
   const lambda = (chips: number) => p.lossAversion * (1 + Math.max(0, chips / bb / p.comfortBB - 1));
   // tough decisions loom when little is left behind: pressure = pot / stack behind after the action
@@ -338,7 +354,13 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
           // betting or raising a medium hand invites a raise or re-raise: the tough spot is right there
           tough: o.allIn ? 0 : 0.7 * mid(wc) * (1 - fold),
           // a bluff that gets called (shown on the river, caught earlier) is embarrassing
-          embarrassment: 0.5 * (river ? 1 : 0.8) * (1 - fold) * (1 - (Number.isNaN(ec) ? 1 : ec)) * (1 + r),
+          embarrassment:
+            0.5 *
+            (river ? 1 : o.kind === 'raise' ? EMBARRASS_RAISE : streetsLeft === 2 ? EMBARRASS_BET.flop : EMBARRASS_BET.turn) *
+            (1 + AUDIENCE * (opps.length - 1)) *
+            (1 - fold) *
+            (1 - (Number.isNaN(ec) ? 1 : ec)) *
+            (1 + r),
           liking: 0,
         };
       }

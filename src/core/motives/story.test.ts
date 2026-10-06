@@ -7,7 +7,9 @@ import type { HandEvent, HandRecord } from '../hand/types';
 import { LIBRARY } from '../ranges/library';
 import { comboTotal } from '../ranges/range';
 import type { ChartChoice } from '../ranges/spot';
-import { rangesAt, runStory, storyInput, type StoryStep } from './story';
+import { decide } from './decide';
+import { profileFor } from './profile';
+import { rangesAt, runStory, situationOf, storyInput, type StoryStep } from './story';
 import { whyBucket } from './why';
 
 const CHARTS: ChartChoice[] = LIBRARY.map((r) => ({ ...r }));
@@ -148,6 +150,35 @@ describe('the quantum villain: postflop actions narrow the ranges', { timeout: 1
     const size = cache.size;
     runStory(inp, cache);
     expect(cache.size).toBe(size);
+  });
+
+  // HHP-iTV2FKgpTZ0-57, HHP-S7eq8103TDg-43: a check-raise gets more fold equity than betting big
+  // ourselves - players over-stab when checked to (HHP--3j77Bl9GuQ-04), and a raise reads strong.
+  test('check-raising wins far more per chip risked than leading big', () => {
+    const answer = (post: HandEvent[]) => {
+      const h = btnVsBb(WET, post);
+      const steps = replaySteps(h);
+      const inp = storyInput(h, steps, CHARTS)!;
+      const st = runStory(inp);
+      const at = steps.length - 1;
+      const state = steps[at]!;
+      const d = decide(
+        profileFor(state.seats.find((s) => s.seat === 3)!),
+        situationOf(state, 3).situation,
+        rangesAt(inp, st, at).get(3)!,
+        [rangesAt(inp, st, at, { observer: 3 }).get(5)!],
+      );
+      return d.options.reduce((f, o, i) => f + (o.kind === 'fold' ? d.shares[i]! : 0), 0);
+    };
+    const lead = answer([{ type: 'action', seat: 5, action: 'bet', to: 825 }]);
+    const xr = answer([
+      { type: 'action', seat: 5, action: 'check' },
+      { type: 'action', seat: 3, action: 'bet', to: 183 },
+      { type: 'action', seat: 5, action: 'raise', to: 641 },
+    ]);
+    expect(xr).toBeGreaterThan(0.4);
+    // what a fold wins per chip risked: the pot (550) for 825, or the pot and the c-bet (916) for 641
+    expect((xr * 916) / 641).toBeGreaterThan((1.5 * (lead * 550)) / 825);
   });
 
   test('multiway: every action narrows against everyone still in, and each player sees the others their own way', () => {
