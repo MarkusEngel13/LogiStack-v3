@@ -6,6 +6,7 @@
  * - 'fear': fear numbers of one range against another, on a flop or turn.
  * - 'story': every postflop action of a hand through the motive model (ranges narrowed).
  * - 'sizes': the size explorer for the player to act.
+ * - 'whatif': each line of the player to act and what reaches the next street.
  * The preflop table is fetched once, on first need.
  */
 
@@ -16,6 +17,7 @@ import { PreflopTable } from '../../core/equity/preflopTable';
 import { fearNumbers } from '../../core/fear';
 import { exploreSizes } from '../../core/motives/sizes';
 import { runStory, type StoryCache } from '../../core/motives/story';
+import { whatIf } from '../../core/motives/whatIf';
 import type { EquityAnswer, EquityQuestion } from './useEquity';
 
 // The app compiles with the DOM types; inside the worker only these two are needed.
@@ -40,7 +42,9 @@ ctx.onmessage = async (e) => {
   const q = e.data;
   const answer = (a: Omit<EquityAnswer, 'id'>) => ctx.postMessage({ id: q.id, ...a });
   try {
-    if (q.kind === 'sizes') {
+    if (q.kind === 'whatif') {
+      answer({ whatIf: whatIf(q.q) });
+    } else if (q.kind === 'sizes') {
       answer({ sizes: exploreSizes(q.q) });
     } else if (q.kind === 'story') {
       if (storyCache.size > 400) storyCache.clear();

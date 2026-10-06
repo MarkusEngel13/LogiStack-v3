@@ -4,6 +4,7 @@ import type { FieldResult } from '../../core/equity/field';
 import type { FearResult } from '../../core/fear';
 import type { SizeAnswer, SizeQuestion } from '../../core/motives/sizes';
 import type { StoryInput, StoryStep } from '../../core/motives/story';
+import type { WhatIfAnswer } from '../../core/motives/whatIf';
 import type { Weights } from '../../core/ranges/range';
 
 /**
@@ -15,7 +16,8 @@ export type Question =
   | { kind: 'field'; ranges: Weights[]; board: Card[] }
   | { kind: 'fear'; a: Weights; b: Weights; board: Card[] }
   | { kind: 'story'; input: StoryInput }
-  | { kind: 'sizes'; q: SizeQuestion };
+  | { kind: 'sizes'; q: SizeQuestion }
+  | { kind: 'whatif'; q: SizeQuestion };
 
 export type EquityQuestion = Question & { id: number };
 
@@ -35,6 +37,8 @@ export interface EquityAnswer {
   story?: StoryStep[];
   /** kind 'sizes' */
   sizes?: SizeAnswer;
+  /** kind 'whatif' */
+  whatIf?: WhatIfAnswer;
   error?: string;
 }
 

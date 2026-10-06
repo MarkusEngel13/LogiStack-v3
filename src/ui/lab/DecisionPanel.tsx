@@ -11,6 +11,7 @@ import { PlayingCard } from '../cards/PlayingCard';
 import type { Money } from '../replay/views';
 import { RangeModal } from './RangeModal';
 import { SizeExplorer } from './SizeExplorer';
+import { WhatIfModal } from './WhatIfModal';
 import { BucketBar, RangeStory } from './RangeStory';
 import { useEquity } from './useEquity';
 import type { StoryView } from './useStory';
@@ -51,6 +52,7 @@ export function DecisionPanel({
   const [editing, setEditing] = useState<SeatNo | null>(null);
   const [viewing, setViewing] = useState<SeatNo | null>(null);
   const [exploring, setExploring] = useState(false);
+  const [whatIfOpen, setWhatIfOpen] = useState(false);
   const me = state.phase === 'betting' && state.toAct !== null ? state.seats.find((s) => s.seat === state.toAct) : undefined;
   // Opponents are the players who have put chips in by choice; those still to act (who mostly
   // fold) are left out rather than counted as random hands.
@@ -92,7 +94,18 @@ export function DecisionPanel({
 
   const legal = legalActions(state);
   const villain = ranges.length === 1 ? state.seats.find((s) => s.seat === ranges[0]!.seat) : undefined;
-  const canExplore = !!(legal && (legal.canBet || legal.canRaise) && villain && myLine && narrowed?.get(villain.seat) && seenRanges);
+  const heads = !!(legal && villain && myLine && narrowed?.get(villain.seat) && seenRanges);
+  const canExplore = heads && !!(legal!.canBet || legal!.canRaise);
+  const canWhatIf = heads && (state.board.length === 3 || state.board.length === 4);
+  // me, the villain and both ranges as the model has them and as each sees the other's
+  const sizeQ =
+    heads && villain
+      ? {
+          situation: situationOf(state, me.seat).situation,
+          actor: { profile: profileFor(me), range: myLine!, seen: seenRanges!.get(me.seat), cards: me.cards ?? undefined },
+          other: { profile: profileFor(villain), range: narrowed!.get(villain.seat)!, seen: seenRanges!.get(villain.seat) },
+        }
+      : null;
   const odds = potOdds(state);
   const toCall = legal?.toCall ?? 0;
   const equity = answer?.equity;
@@ -155,15 +168,29 @@ export function DecisionPanel({
                 {verdict.text}
               </div>
             )}
-            {canExplore && (
-              <button
-                type="button"
-                onClick={() => setExploring(true)}
-                className="w-full rounded-md border border-line px-3 py-1.5 text-sm text-muted hover:border-accent hover:text-ink"
-                title="Every bet size against their range: who folds, calls or raises, bucket by bucket, and your EV"
-              >
-                Explore bet sizes…
-              </button>
+            {(canExplore || canWhatIf) && (
+              <div className="flex gap-2">
+                {canExplore && (
+                  <button
+                    type="button"
+                    onClick={() => setExploring(true)}
+                    className="flex-1 rounded-md border border-line px-2 py-1.5 text-sm text-muted hover:border-accent hover:text-ink"
+                    title="Every bet size against their range: who folds, calls or raises, bucket by bucket, and your EV"
+                  >
+                    Explore bet sizes…
+                  </button>
+                )}
+                {canWhatIf && (
+                  <button
+                    type="button"
+                    onClick={() => setWhatIfOpen(true)}
+                    className="flex-1 rounded-md border border-line px-2 py-1.5 text-sm text-muted hover:border-accent hover:text-ink"
+                    title="Check, bet small or bet big: what reaches the next street, on a blank or a scare card"
+                  >
+                    What happens if…
+                  </button>
+                )}
+              </div>
             )}
             {answer?.error && <p className="text-xs text-danger">{answer.error}</p>}
             <p className="text-xs text-faint">
@@ -259,16 +286,22 @@ export function DecisionPanel({
         )}
       </div>
 
-      {exploring && canExplore && villain && (
+      {whatIfOpen && canWhatIf && villain && sizeQ && (
+        <WhatIfModal
+          title={`${me.name} (${me.position}) against ${villain.name} (${villain.position}${villain.playerType ? `, ${villain.playerType}` : ''}): what happens if…`}
+          otherName={villain.name}
+          money={money}
+          q={sizeQ}
+          onClose={() => setWhatIfOpen(false)}
+        />
+      )}
+
+      {exploring && canExplore && villain && sizeQ && (
         <SizeExplorer
           title={`${me.name} (${me.position}): bet sizes against ${villain.name} (${villain.position}${villain.playerType ? `, ${villain.playerType}` : ''})`}
           otherName={villain.name}
           money={money}
-          q={{
-            situation: situationOf(state, me.seat).situation,
-            actor: { profile: profileFor(me), range: myLine!, seen: seenRanges!.get(me.seat), cards: me.cards ?? undefined },
-            other: { profile: profileFor(villain), range: narrowed!.get(villain.seat)!, seen: seenRanges!.get(villain.seat) },
-          }}
+          q={sizeQ}
           onUse={
             onAction
               ? (r) => {

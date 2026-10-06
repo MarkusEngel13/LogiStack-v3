@@ -12,7 +12,7 @@ import { BUCKETS, type Bucket } from '../buckets';
 import type { Card } from '../cards';
 import { equityVsRange } from '../equity/equity';
 import type { Weights } from '../ranges/range';
-import { decide, type OptionKind, type Situation } from './decide';
+import { decide, type Decision, type OptionKind, type Situation } from './decide';
 import type { MotiveProfile } from './profile';
 import { keeper } from './story';
 
@@ -67,14 +67,85 @@ function mean(values: Float32Array, weights: Float32Array): number {
   return w > 0 ? s / w : NaN;
 }
 
+/** The other player's answer to one of the actor's options. */
+export interface TheirAnswer {
+  /** The actor's range as the option shows it, and as the other player reads it. */
+  shows: Weights;
+  theySee: Weights;
+  /** Their whole range: fold, call (or check behind), raise (or bet) - and the chips a raise adds. */
+  fold: number;
+  passive: number;
+  aggressive: number;
+  raiseChips: number;
+  /** The parts of their range (weights) that call or check, and that raise or bet. */
+  passiveW: Weights;
+  aggressiveW: Weights;
+  decision: Decision;
+}
+
+/** How the other player answers the actor's option `i` of `mine` (a bet, a raise, or a check). */
+export function theirAnswer(q: SizeQuestion, mine: Decision, i: number): TheirAnswer {
+  const s = q.situation;
+  const { pot: P, board } = s;
+  const C = s.toCall;
+  const facing = C > 0;
+  const o = mine.options[i]!;
+  const actorSeen = q.actor.seen ?? q.actor.range;
+  const reading = q.other.profile.rangeReading;
+  const keep = keeper(mine, i);
+  const shows = new Float32Array(1326);
+  const theySee = new Float32Array(1326);
+  for (let c = 0; c < 1326; c++) {
+    const k = keep(c);
+    if (Number.isNaN(k)) continue;
+    if (q.actor.range[c]! > 0) shows[c] = q.actor.range[c]! * k;
+    // the other side reads it as much as they read actions at all
+    if (actorSeen[c]! > 0) theySee[c] = actorSeen[c]! * (1 - reading + reading * k);
+  }
+  // the other player now faces it (a check: they act behind, nothing to call)
+  const A = o.kind === 'check' ? 0 : o.amount;
+  const owed = facing ? A - C : A;
+  const theirs: Situation = {
+    board,
+    pot: facing ? P + 2 * C : P,
+    toCall: Math.max(0, Math.min(owed, s.oppStack)),
+    stack: s.oppStack,
+    oppStack: s.stack - A,
+    bb: s.bb,
+    inPosition: !s.inPosition,
+  };
+  const d = decide(q.other.profile, theirs, q.other.range, theySee);
+  let fold = 0;
+  let passive = 0;
+  let aggressive = 0;
+  let raiseChips = 0;
+  const passiveW = new Float32Array(1326);
+  const aggressiveW = new Float32Array(1326);
+  d.options.forEach((x, j) => {
+    const sh = d.shares[j]!;
+    if (x.kind === 'fold') {
+      fold += sh;
+      return;
+    }
+    const isPassive = x.kind === 'call' || x.kind === 'check';
+    if (isPassive) passive += sh;
+    else {
+      aggressive += sh;
+      raiseChips += sh * x.amount;
+    }
+    const into = isPassive ? passiveW : aggressiveW;
+    const pr = d.probs[j]!;
+    for (let c = 0; c < 1326; c++) if (!Number.isNaN(pr[c]!)) into[c]! += q.other.range[c]! * pr[c]!;
+  });
+  return { shows, theySee, fold, passive, aggressive, raiseChips, passiveW, aggressiveW, decision: d };
+}
+
 export function exploreSizes(q: SizeQuestion): SizeAnswer {
   const s = q.situation;
   const { pot: P, board } = s;
   const C = s.toCall;
   const facing = C > 0;
   const mine = decide(q.actor.profile, { ...s, allInAlways: true }, q.actor.range, q.other.seen ?? q.other.range);
-  const actorSeen = q.actor.seen ?? q.actor.range;
-  const reading = q.other.profile.rangeReading;
   const eq = q.actor.cards ? equityVsRange(q.actor.cards, board, q.other.range) : null;
   const equity = eq?.equity;
 
@@ -88,48 +159,13 @@ export function exploreSizes(q: SizeQuestion): SizeAnswer {
   const rows: SizeRow[] = [];
   mine.options.forEach((o, i) => {
     if (o.kind !== 'bet' && o.kind !== 'raise') return;
-    const keep = keeper(mine, i);
-    const shows = new Float32Array(1326);
-    const theySee = new Float32Array(1326);
-    for (let c = 0; c < 1326; c++) {
-      const k = keep(c);
-      if (Number.isNaN(k)) continue;
-      if (q.actor.range[c]! > 0) shows[c] = q.actor.range[c]! * k;
-      // the other side reads it as much as they read actions at all
-      if (actorSeen[c]! > 0) theySee[c] = actorSeen[c]! * (1 - reading + reading * k);
-    }
-    // the other player now faces it
     const A = o.amount;
-    const owed = facing ? A - C : A;
-    const theirs: Situation = {
-      board,
-      pot: facing ? P + 2 * C : P,
-      toCall: Math.min(owed, s.oppStack),
-      stack: s.oppStack,
-      oppStack: s.stack - A,
-      bb: s.bb,
-      inPosition: !s.inPosition,
-    };
-    const d = decide(q.other.profile, theirs, q.other.range, theySee);
-    let fold = 0;
-    let call = 0;
-    let raise = 0;
-    let raiseChips = 0;
-    const callW = new Float32Array(1326);
-    const raiseW = new Float32Array(1326);
-    d.options.forEach((x, j) => {
-      const sh = d.shares[j]!;
-      if (x.kind === 'fold') fold += sh;
-      else if (x.kind === 'call') call += sh;
-      else {
-        raise += sh;
-        raiseChips += sh * x.amount;
-      }
-      if (x.kind === 'fold') return;
-      const into = x.kind === 'call' ? callW : raiseW;
-      const pr = d.probs[j]!;
-      for (let c = 0; c < 1326; c++) if (!Number.isNaN(pr[c]!)) into[c]! += q.other.range[c]! * pr[c]!;
-    });
+    const t = theirAnswer(q, mine, i);
+    const { shows, fold, raiseChips, decision: d } = t;
+    const call = t.passive;
+    const raise = t.aggressive;
+    const callW = t.passiveW;
+    const raiseW = t.aggressiveW;
     const byBucket: SizeRow['byBucket'] = {};
     for (const b of BUCKETS) {
       const row = d.byBucket[b];

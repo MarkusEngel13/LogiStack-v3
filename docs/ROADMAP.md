@@ -228,8 +228,16 @@ Defaults unless Marius says otherwise: HHP's bucket names; heads-up first, multi
          (sets folded to shoves).
        Still smells (for the "does it smell right?" page): thick value raises small flop bets a lot
        (fear of the draws); the EV is one street only.
-8. [ ] "What happens if": check / bet small / bet big → the villain's range on the next street,
-       on a blank and on a scare card.
+8. [x] "What happens if" (2026-10-06, `motives/whatIf.ts`, Lab: "What happens if…", flop and
+       turn, heads-up): each line - check (behind), bet ⅓ / ¾ / 1.5x pot, or call / raise when
+       facing a bet - with the other player's answer now (fold / call / raise, or check behind /
+       bet), the part of their range that reaches the next street (bucket bar, combos, pot, your
+       equity), and that range on the next card: a blank (changes least), a scare card (hurts you
+       most, helps them most) or any card picked from a 13x4 map coloured by how it moves your
+       equity. On J♠9♦2♠ with A♥J♥ against a Fish: check behind lets 262 combos reach the turn,
+       ⅓ pot 217 and capped (its sets raised), 1.5x pot 72 - mostly top pair and good draws; the
+       Q♠ costs 18-21 points whatever the line, the 7♦ nothing. Tests: `whatIf.test.ts`.
+       Next: a second step (what they do on that card), multiway.
 
 ### Phase 4: practise it (trainer)
 9. [ ] Director: set up a spot (positions, pot type, villain type, board texture) and deal from the

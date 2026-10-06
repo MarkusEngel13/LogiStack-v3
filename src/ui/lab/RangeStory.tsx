@@ -60,24 +60,31 @@ export function whyLine(s: StoryStep, b: Bucket, numbers = false): string | null
 export function BucketBar({ weights, board }: { weights: Weights; board: Card[] }) {
   const { total, rows } = rangeBuckets(board, weights);
   if (!(total > 0)) return null;
+  const shares = Object.fromEntries(BUCKETS.map((b) => [b, rows[b].combos / total])) as Record<Bucket, number>;
+  return <SharesBar shares={shares} combos={Object.fromEntries(BUCKETS.map((b) => [b, rows[b].combos])) as Record<Bucket, number>} />;
+}
+
+/** The same bar from bucket shares (0..1); combos only for the tooltips. */
+export function SharesBar({ shares, combos }: { shares: Partial<Record<Bucket, number>>; combos?: Partial<Record<Bucket, number>> }) {
+  const of = (b: Bucket) => shares[b] ?? 0;
   return (
     <div>
       <div className="flex h-2.5 overflow-hidden rounded-sm bg-surface-3">
         {BUCKETS.map((b) =>
-          rows[b].combos > 0 ? (
+          of(b) > 0 ? (
             <div
               key={b}
-              title={`${BUCKET_LABELS[b]}: ${combosText(rows[b].combos)} combos (${pct(rows[b].combos / total)})`}
-              style={{ width: `${(rows[b].combos / total) * 100}%`, background: BUCKET_COLORS[b] }}
+              title={`${BUCKET_LABELS[b]}: ${combos?.[b] !== undefined ? `${combosText(combos[b]!)} combos (${pct(of(b))})` : pct(of(b))}`}
+              style={{ width: `${of(b) * 100}%`, background: BUCKET_COLORS[b] }}
             />
           ) : null,
         )}
       </div>
       <div className="mt-1 flex flex-wrap gap-x-2 text-[11px] leading-tight text-faint">
-        {BUCKETS.filter((b) => rows[b].combos / total >= 0.005).map((b) => (
+        {BUCKETS.filter((b) => of(b) >= 0.005).map((b) => (
           <span key={b} title={BUCKET_LABELS[b]}>
             <span className="mr-0.5 inline-block h-1.5 w-1.5 rounded-full align-middle" style={{ background: BUCKET_COLORS[b] }} />
-            {BUCKET_SHORT[b]} {pct(rows[b].combos / total)}
+            {BUCKET_SHORT[b]} {pct(of(b))}
           </span>
         ))}
       </div>
