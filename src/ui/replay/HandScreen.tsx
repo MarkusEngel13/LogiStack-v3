@@ -4,8 +4,10 @@ import type { CardStr, HandEvent, HandRecord } from '../../core/hand/types';
 import { CardPicker } from '../cards/CardPicker';
 import { Button } from '../controls';
 import { notesBefore, withNote, withoutNote } from '../../core/ranges/handRanges';
+import { rangesAt } from '../../core/motives/story';
 import { ActionBar } from '../lab/ActionBar';
 import { DecisionPanel } from '../lab/DecisionPanel';
+import { useStory } from '../lab/useStory';
 import { allCharts } from '../ranges/charts';
 import { downloadJson, saveHand } from '../library';
 import { SQUID_ICON } from '../playerTypes';
@@ -138,10 +140,15 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onEditCopy }:
   // ---- view -------------------------------------------------------------------------------
   const money = useMemo(() => moneyFor(hand, settings.amounts), [hand, settings.amounts]);
   const charts = useMemo(allCharts, []);
+  const story = useStory(hand, steps, charts);
   const rows = useMemo(() => actionRows(hand, steps[last]!, money), [hand, steps, last, money]);
   const streets = useMemo(() => streetSteps(steps), [steps]);
   const state = steps[cursor]!;
   const final = steps[last]!;
+  const storyRanges = useMemo(
+    () => (story.input && story.steps ? rangesAt(story.input, story.steps, cursor) : null),
+    [story.input, story.steps, cursor],
+  );
 
   // In the Lab a click goes to just before that line, so the next entry replaces it.
   const jump = (row: ListRow) => {
@@ -235,6 +242,7 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onEditCopy }:
               money={money}
               laterEvents={hand.events.length - cursor}
               error={editError}
+              ranges={storyRanges}
               onEvent={addEvent}
               onNewHand={onNewHand}
             />
@@ -260,7 +268,7 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onEditCopy }:
         </div>
         <div className="flex flex-col gap-3 xl:h-[calc(100vh-170px)] xl:max-h-[820px]">
           {!error && (
-            <DecisionPanel hand={hand} state={state} step={cursor} editable={editable} money={money} charts={charts} onSetRange={setRange} />
+            <DecisionPanel hand={hand} state={state} step={cursor} editable={editable} money={money} charts={charts} story={story} onSetRange={setRange} />
           )}
           <div className="min-h-[260px] flex-1">
             <ActionList rows={rows} step={cursor} atEnd={cursor === last} onJump={jump} />

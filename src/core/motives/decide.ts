@@ -42,6 +42,13 @@ export interface Situation {
   betSizes?: number[];
   /** Raise-to sizes as multiples of the bet faced. Default 2.5x and 3.5x (plus all-in). */
   raiseSizes?: number[];
+  /** All-in stays on the menu even when it is many pots (it was taken: the story needs it). */
+  allInAlways?: boolean;
+  /**
+   * The other player bet or raised last (an earlier street, e.g. the preflop raiser) and acts
+   * after: their bet is expected, so a check keeps the check-raise and rarely gives a free card.
+   */
+  oppInitiative?: boolean;
 }
 
 export type OptionKind = 'fold' | 'check' | 'call' | 'bet' | 'raise';
@@ -88,14 +95,16 @@ export interface Decision {
   explain(combo: number): Explained[];
 }
 
-const DEFAULT_BETS = [1 / 3, 0.5, 0.75, 1, 1.5];
+export const DEFAULT_BETS = [1 / 3, 0.5, 0.75, 1, 1.5];
 /** A next card "bites" when it takes this share of the hand's lead or more. */
 const BITE = 0.03;
 /** What worse hands kept in are expected to pay per street to come, in pots (delayed gratification). */
 const TRAP = 0.5;
 /** All-in is on the menu only when it is not absurd: at most this many pots (after a call). */
 const MAX_JAM_POTS = 3;
-const DEFAULT_RAISES = [2.5, 3.5];
+/** How often a player expects the one with the initiative to bet when checked to. */
+const OPP_BETS = 0.6;
+export const DEFAULT_RAISES = [2.5, 3.5];
 
 /** Tversky-Kahneman probability weighting. */
 const weigh = (p: number, g: number) => {
@@ -183,7 +192,7 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
     const maxBet = Math.min(s.stack, s.oppStack);
     if (maxBet > 0) {
       for (const f of s.betSizes ?? DEFAULT_BETS) addAggro('bet', f * P, maxBet, `Bet ${pctLabel(f)}`);
-      if (maxBet <= MAX_JAM_POTS * P) addAggro('bet', maxBet, maxBet, 'All-in');
+      if (maxBet <= MAX_JAM_POTS * P || s.allInAlways) addAggro('bet', maxBet, maxBet, 'All-in');
     }
   } else {
     options.push({ kind: 'fold', amount: 0, allIn: false, label: 'Fold' });
@@ -191,8 +200,8 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
     options.push({ kind: 'call', amount: call, allIn: call >= s.stack, label: call >= s.stack ? 'Call all-in' : 'Call' });
     const maxTo = Math.min(s.stack, C + s.oppStack);
     if (maxTo > C) {
-      for (const m of s.raiseSizes ?? DEFAULT_RAISES) addAggro('raise', m * C, maxTo, `Raise ${m}x`);
-      if (maxTo - C <= MAX_JAM_POTS * (P + 2 * C)) addAggro('raise', maxTo, maxTo, 'All-in');
+      for (const m of s.raiseSizes ?? DEFAULT_RAISES) addAggro('raise', m * C, maxTo, `Raise ${+m.toFixed(1)}x`);
+      if (maxTo - C <= MAX_JAM_POTS * (P + 2 * C) || s.allInAlways) addAggro('raise', maxTo, maxTo, 'All-in');
     }
   }
 
@@ -218,11 +227,14 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
         return none;
       case 'check': {
         const we = weigh(e, p.longShot);
+        // checking to the one with the initiative: their bet is coming (q), so the free card is
+        // less likely and the money keeps coming in (check-raise, check-call) - "check to the raiser"
+        const q = !s.inPosition && s.oppInitiative ? OPP_BETS : 0;
         return {
           ...none,
           gain: we,
-          fear: fearNow,
-          trap: TRAP * A * keep * (streetsLeft + (s.inPosition ? 0 : 0.5)),
+          fear: fearNow * (1 - q),
+          trap: TRAP * A * (q + (1 - q) * keep) * (streetsLeft + (s.inPosition ? 0 : 0.5)),
           tough: s.inPosition ? 0 : 0.5 * mid(e) * pressure(2 * P, s.stack),
           embarrassment: river && !s.inPosition ? 0.2 * (1 - e) : 0,
         };
@@ -326,7 +338,10 @@ function sumWeights(w: Weights, buckets: (Bucket | null)[]): number {
   return t;
 }
 
-const pctLabel = (f: number) => (Math.abs(f - 1 / 3) < 1e-6 ? '⅓ pot' : f === 0.5 ? '½ pot' : f === 0.75 ? '¾ pot' : f === 1 ? 'pot' : `${f}x pot`);
+const NAMED_SIZES: [number, string][] = [[1 / 3, '⅓ pot'], [0.5, '½ pot'], [2 / 3, '⅔ pot'], [0.75, '¾ pot'], [1, 'pot']];
+/** "⅓ pot" for the usual sizes (within a percent of the pot), else "40% pot" or "2.5x pot". */
+const pctLabel = (f: number) =>
+  NAMED_SIZES.find(([v]) => Math.abs(f - v) < 0.01)?.[1] ?? (f > 1 ? `${+f.toFixed(2)}x pot` : `${Math.round(f * 100)}% pot`);
 
 /** The range after an option: each combo's weight times how often it takes that option (narrowing). */
 export function rangeAfter(d: Decision, optionIndex: number, mine: Weights): Weights {

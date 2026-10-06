@@ -4,6 +4,7 @@
  *   every runout after it), multiway Monte Carlo.
  * - 'field': every player a range. Two players exact, more by Monte Carlo.
  * - 'fear': fear numbers of one range against another, on a flop or turn.
+ * - 'story': every postflop action of a hand through the motive model (ranges narrowed).
  * The preflop table is fetched once, on first need.
  */
 
@@ -12,6 +13,7 @@ import { equityVsRange, monteCarloEquity } from '../../core/equity/equity';
 import { monteCarloField, rangeVsRange } from '../../core/equity/field';
 import { PreflopTable } from '../../core/equity/preflopTable';
 import { fearNumbers } from '../../core/fear';
+import { runStory, type StoryCache } from '../../core/motives/story';
 import type { EquityAnswer, EquityQuestion } from './useEquity';
 
 // The app compiles with the DOM types; inside the worker only these two are needed.
@@ -29,11 +31,17 @@ const loadTable = () =>
     })
     .then((buf) => PreflopTable.fromBuffer(buf)));
 
+/** Decisions already made, so entering one more action only costs one more (kept small). */
+const storyCache: StoryCache = new Map();
+
 ctx.onmessage = async (e) => {
   const q = e.data;
   const answer = (a: Omit<EquityAnswer, 'id'>) => ctx.postMessage({ id: q.id, ...a });
   try {
-    if (q.kind === 'fear') {
+    if (q.kind === 'story') {
+      if (storyCache.size > 400) storyCache.clear();
+      answer({ story: runStory(q.input, storyCache) });
+    } else if (q.kind === 'fear') {
       answer({ fear: fearNumbers(q.a, q.b, q.board) });
     } else if (q.kind === 'field') {
       if (q.ranges.length === 2) {

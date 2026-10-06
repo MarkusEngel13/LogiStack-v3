@@ -170,8 +170,8 @@ Defaults unless Marius says otherwise: HHP's bucket names; heads-up first, multi
        narrows attention to salient cues (alcohol myopia, Steele & Josephs 1990); its effect is
        biphasic - stimulant while rising, sedative while falling. So: drinking = less loss
        aversion, long shots overweighted, less embarrassment, noisier, chasing after losses;
-       "lively" adds aggression, "tired" turns it into calling. Default "lively" until Marius
-       decides; the wizard needs a lively / tired choice.
+       "lively" adds aggression, "tired" turns it into calling. Both are wizard statuses (Marius,
+       2026-10-06): "Drinking, lively" 🍺 and "Drinking, tired" 🥴, one or the other.
        Spec: the Strategy Bible's claims (`OneDrive\Poker\165 - HungryHorse Plan\Strategy Bible`);
        HHP-0QWJrclAjlA-04, Mark: "generally fear and greed drive our opponents' decisions".
 4. [~] HHP doctrine as tests (`src/core/motives/motives.test.ts`, 15 passing, claim ids in the
@@ -183,11 +183,26 @@ Defaults unless Marius says otherwise: HHP's bucket names; heads-up first, multi
        lively / tired; protecting a win. More claims from the Strategy Bible to come.
 
 ### Phase 2: see it (the Lab)
-5. [ ] Quantum villain: the villain plays their whole range; each action filters it through the
-       model (god-mode override stays); a showdown picks a hand from what is left.
-6. [ ] Range story: bucket bars per street with the cap visible; the 13x13 with removed combos
-       greyed ("raised: 14 combos"); the motive per bucket ("99 raised: fear, 14 of 45 turn cards
-       hurt it"); the fear map of the next card.
+5. [x] Quantum villain v1 (`src/core/motives/story.ts`, 2026-10-06): every player plays their whole
+       range; each postflop action keeps each combo's chance of taking it (the motive model, the
+       player's type and status from the wizard). Hero too: "Hero's line" = what it tells the
+       others. Heads-up only (an action with 3+ players in leaves the range). A range set in the
+       Lab resets that player from there on (god mode). Runs in the equity worker for the whole
+       hand at once (~5 s for six actions; decisions cached, so one new action costs one
+       decision); the Decision panel's equity uses the narrowed ranges. Showdown: "From range"
+       deals the unknown hand from what is left. Tests: `story.test.ts` (a ⅓-pot call caps the
+       Fish on J♠9♦2♠, not on A♣7♦2♥; resets; cache; multiway).
+       Seeing it found three model faults, fixed: (a) out of position the model led its strong
+       hands into the raiser - now a check to the player with the initiative expects their bet
+       (60 %), so the free-card fear shrinks and the check-raise keeps trap value (HHP: heads-up
+       donks are mostly weak); (b) believed folds grew too steeply with size, so every bluff was
+       an overbet - beliefs now mostly inelastic (a small bet gets most of the folds); (c) the
+       exact size narrowed too hard - now a soft size tell (75 % size, 25 % "a bet is a bet").
+6. [~] Range story: done - per player a bucket bar of the range now; per action "combos before →
+       after" and the share that can play for stacks (marked "capped" when it halves); click an
+       action for how much of each bucket took it and the whole range's split. To do: the 13x13
+       with removed combos greyed ("raised: 14 combos"); the motive per bucket ("99 raised: fear,
+       14 of 45 turn cards hurt it"); the fear map of the next card; multiway.
 
 ### Phase 3: choose it (sizes and lines)
 7. [ ] Size explorer (was step 5): continue % per bucket by size (elastic or not), EV per size,

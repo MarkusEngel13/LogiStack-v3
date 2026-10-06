@@ -78,6 +78,12 @@ export interface PlayerState {
   sessionBB?: number;
 }
 
+/** A seat's profile: the preset for its player type (Unknown when none) shifted by its statuses. */
+export function profileFor(seat: { playerType?: string; tags?: readonly string[] }): MotiveProfile {
+  const preset = MOTIVE_PRESETS[seat.playerType || 'Unknown'] ?? MOTIVE_PRESETS.Unknown!;
+  return withState(preset, { tags: seat.tags });
+}
+
 export function withState(p: MotiveProfile, s: PlayerState = {}): MotiveProfile {
   const tags = s.tags ?? [];
   let q = { ...p };

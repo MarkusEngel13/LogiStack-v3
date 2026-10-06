@@ -2,12 +2,15 @@ import { useMemo, useState } from 'react';
 import { legalActions, potOdds, potTotal } from '../../core/engine/replay';
 import type { TableState } from '../../core/engine/state';
 import type { HandRecord, SeatNo } from '../../core/hand/types';
+import { fingerprint, rangesAt } from '../../core/motives/story';
 import { playerRange } from '../../core/ranges/handRanges';
 import { comboTotal, withoutCards } from '../../core/ranges/range';
 import type { ChartChoice } from '../../core/ranges/spot';
 import { PlayingCard } from '../cards/PlayingCard';
 import type { Money } from '../replay/views';
+import { BucketBar, RangeStory } from './RangeStory';
 import { useEquity } from './useEquity';
+import type { StoryView } from './useStory';
 import { VillainRangeModal } from './VillainRangeModal';
 
 const pct = (x: number, digits = 1) => `${(x * 100).toFixed(digits)}%`;
@@ -15,7 +18,9 @@ const combosText = (n: number) => `${n.toFixed(1).replace(/\.0$/, '')} combos`;
 
 /**
  * The player to act against the ranges of everyone still in: equity, the pot odds they need,
- * call or fold, and what calling is worth. In the Lab each range can be repainted (god mode).
+ * call or fold, and what calling is worth. After the flop the ranges are the hand's range story:
+ * narrowed at every action by the fear-and-greed model (heads-up). In the Lab each range can be
+ * repainted (god mode).
  */
 export function DecisionPanel({
   hand,
@@ -24,6 +29,7 @@ export function DecisionPanel({
   editable,
   money,
   charts,
+  story,
   onSetRange,
 }: {
   hand: HandRecord;
@@ -32,6 +38,7 @@ export function DecisionPanel({
   editable: boolean;
   money: Money;
   charts: readonly ChartChoice[];
+  story: StoryView;
   /** A range text for this player from this step on, or null to go back to the chart. */
   onSetRange: (seat: SeatNo, range: string | null) => void;
 }) {
@@ -44,13 +51,29 @@ export function DecisionPanel({
   const opponents = live.filter((s) => acted.has(s.seat));
   const waiting = live.filter((s) => !acted.has(s.seat));
 
+  // After the flop: the ranges at this step of the story (start range, your resets, narrowings).
+  const postflop = state.board.length >= 3;
+  const inStory = postflop && story.input !== null;
+  const narrowed = useMemo(
+    () => (inStory && story.input && story.steps ? rangesAt(story.input, story.steps, step) : null),
+    [inStory, story.input, story.steps, step],
+  );
+  const narrowing = inStory && !story.steps && !story.error;
+
   // opponents come from state, so these four cover it
-  const ranges = useMemo(() => opponents.map((o) => playerRange(hand, state, step, o.seat, charts)), [hand, state, step, charts]);
+  const base = useMemo(() => opponents.map((o) => playerRange(hand, state, step, o.seat, charts)), [hand, state, step, charts]);
+  const ranges = base.map((r) => {
+    const w = narrowed?.get(r.seat);
+    return w ? { ...r, weights: w, narrowed: true } : { ...r, narrowed: false };
+  });
   const dead = me?.cards ? [...me.cards, ...state.board] : [...state.board];
   const question =
-    me?.cards && ranges.length > 0 ? { kind: 'hero' as const, hero: me.cards, board: state.board, villains: ranges.map((r) => r.weights) } : null;
-  const key = JSON.stringify([me?.cards, state.board, ranges.map((r) => r.note?.range ?? `${r.auto.chart?.id}:${r.auto.spot.took}`)]);
+    me?.cards && ranges.length > 0 && !narrowing
+      ? { kind: 'hero' as const, hero: me.cards, board: state.board, villains: ranges.map((r) => r.weights) }
+      : null;
+  const key = JSON.stringify([me?.cards, state.board, ranges.map((r) => fingerprint(r.weights))]);
   const { answer, pending } = useEquity(question, key);
+  const myLine = me ? narrowed?.get(me.seat) : undefined;
 
   if (!me) return null;
 
@@ -100,7 +123,7 @@ export function DecisionPanel({
             <div className="flex items-baseline justify-between gap-3">
               <span className="text-sm text-muted">Equity</span>
               <span className="text-2xl font-bold tabular-nums">
-                {pending && !answer ? '…' : equity !== undefined && !Number.isNaN(equity) ? pct(equity) : '–'}
+                {(pending || narrowing) && !answer ? '…' : equity !== undefined && !Number.isNaN(equity) ? pct(equity) : '–'}
                 {answer?.stdError !== undefined && <span className="ml-1 text-xs font-normal text-muted">±{pct(2 * answer.stdError)}</span>}
               </span>
             </div>
@@ -134,6 +157,7 @@ export function DecisionPanel({
         {ranges.map((r) => {
           const o = state.seats.find((s) => s.seat === r.seat)!;
           const live = comboTotal(withoutCards(r.weights, dead));
+          const actions = story.steps?.filter((s) => s.seat === r.seat && s.event < step && !s.skipped).length ?? 0;
           return (
             <div key={r.seat} className="text-sm">
               <div className="flex items-center gap-2">
@@ -152,18 +176,47 @@ export function DecisionPanel({
                 ) : (
                   r.explanation
                 )}
+                {r.narrowed && actions > 0 && ` Then narrowed by ${actions === 1 ? 'its action' : `its ${actions} actions`} after the flop:`}
               </p>
+              {r.narrowed && (
+                <div className="mt-1.5">
+                  <BucketBar weights={withoutCards(r.weights, dead)} board={state.board} />
+                  {story.steps && <RangeStory seat={r.seat} steps={story.steps} step={step} known={me.cards ?? []} />}
+                </div>
+              )}
             </div>
           );
         })}
+        {myLine && story.steps?.some((s) => s.seat === me.seat && s.event < step) && (
+          <div className="border-t border-line pt-2 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold">{me.name}'s line</span>
+              <span className="text-xs text-muted">what it tells the others</span>
+              <span className="ml-auto text-xs text-muted">{combosText(comboTotal(withoutCards(myLine, state.board)))}</span>
+            </div>
+            <div className="mt-1.5">
+              <BucketBar weights={withoutCards(myLine, state.board)} board={state.board} />
+              <RangeStory seat={me.seat} steps={story.steps} step={step} known={[]} />
+            </div>
+          </div>
+        )}
         {waiting.length > 0 && (
           <p className="text-xs leading-snug text-faint">
             Still to act, left out: {waiting.map((s) => s.name).join(', ')}.
           </p>
         )}
-        {state.street !== 'preflop' && ranges.some((r) => !r.note) && (
+        {inStory && (
           <p className="border-t border-line pt-2 text-xs leading-snug text-faint">
-            These are preflop ranges: bets after the flop don't narrow them yet.{editable ? ' Use Edit to narrow one by hand.' : ''}
+            {narrowing ? (
+              'Narrowing the ranges with the fear-and-greed model…'
+            ) : story.error ? (
+              <span className="text-danger">Range story failed ({story.error}); these are the preflop ranges.</span>
+            ) : (
+              <>
+                After the flop each action keeps the hands that would take it, by the fear-and-greed model (player type and status from
+                the wizard; heads-up only for now). Click an action to see which hands took it.{editable ? ' Edit overrides a range from here on.' : ''}
+              </>
+            )}
           </p>
         )}
       </div>

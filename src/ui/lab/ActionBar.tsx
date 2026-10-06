@@ -1,8 +1,9 @@
 import { useState, type ReactNode } from 'react';
-import { cardToString } from '../../core/cards';
+import { cardsFromComboIndex, cardToString } from '../../core/cards';
 import { legalActions, potTotal, straddleOptions, unknownCards, type StraddleOption } from '../../core/engine/replay';
 import type { TableState } from '../../core/engine/state';
 import type { ActionKind, HandEvent, HandRecord } from '../../core/hand/types';
+import type { Weights } from '../../core/ranges/range';
 import { CardPicker } from '../cards/CardPicker';
 import { PlayingCard } from '../cards/PlayingCard';
 import { Button, MoneyInput } from '../controls';
@@ -18,6 +19,8 @@ interface Props {
   /** Events after the cursor that a new entry would replace. */
   laterEvents: number;
   error: string | null;
+  /** Each player's range at this step (the range story), for dealing a showdown hand from it. */
+  ranges?: Map<number, Weights> | null;
   onEvent: (ev: HandEvent) => void;
   onNewHand: () => void;
 }
@@ -263,7 +266,30 @@ function ShowCardsPicker({ state, seat, onEvent, onClose }: { state: TableState;
   );
 }
 
-function ShowdownControls({ state, money, onEvent, onNewHand }: Props) {
+/** A hand from what is left of a range, by weight, among the cards nobody has seen (the quantum villain). */
+function dealFromRange(state: TableState, w: Weights): [string, string] | null {
+  const free = new Set(unknownCards(state));
+  const pool: { combo: number; w: number }[] = [];
+  let total = 0;
+  for (let c = 0; c < 1326; c++) {
+    if (!(w[c]! > 0)) continue;
+    const [a, b] = cardsFromComboIndex(c);
+    if (!free.has(a) || !free.has(b)) continue;
+    pool.push({ combo: c, w: w[c]! });
+    total += w[c]!;
+  }
+  let r = Math.random() * total;
+  for (const p of pool) {
+    r -= p.w;
+    if (r <= 0) {
+      const [a, b] = cardsFromComboIndex(p.combo);
+      return [cardToString(a), cardToString(b)];
+    }
+  }
+  return null;
+}
+
+function ShowdownControls({ state, money, ranges, onEvent, onNewHand }: Props) {
   const [picking, setPicking] = useState<number | null>(null);
   const live = state.seats.filter((s) => s.dealtIn && !s.folded);
   const resolved = state.result?.resolved ?? false;
@@ -298,6 +324,18 @@ function ShowdownControls({ state, money, onEvent, onNewHand }: Props) {
                 <Button variant="secondary" onClick={() => setPicking(s.seat)}>
                   Show…
                 </Button>
+                {ranges?.get(s.seat) && (
+                  <Button
+                    variant="secondary"
+                    title="Deal a hand from what is left of their range after the hand's actions"
+                    onClick={() => {
+                      const cards = dealFromRange(state, ranges.get(s.seat)!);
+                      if (cards) onEvent({ type: 'show', seat: s.seat, cards });
+                    }}
+                  >
+                    From range
+                  </Button>
+                )}
               </>
             )}
             {!s.mucked && (

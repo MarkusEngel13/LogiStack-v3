@@ -15,15 +15,17 @@ import { BUCKETS, type Bucket } from '../buckets';
 /**
  * Continue share at size 0, how fast it decays per pot of bet size, and the floor it never goes
  * below (some of every bucket is too sticky or too curious to fold - "they never fold top pair").
+ * Mostly inelastic (HHP): top pair and good draws pay big bets, weak hands fold to any bet - so
+ * a small bet gets most of the folds a big one gets. (Steeper decays made every bluff an overbet.)
  */
 const TABLE: Record<Bucket, [base: number, decay: number, floor: number]> = {
   cpfs: [1, 0, 1],
-  thick: [1, 0.25, 0.2],
-  thin: [0.85, 0.5, 0.06],
-  sdv: [0.6, 0.6, 0.03],
-  'strong-draw': [0.9, 0.35, 0.1],
-  'weak-draw': [0.5, 0.6, 0.02],
-  air: [0.25, 0.6, 0.01],
+  thick: [1, 0.15, 0.3],
+  thin: [0.8, 0.3, 0.1],
+  sdv: [0.5, 0.45, 0.04],
+  'strong-draw': [0.9, 0.2, 0.2],
+  'weak-draw': [0.45, 0.5, 0.03],
+  air: [0.15, 0.45, 0.01],
 };
 
 /** Against a raise, the believed folds are this share of those against a bet: "he bet, he has something". */
