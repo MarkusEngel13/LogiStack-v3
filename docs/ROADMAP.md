@@ -151,17 +151,36 @@ Defaults unless Marius says otherwise: HHP's bucket names; heads-up first, multi
        BTN vs BB, can-play-for-stacks bucket: J♠9♦2♠ fear 4.9 % with 10 scary cards (the spades),
        A♣7♦2♥ 1.1 % with none. EQ page: "buckets and fear" panel (two players, flop or turn) with
        the card map of the next card per bucket.
-3. [ ] Motive model, replacing the settings of `villain/response.ts` (spec: the Strategy Bible's
-       claims, `OneDrive\Poker\165 - HungryHorse Plan\Strategy Bible`; "fear of tough decisions" -
-       panic jams, spazzy merged all-ins, nits jamming AK/QQ preflop to avoid postflop - is a big
-       motive there). One rule for every spot -
-       facing a bet (fold / call / raise sizes), checked to (check / bet sizes), first to act (check /
-       lead). The current settings regroup under the motives (comfortBB + fear → loss aversion;
-       sunk cost and drawLove → chasing when behind; bigBetRead → monsters under the bed;
-       callIncentive → not being pushed around).
-4. [ ] HHP doctrine as tests: sets raise more on wet than on static boards; capped after a call on
-       J♠9♦2♠, not on A♣7♦2♥; bluffs pick smaller sizes than value; missed draws in position check
-       the river; a player behind in the session plays looser.
+3. [~] Motive model v1 (`src/core/motives/`, 2026-10-06): `decide()` scores every option for
+       every combo - checked to / first to act (check, bet ⅓-1.5 pot, all-in only at low SPR) or
+       facing a bet (fold, call, raise 2.5x/3.5x, all-in) - from greed x gains, loss aversion x
+       losses (climbs past the comfortable amount), fear x the share of next cards that bite
+       (weighted by how nut-like the hand feels), delayed gratification (discounted by fear: slow-
+       play only pays on safe boards), fear of tough decisions, embarrassment of a caught bluff,
+       liking for betting / calling; soft choice. Beliefs about the other side: `beliefs.ts`
+       (continue share per bucket and size). Profiles and statuses: `profile.ts` (8 presets;
+       winning = protect the win; tilt; drinking lively / tired; session losses = chasing).
+       `rangeAfter()` = the narrowed range after an option (Phase 2's quantum villain).
+       Fish preset on J♠9♦2♠ vs a ⅓-pot c-bet: sets raise 99 %, draws call 94 %, air hardly raises;
+       on A♣7♦2♥ sets call 92 % (slow-play). Still open: the old `villain/response.ts` and its UI
+       users move over; multi-street lines (Phase 3); calibration of the presets (Phase 5).
+       Drinking (research, 2026-10-06): alcohol raises risky choices (lab tasks, e.g. BART at
+       0.65 g/kg), heightens sensitivity to immediate reward rather than punishment (Iowa Gambling
+       Task, 160 people, 2025), increases bets after losses (Tobias-Webb, Clark et al. 2019) and
+       narrows attention to salient cues (alcohol myopia, Steele & Josephs 1990); its effect is
+       biphasic - stimulant while rising, sedative while falling. So: drinking = less loss
+       aversion, long shots overweighted, less embarrassment, noisier, chasing after losses;
+       "lively" adds aggression, "tired" turns it into calling. Default "lively" until Marius
+       decides; the wizard needs a lively / tired choice.
+       Spec: the Strategy Bible's claims (`OneDrive\Poker\165 - HungryHorse Plan\Strategy Bible`);
+       HHP-0QWJrclAjlA-04, Mark: "generally fear and greed drive our opponents' decisions".
+4. [~] HHP doctrine as tests (`src/core/motives/motives.test.ts`, 15 passing, claim ids in the
+       names): sets fast-play on J♠9♦2♠ and slow-play on A♣7♦2♥; a call caps the range on the wet
+       board only; draws passive; air rarely raises; neutral profile = pot odds; strong hands bet
+       bigger than thin value; air bets less in position than out of it, bluffs go small;
+       recreational players value-bet thin rivers less than regs; strong hands raise a small turn
+       bet; low SPR + fear of tough decisions = jams; chasing after session losses; drinking
+       lively / tired; protecting a win. More claims from the Strategy Bible to come.
 
 ### Phase 2: see it (the Lab)
 5. [ ] Quantum villain: the villain plays their whole range; each action filters it through the
@@ -186,10 +205,15 @@ Defaults unless Marius says otherwise: HHP's bucket names; heads-up first, multi
 ### Phase 5: calibrate
 11. [ ] Fit to the Excel table (was step 4) for the magnitudes; Marius's DRY scoring as a
         cross-check of the computed fear numbers.
+12. [ ] "Does it smell right?" page (Marius, 2026-10-06; not urgent). The model's numbers are too
+        abstract to check one by one, so: a random spot (positions, pot type, street, board, bet
+        size) and a random player (type, drinking / tilt / winning / session result) → what their
+        range does, shown as ranges and bucket bars (raised / called / folded). Marius looks and
+        says "feels right" or "smells fishy", with a note; the verdicts are saved with the spot so
+        they become test cases (fishy ones point at the motive weight to fix).
 
-Open: "drinking" - the Excel simulator made a drinking player loose-passive, the step-3 presets make
-them looser and more aggressive. "Winning" becomes "protect the win" (tighter) in Phase 1, as in
-Marius's simulator and Eil & Lien; the step-3 presets do the opposite.
+Drinking: both, by phase (see step 3). "Winning" = "protect the win" (tighter), as in Marius's
+simulator and Eil & Lien (done in `motives/profile.ts`).
 
 Later: multiway; HHP's own preflop charts (the doc lists 200 BB ranges) beside v2's library; villain
 preflop ranges per type from the simulator's RangeDB (TAG, LAG, NIT, LAS, ...); postflop narrowing

@@ -154,6 +154,25 @@ function summarise(list: VillainCombo[], won: Float64Array, tied: Float64Array, 
   return { equity: f > 0 ? (w + t / 2) / f : NaN, win: f > 0 ? w / f : NaN, tie: f > 0 ? t / f : NaN, vsField, combos };
 }
 
+/**
+ * Equity of each combo of `a` against range `b` on a flop, turn or river: one direction of
+ * rangeVsRange (half the work). Index = combo; NaN where not in `a` or nothing of `b` is left.
+ */
+export function rangeEquity(a: Weights, b: Weights, board: readonly Card[]): Float32Array {
+  checkBoard(board);
+  if (board.length < 3) throw new Error('rangeEquity works after the flop');
+  const [boardLo, boardHi] = packed(board);
+  const listA = liveCombos(a, boardLo, boardHi);
+  const listB = liveCombos(b, boardLo, boardHi);
+  const out = new Float32Array(1326).fill(NaN);
+  if (listA.length === 0 || listB.length === 0) return out;
+  const { won, tied, faced } = sweep(listA, listB, board);
+  listA.forEach((h, i) => {
+    if (faced[i]! > 0) out[h.combo] = (won[i]! + tied[i]! / 2) / faced[i]!;
+  });
+  return out;
+}
+
 /** Two ranges, exact. Before the flop the preflop table is required. */
 export function rangeVsRange(a: Weights, b: Weights, board: readonly Card[], table?: PreflopTable): FieldResult {
   checkBoard(board);

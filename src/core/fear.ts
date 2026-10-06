@@ -26,6 +26,8 @@ export interface FearResult {
   ahead: Float32Array;
   /** Per combo of A: the average part of its lead one card takes away, 0..1. NaN if not in A's range. */
   fear: Float32Array;
+  /** Per combo of A: the share of next cards that take a tenth of its lead or more ("scary cards"). */
+  scary: Float32Array;
   /** Per combo of A and next card, at combo * 52 + card: share of B's range that overtakes it. NaN where the card can't come. */
   outdrawn: Float32Array;
 }
@@ -99,12 +101,48 @@ export function fearNumbers(a: Weights, b: Weights, board: readonly Card[]): Fea
   }
 
   const fear = new Float32Array(1326).fill(NaN);
+  const scary = new Float32Array(1326).fill(NaN);
   for (let i = 0; i < nA; i++) {
     const l = lead[i]!;
+    const combo = listA[i]!.combo;
     if (Number.isNaN(l) || cardsSeen[i] === 0) continue;
-    fear[listA[i]!.combo] = l > 0 ? Math.min(1, lostSum[i]! / cardsSeen[i]! / l) : 0;
+    fear[combo] = l > 0 ? Math.min(1, lostSum[i]! / cardsSeen[i]! / l) : 0;
+    let n = 0;
+    if (l > 0) for (const c of nextCards) if (outdrawn[combo * 52 + c]! >= SCARY * l) n++;
+    scary[combo] = n / cardsSeen[i]!;
   }
-  return { nextCards, ahead, fear, outdrawn };
+  return { nextCards, ahead, fear, scary, outdrawn };
+}
+
+/** A card is scary when it takes this much of a hand's lead or more. */
+export const SCARY = 0.1;
+
+/**
+ * Share of B's range each combo of A beats right now (ties half), on any board of 3-5 cards.
+ * NaN for combos not in A's range or without any B combo left after card removal.
+ */
+export function aheadNow(a: Weights, b: Weights, board: readonly Card[]): Float32Array {
+  checkBoard(board);
+  if (board.length < 3) throw new Error('"Ahead now" needs a flop, turn or river');
+  const [boardLo, boardHi] = packed(board);
+  const listA = liveCombos(a, boardLo, boardHi);
+  const listB = liveCombos(b, boardLo, boardHi);
+  const scoreB = new Int32Array(listB.length);
+  listB.forEach((v, j) => (scoreB[j] = evalPacked(v.lo | boardLo, v.hi | boardHi)));
+  const out = new Float32Array(1326).fill(NaN);
+  for (const h of listA) {
+    const s = evalPacked(h.lo | boardLo, h.hi | boardHi);
+    let won = 0;
+    let all = 0;
+    for (let j = 0; j < listB.length; j++) {
+      const v = listB[j]!;
+      if ((h.lo & v.lo) | (h.hi & v.hi)) continue;
+      all += v.weight;
+      won += v.weight * (s > scoreB[j]! ? 1 : s === scoreB[j] ? 0.5 : 0);
+    }
+    if (all > 0) out[h.combo] = won / all;
+  }
+  return out;
 }
 
 export interface GroupFear {
