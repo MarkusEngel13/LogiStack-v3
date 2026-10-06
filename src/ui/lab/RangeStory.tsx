@@ -15,7 +15,7 @@ export const BUCKET_COLORS: Record<Bucket, string> = {
   sdv: '#c9a227',
   'strong-draw': '#2f6fd6',
   'weak-draw': '#86a9e0',
-  air: '#6b6b6b',
+  air: '#64748b',
 };
 
 export const BUCKET_SHORT: Record<Bucket, string> = {

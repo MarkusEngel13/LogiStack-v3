@@ -249,7 +249,15 @@ the more players are in; a lead into the raiser is draws and stabs heads-up (Fis
 can play for stacks) but strong three-way (85 %) - Gethen's donk point; strong hands flat more
 with a player behind. Not yet: the size explorer and the lines are still heads-up.
 Seats (2026-10-06): pointing at a player shows their range there (combos, buckets, last action),
-clicking opens the range window; hole cards are set by clicking the cards.
+clicking opens the range window; hole cards are set by clicking the cards. The range window's
+13x13 has three fills (Marius, 2026-10-07): Range (share of each cell's combos left, removed grey),
+Normalized (scaled so the fullest cell is full: the shape of a thin range), Full (every cell still in
+the range filled by its bucket mix).
+Check-raises (Marius's test, 2026-10-07; HHP-iTV2FKgpTZ0-57, HHP-S7eq8103TDg-43): a raise of one's own
+bet reads strong at any size; called flop / turn stabs are less embarrassing than river bluffs
+(players over-stab), a bluff-raise still is; more players = more witnesses (audience effect). On
+J♠9♦2♠ the check-raise to 641 gets ~58 % folds from the c-bet range, as many as a 1.5x pot lead,
+for fewer chips and a bigger pot: over twice the fold equity per chip risked.
 
 ### Phase 4: practise it (trainer)
 9. [ ] Director: set up a spot (positions, pot type, villain type, board texture) and deal from the
@@ -257,6 +265,12 @@ clicking opens the range window; hole cards are set by clicking the cards.
 10. [ ] Concept library: each HHP spot as a ready hand; timed drills (15-30 s); multiverse buttons
         (another turn card, another villain); HHP's answer from Marius's Rules tree; Hero's own
         choices tagged with the fear they show.
+10b. [ ] Gym (Marius, 2026-10-07): play hands against bots. After the flop each bot holds real
+        cards and draws its action from the motive model's chances for that combo (the same model
+        that narrows ranges, so the range story after the hand shows exactly how its line read);
+        before the flop it plays its chart frequencies. Needs: preflop bot play (charts per spot,
+        sizes, limps), a deal / play loop, timing, a hand review screen. Caveats: one-street
+        thinking, fixed size menu, no memory between hands, uncalibrated presets.
 
 ### Phase 5: calibrate
 11. [ ] Fit to the Excel table (was step 4) for the magnitudes; Marius's DRY scoring as a

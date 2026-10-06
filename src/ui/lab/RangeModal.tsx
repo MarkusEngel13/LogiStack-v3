@@ -9,7 +9,7 @@ import { FearPanel } from '../equity/FearPanel';
 import { RangeGrid, type Segment } from '../ranges/RangeGrid';
 import { streetName } from '../replay/views';
 import { BUCKET_COLORS, BUCKET_SHORT, BucketBar, combosText, RangeStory } from './RangeStory';
-import { weightSegments } from './VillainRangeModal';
+import { RANGE_COLOR } from './VillainRangeModal';
 
 /** Suit colours as on the four-colour deck: ♠ text, ♥ red, ♦ blue, ♣ green. */
 const SUIT_COLOURS: Record<string, string> = { '♠': 'var(--text)', '♥': '#d6262b', '♦': '#2f6fd6', '♣': '#1f8a4c' };
@@ -30,23 +30,52 @@ function Combo({ combo }: { combo: number }) {
 }
 
 /** The part of a cell an action took out. */
-const GONE = 'rgba(150, 150, 150, 0.45)';
+const GONE = 'rgba(150, 150, 150, 0.25)';
 
-/** Each cell: what is left, coloured by bucket, then what was taken out (grey); empty = never there. */
-function storySegments(kept: Weights, removed: Weights, board: Card[]): Segment[][] {
-  const buckets = bucketAll(board);
-  return Array.from({ length: CELLS }, (_, cell) => {
-    const per = new Map<Bucket, number>();
+/**
+ * How a cell is filled:
+ * - range: by the share of its combos still in the range (removed ones grey) - true to the numbers;
+ * - normalized: the same, scaled so the fullest cell is full - the shape of a thin range;
+ * - full: every cell still in the range fills completely, by its bucket mix - what is left, not how much.
+ */
+export type CellFill = 'range' | 'normalized' | 'full';
+const FILLS: { value: CellFill; label: string; hint: string }[] = [
+  { value: 'range', label: 'Range', hint: 'Each cell filled by the share of its combos still in the range' },
+  { value: 'normalized', label: 'Normalized', hint: 'Scaled so the fullest cell is full: the shape of a thin range' },
+  { value: 'full', label: 'Full', hint: 'Every cell still in the range filled completely, by its bucket mix' },
+];
+const FILL_KEY = 'logistack.rangeFill';
+
+/** Each cell: what is left (by bucket after the flop, one colour before), then what was taken out (grey); empty = never there. */
+function cellFills(kept: Weights, removed: Weights, buckets: (Bucket | null)[] | null, fill: CellFill): Segment[][] {
+  const cells = Array.from({ length: CELLS }, (_, cell) => {
+    const per = new Map<string, number>();
+    let left = 0;
     let gone = 0;
     for (const c of combosOfCell(cell)) {
-      const b = buckets[c];
+      const b = buckets ? buckets[c] : 'range';
       if (!b) continue;
-      if (kept[c]! > 0) per.set(b, (per.get(b) ?? 0) + kept[c]!);
+      if (kept[c]! > 0) {
+        const color = b === 'range' ? RANGE_COLOR : BUCKET_COLORS[b];
+        per.set(color, (per.get(color) ?? 0) + kept[c]!);
+        left += kept[c]!;
+      }
       gone += removed[c]!;
     }
-    const n = comboCount(cell);
-    const segs: Segment[] = BUCKETS.filter((b) => per.has(b)).map((b) => ({ color: BUCKET_COLORS[b], pct: (per.get(b)! / n) * 100 }));
-    if (gone > 0.0005) segs.push({ color: GONE, pct: (gone / n) * 100 });
+    return { per, left, gone, n: comboCount(cell) };
+  });
+  const fullest = Math.max(1e-9, ...cells.map((x) => x.left / x.n));
+  const order = [...BUCKETS.map((b) => BUCKET_COLORS[b]), RANGE_COLOR];
+  return cells.map(({ per, left, gone, n }) => {
+    const scale = fill === 'full' ? (left > 0 ? 100 / left : 0) : fill === 'normalized' ? 100 / (n * fullest) : 100 / n;
+    const segs: Segment[] = order.filter((c) => per.has(c)).map((color) => ({ color, pct: per.get(color)! * scale }));
+    const used = segs.reduce((s, x) => s + x.pct, 0);
+    if (gone > 0.0005) {
+      // full: only a cell with nothing left shows grey; otherwise grey fills what the scale leaves
+      if (fill === 'full') {
+        if (left <= 0) segs.push({ color: GONE, pct: 100 });
+      } else segs.push({ color: GONE, pct: Math.min(100 - used, gone * scale) });
+    }
     return segs;
   });
 }
@@ -85,6 +114,22 @@ export function RangeModal({
 }) {
   const mine = useMemo(() => steps.filter((s) => s.seat === seat && s.event < step && !s.skipped), [steps, seat, step]);
   const [view, setView] = useState<'now' | number>('now');
+  const [fill, setFillState] = useState<CellFill>(() => {
+    try {
+      const v = localStorage.getItem(FILL_KEY);
+      return v === 'normalized' || v === 'full' ? v : 'range';
+    } catch {
+      return 'range';
+    }
+  });
+  const setFill = (v: CellFill) => {
+    setFillState(v);
+    try {
+      localStorage.setItem(FILL_KEY, v);
+    } catch {
+      // storage blocked: the choice lasts for this window only
+    }
+  };
   const [hover, setHover] = useState<number | null>(null);
 
   const shown = view === 'now' ? null : mine.find((s) => s.event === view) ?? null;
@@ -100,8 +145,8 @@ export function RangeModal({
     const f = withoutCards(from, dead);
     const r = new Float32Array(1326);
     for (let c = 0; c < 1326; c++) r[c] = Math.max(0, f[c]! - k[c]!);
-    return { fills: preflop ? weightSegments(k) : storySegments(k, r, onBoard), keptLive: k, fromLive: f, removed: r };
-  }, [kept, from, dead, onBoard, preflop]);
+    return { fills: cellFills(k, r, preflop ? null : bucketAll(onBoard), fill), keptLive: k, fromLive: f, removed: r };
+  }, [kept, from, dead, onBoard, preflop, fill]);
 
   const buckets = useMemo(() => (preflop ? [] : bucketAll(onBoard)), [onBoard, preflop]);
   const hovered =
@@ -135,6 +180,20 @@ export function RangeModal({
             })}
           </div>
           <RangeGrid fills={fills} onHover={(cell) => setHover(cell)} cursor="default" />
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-muted">Cells:</span>
+            {FILLS.map((f) => (
+              <button
+                key={f.value}
+                type="button"
+                title={f.hint}
+                onClick={() => setFill(f.value)}
+                className={`rounded border px-2 py-0.5 ${fill === f.value ? 'border-accent bg-surface-3 text-ink' : 'border-line text-muted hover:text-ink'}`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
           <div className="text-sm text-muted">
             {what}: <span className="text-ink">{combosText(comboTotal(keptLive))} combos</span>
             {comboTotal(removed) > 0.05 && (
