@@ -84,17 +84,14 @@ export function DecisionPanel({
   const key = JSON.stringify([me?.cards, state.board, ranges.map((r) => fingerprint(r.weights))]);
   const { answer, pending } = useEquity(question, key);
   const myLine = me ? narrowed?.get(me.seat) : undefined;
-  // the ranges as each player sees the other's (their range reading), for the size explorer
-  const seenRanges = useMemo(
-    () => (inStory && story.input && story.steps ? rangesAt(story.input, story.steps, step, 'seen') : null),
-    [inStory, story.input, story.steps, step],
-  );
+  // the ranges as one player sees the others' (their range reading), for the size explorer and the lines
+  const seenBy = (observer: SeatNo) => (inStory && story.input && story.steps ? rangesAt(story.input, story.steps, step, { observer }) : null);
 
   if (!me) return null;
 
   const legal = legalActions(state);
   const villain = ranges.length === 1 ? state.seats.find((s) => s.seat === ranges[0]!.seat) : undefined;
-  const heads = !!(legal && villain && myLine && narrowed?.get(villain.seat) && seenRanges);
+  const heads = !!(legal && villain && myLine && narrowed?.get(villain.seat) && story.steps);
   const canExplore = heads && !!(legal!.canBet || legal!.canRaise);
   const canWhatIf = heads && (state.board.length === 3 || state.board.length === 4);
   // me, the villain and both ranges as the model has them and as each sees the other's
@@ -102,8 +99,8 @@ export function DecisionPanel({
     heads && villain
       ? {
           situation: situationOf(state, me.seat).situation,
-          actor: { profile: profileFor(me), range: myLine!, seen: seenRanges!.get(me.seat), cards: me.cards ?? undefined },
-          other: { profile: profileFor(villain), range: narrowed!.get(villain.seat)!, seen: seenRanges!.get(villain.seat) },
+          actor: { profile: profileFor(me), range: myLine!, seen: seenBy(villain.seat)?.get(me.seat), cards: me.cards ?? undefined },
+          other: { profile: profileFor(villain), range: narrowed!.get(villain.seat)!, seen: seenBy(me.seat)?.get(villain.seat) },
         }
       : null;
   const odds = potOdds(state);
@@ -279,7 +276,7 @@ export function DecisionPanel({
             ) : (
               <>
                 After the flop each action keeps the hands that would take it, by the fear-and-greed model (player type and status from
-                the wizard; heads-up only for now). Click an action to see which hands took it.{editable ? ' Edit overrides a range from here on.' : ''}
+                the wizard; multiway against everyone still in). Click an action to see which hands took it.{editable ? ' Edit overrides a range from here on.' : ''}
               </>
             )}
           </p>

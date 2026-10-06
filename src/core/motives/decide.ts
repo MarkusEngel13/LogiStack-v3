@@ -33,7 +33,7 @@ export interface Situation {
   toCall: number;
   /** The actor's chips behind, before acting. */
   stack: number;
-  /** The other player's chips behind, after any bet they made. */
+  /** The other player's chips behind, after any bet they made (multiway: the biggest stack). */
   oppStack: number;
   bb: number;
   /** The actor acts last on this street. */
@@ -49,6 +49,11 @@ export interface Situation {
    * after: their bet is expected, so a check keeps the check-raise and rarely gives a free card.
    */
   oppInitiative?: boolean;
+  /**
+   * Players still to act after this one on this street (multiway): a call keeps them in, so a
+   * strong hand flats to string them along (HHP: a call next to act is not capped).
+   */
+  behind?: number;
 }
 
 export type OptionKind = 'fold' | 'check' | 'call' | 'bet' | 'raise';
@@ -106,6 +111,11 @@ const TRAP = 0.5;
 const MAX_JAM_POTS = 3;
 /** How often a player expects the one with the initiative to bet when checked to. */
 const OPP_BETS = 0.6;
+/**
+ * What a flat call is worth per player still to act behind, in pots: they stay in now (no card
+ * comes first), may call or raise into the strong hand, and pay later streets.
+ */
+const TRAP_BEHIND = 1;
 export const DEFAULT_RAISES = [2.5, 3.5];
 
 /**
@@ -123,23 +133,39 @@ const mid = (x: number) => Math.max(0, 4 * x * (1 - x));
 
 interface Aggro {
   option: Option;
-  /** Believed share of the other range that folds. */
+  /** Believed share that everyone folds. */
   fold: number;
-  /** Bet size in pots, as the other side sees it. */
+  /** Bet size in pots, as the others see it. */
   size: number;
-  /** Equity and lead against the part of the range that continues. */
+  /** Equity and lead when someone continues (against the continuing parts of the ranges). */
   eq: Float32Array;
   ahead: Float32Array;
+  /** Expected number of callers when someone continues (1 heads-up). */
+  callers: number;
 }
 
-export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weights): Decision {
+/** Per combo, the product of several per-combo arrays (NaN anywhere stays NaN). */
+function product(arrays: readonly Float32Array[]): Float32Array {
+  const out = new Float32Array(1326).fill(1);
+  for (const a of arrays) for (let c = 0; c < 1326; c++) out[c]! *= a[c]!;
+  return out;
+}
+
+/**
+ * `opp`: the other range, or (multiway) the ranges of everyone else still in. Against several the
+ * hand has to beat them all: equity and lead are the products of the heads-up ones, a card is
+ * scary if it hurts the hand against anyone, a bet wins the pot only if everyone folds and each
+ * caller adds to it.
+ */
+export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weights | readonly Weights[]): Decision {
+  const opps: readonly Weights[] = opp instanceof Float32Array ? [opp] : opp;
   const { board, pot: P, toCall: C, bb } = s;
   if (board.length < 3) throw new Error('The motive model starts on the flop');
   const streetsLeft = 5 - board.length;
   const river = streetsLeft === 0;
   const buckets = bucketAll(board);
 
-  const equity = rangeEquity(mine, opp, board);
+  const equity = product(opps.map((o) => rangeEquity(mine, o, board)));
   // Felt fear: the share of next cards that would bite into the hand's lead at all (people count
   // the cards that "could" hurt, not how likely the opponent holds the hand), two cards to come
   // scare more than one. 0 on the river.
@@ -147,21 +173,29 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
   const scary = new Float32Array(1326);
   const bites = new Float32Array(1326);
   if (river) {
-    ahead = aheadNow(mine, opp, board);
+    ahead = product(opps.map((o) => aheadNow(mine, o, board)));
   } else {
-    const fr = fearNumbers(mine, opp, board);
-    ahead = fr.ahead;
+    const frs = opps.map((o) => fearNumbers(mine, o, board));
+    ahead = product(frs.map((f) => f.ahead));
     const cardsToCome = streetsLeft === 2 ? 1.5 : 1;
     for (let combo = 0; combo < 1326; combo++) {
-      const A = fr.ahead[combo]!;
+      const A = ahead[combo]!;
       if (Number.isNaN(A) || A <= 0) continue;
       let n = 0;
       let seen = 0;
-      for (const card of fr.nextCards) {
-        const o = fr.outdrawn[combo * 52 + card]!;
-        if (Number.isNaN(o)) continue;
+      for (const card of frs[0]!.nextCards) {
+        // a card bites if it takes a real part of the lead against anyone
+        let counted = false;
+        let bit = false;
+        for (const fr of frs) {
+          const o = fr.outdrawn[combo * 52 + card]!;
+          if (Number.isNaN(o)) continue;
+          counted = true;
+          if (o >= BITE * fr.ahead[combo]!) bit = true;
+        }
+        if (!counted) continue;
         seen++;
-        if (o >= BITE * A) n++;
+        if (bit) n++;
       }
       bites[combo] = seen > 0 ? n / seen : 0;
       scary[combo] = Math.min(1, bites[combo]! * cardsToCome);
@@ -172,7 +206,7 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
   const options: Option[] = [];
   const aggro: Aggro[] = [];
   const facing = C > 0;
-  const oppTotal = sumWeights(opp, buckets);
+  const oppTotals = opps.map((o) => sumWeights(o, buckets));
 
   const addAggro = (kind: 'bet' | 'raise', amount: number, maxAmount: number, label: string) => {
     const amt = Math.min(Math.round(amount), maxAmount);
@@ -180,19 +214,39 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
     const allIn = amt >= maxAmount;
     const option: Option = { kind, amount: amt, allIn, label: allIn ? 'All-in' : label };
     const size = kind === 'bet' ? amt / P : (amt - C) / (P + 2 * C);
-    const cont = new Float32Array(1326);
-    let kept = 0;
+    // each opponent: the believed share that folds, and equity / lead against the part that goes on
+    const each = opps.map((o, i) => {
+      const cont = new Float32Array(1326);
+      let kept = 0;
+      for (let c = 0; c < 1326; c++) {
+        const b = buckets[c];
+        if (!b || !(o[c]! > 0)) continue;
+        cont[c] = o[c]! * believedContinue(b, size, p.foldBelief, kind === 'raise');
+        kept += cont[c]!;
+      }
+      const fold = oppTotals[i]! > 0 ? 1 - kept / oppTotals[i]! : 0;
+      const eq = kept > 0 ? rangeEquity(mine, cont, board) : new Float32Array(1326).fill(1);
+      const ah = kept > 0 ? aheadNow(mine, cont, board) : new Float32Array(1326).fill(1);
+      return { fold, eq, ah };
+    });
+    // everyone folds; else the hand must beat each one who goes on (one who folds is beaten)
+    const fold = each.reduce((f, x) => f * x.fold, 1);
+    const goOn = 1 - fold;
+    const eq = new Float32Array(1326);
+    const ah = new Float32Array(1326);
     for (let c = 0; c < 1326; c++) {
-      const b = buckets[c];
-      if (!b || !(opp[c]! > 0)) continue;
-      cont[c] = opp[c]! * believedContinue(b, size, p.foldBelief, kind === 'raise');
-      kept += cont[c]!;
+      let w = 1;
+      let a = 1;
+      for (const x of each) {
+        w *= x.fold + (1 - x.fold) * x.eq[c]!;
+        a *= x.fold + (1 - x.fold) * x.ah[c]!;
+      }
+      eq[c] = goOn > 1e-9 ? (w - fold) / goOn : 1;
+      ah[c] = goOn > 1e-9 ? (a - fold) / goOn : 1;
     }
-    const fold = oppTotal > 0 ? 1 - kept / oppTotal : 0;
-    const eq = kept > 0 ? rangeEquity(mine, cont, board) : new Float32Array(1326).fill(1);
-    const ah = kept > 0 ? aheadNow(mine, cont, board) : new Float32Array(1326).fill(1);
+    const callers = goOn > 1e-9 ? each.reduce((n, x) => n + (1 - x.fold), 0) / goOn : 1;
     options.push(option);
-    aggro.push({ option, fold, size, eq, ahead: ah });
+    aggro.push({ option, fold, size, eq, ahead: ah, callers });
   };
 
   if (!facing) {
@@ -259,7 +313,8 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
           gain: eP * (1 + cc),
           loss: (1 - eP) * cc,
           fear: fearNow,
-          trap: TRAP * A * keep * streetsLeft,
+          // worse hands kept in for later streets, and the players behind kept in now (no card first)
+          trap: TRAP * A * keep * streetsLeft + TRAP_BEHIND * A ** 2 * (s.behind ?? 0),
           tough: streetsLeft > 0 ? mid(eP) * pressure(P + 2 * o.amount, s.stack - o.amount) : 0,
           liking: 0,
         };
@@ -276,7 +331,7 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
         const r = o.amount / P;
         return {
           ...none,
-          gain: fold * won + (1 - fold) * wc * (1 + r),
+          gain: fold * won + (1 - fold) * wc * (1 + r * a.callers),
           loss: (1 - fold) * (1 - wc) * r,
           fear: (fearNow * (1 - fold)) / (1 + a.size),
           trap: TRAP * (Number.isNaN(a.ahead[combo]!) ? 0 : a.ahead[combo]!) * keep * (1 - fold) * streetsLeft,

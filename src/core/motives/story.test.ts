@@ -150,13 +150,23 @@ describe('the quantum villain: postflop actions narrow the ranges', { timeout: 1
     expect(cache.size).toBe(size);
   });
 
-  test('multiway actions are left as they are (heads-up only for now)', () => {
+  test('multiway: every action narrows against everyone still in, and each player sees the others their own way', () => {
     const s = replaySteps(FIXTURES.multiwayShowdown);
     const inp = storyInput(FIXTURES.multiwayShowdown, s, CHARTS)!;
+    // flop K♠9♥4♥: Hero checks into Carl (bets) and Dora (raises), Hero calls, Carl folds
+    expect([...inp.points[0]!.opps].sort()).toEqual([2, 4]);
+    const raise = inp.points.find((p) => p.seat === 4 && p.taken.kind === 'raise')!;
+    expect(raise.situation.behind).toBe(1); // Hero still to act
     const st: StoryStep[] = runStory(inp);
-    expect(st.length).toBeGreaterThan(0);
-    const multi = st.filter((x) => x.skipped === 'multiway');
-    expect(multi.length).toBeGreaterThan(0);
-    for (const x of multi) expect(x.after).toBe(x.before);
+    expect(st.every((x) => !x.skipped)).toBe(true);
+    for (const x of st) expect(comboTotal(x.after)).toBeLessThanOrEqual(comboTotal(x.before) + 1e-3);
+    expect(Object.keys(st[0]!.seen).map(Number).sort()).toEqual([2, 4]);
+    // Carl (a Reg) reads Hero's check more than Dora (a LAG) does
+    const atStart = inp.start.find((x) => x.seat === 0)!.weights;
+    const moved = (w: Float32Array) => comboTotal(atStart) - comboTotal(w);
+    expect(moved(st[0]!.seen[2]!)).toBeGreaterThan(moved(st[0]!.seen[4]!));
+    // after the flop, Carl's view of the ranges is his own
+    const carl = rangesAt(inp, st, 11, { observer: 2 });
+    expect(carl.get(0)).toBe(st.find((x) => x.seat === 0 && x.event < 11 && x.event > 7)!.seen[2]);
   });
 });

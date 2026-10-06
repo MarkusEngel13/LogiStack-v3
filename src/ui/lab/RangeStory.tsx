@@ -136,7 +136,7 @@ export function RangeStory({
               <span className="w-9 shrink-0 text-faint">{streetName(s.street)}</span>
               <span className="font-semibold">{s.action}</span>
               {s.skipped ? (
-                <span className="text-faint">{s.skipped === 'multiway' ? 'multiway: not narrowed' : 'no range'}</span>
+                <span className="text-faint">no range</span>
               ) : (
                 <>
                   <span className={capped ? 'font-semibold text-warn' : 'text-faint'} title="Share of the range that can play for stacks, before → after">

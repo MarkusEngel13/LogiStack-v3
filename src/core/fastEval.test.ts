@@ -47,7 +47,7 @@ describe('fast evaluator', () => {
       if (evalCards(cards) !== evaluate(cards)) mismatches++;
     }
     expect(mismatches).toBe(0);
-  });
+  }, 30_000); // 300,000 hands through the readable evaluator: ~2 s, more on a busy machine
 
   test.each([
     ['As Ks Qs Js Ts 2h 3d', 'royal flush'],

@@ -237,7 +237,19 @@ Defaults unless Marius says otherwise: HHP's bucket names; heads-up first, multi
        equity. On J♠9♦2♠ with A♥J♥ against a Fish: check behind lets 262 combos reach the turn,
        ⅓ pot 217 and capped (its sets raised), 1.5x pot 72 - mostly top pair and good draws; the
        Q♠ costs 18-21 points whatever the line, the 7♦ nothing. Tests: `whatIf.test.ts`.
-       Next: a second step (what they do on that card), multiway.
+       Next: a second step (what they do on that card); multiway for the explorer and the lines.
+
+Multiway (2026-10-06): the motive model decides against everyone still in - equity and lead are
+the products of the heads-up ones, a card is scary if it hurts the hand against anyone, a bet wins
+the pot only if all fold and each caller adds to it, and a flat call with players still to act
+behind keeps them in (trap value per player behind). The story narrows every action of every
+player; each player sees each other's range through their own range reading. It produces HHP's
+multiway claims (tests in `multiway.test.ts`): players stab less and value-bet thinner hands less
+the more players are in; a lead into the raiser is draws and stabs heads-up (Fish on J♠9♦2♠: 22 %
+can play for stacks) but strong three-way (85 %) - Gethen's donk point; strong hands flat more
+with a player behind. Not yet: the size explorer and the lines are still heads-up.
+Seats (2026-10-06): pointing at a player shows their range there (combos, buckets, last action),
+clicking opens the range window; hole cards are set by clicking the cards.
 
 ### Phase 4: practise it (trainer)
 9. [ ] Director: set up a spot (positions, pot type, villain type, board texture) and deal from the
