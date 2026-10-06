@@ -3,6 +3,7 @@
  * - 'hero': a hand against villain ranges. Heads-up exact (the preflop table before the flop,
  *   every runout after it), multiway Monte Carlo.
  * - 'field': every player a range. Two players exact, more by Monte Carlo.
+ * - 'fear': fear numbers of one range against another, on a flop or turn.
  * The preflop table is fetched once, on first need.
  */
 
@@ -10,6 +11,7 @@ import tableUrl from '../../core/equity/preflop-hu.bin?url';
 import { equityVsRange, monteCarloEquity } from '../../core/equity/equity';
 import { monteCarloField, rangeVsRange } from '../../core/equity/field';
 import { PreflopTable } from '../../core/equity/preflopTable';
+import { fearNumbers } from '../../core/fear';
 import type { EquityAnswer, EquityQuestion } from './useEquity';
 
 // The app compiles with the DOM types; inside the worker only these two are needed.
@@ -31,7 +33,9 @@ ctx.onmessage = async (e) => {
   const q = e.data;
   const answer = (a: Omit<EquityAnswer, 'id'>) => ctx.postMessage({ id: q.id, ...a });
   try {
-    if (q.kind === 'field') {
+    if (q.kind === 'fear') {
+      answer({ fear: fearNumbers(q.a, q.b, q.board) });
+    } else if (q.kind === 'field') {
       if (q.ranges.length === 2) {
         const preflop = q.board.length === 0 ? await loadTable() : undefined;
         answer({ field: rangeVsRange(q.ranges[0]!, q.ranges[1]!, q.board, preflop) });

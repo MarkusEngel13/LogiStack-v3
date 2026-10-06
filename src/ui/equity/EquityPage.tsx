@@ -11,6 +11,7 @@ import { Button, Segmented } from '../controls';
 import { useEquity } from '../lab/useEquity';
 import { VillainRangeModal } from '../lab/VillainRangeModal';
 import { allCharts } from '../ranges/charts';
+import { FearPanel } from './FearPanel';
 
 const COLORS = ['#f26b1d', '#2f6fd6', '#1f8a4c', '#a855f7', '#d4a017', '#0ea5a4'];
 const KEY = 'logistack.eq.v1';
@@ -181,6 +182,13 @@ export function EquityPage() {
     });
   }, [heatLive, vsField]); // heatLive changes whenever the dead cards do
 
+  // heads-up on a flop or turn: the other player's range, for the fear numbers
+  const opponent = setup.players.length === 2 ? 1 - heatPlayer : -1;
+  const oppWeights = opponent >= 0 ? parsed[opponent]?.weights : undefined;
+  const oppDeadKey = opponent >= 0 ? deadFor(opponent).join(',') : '';
+  const oppLive = useMemo(() => (oppWeights ? withoutCards(oppWeights, deadFor(opponent)) : null), [oppWeights, oppDeadKey]);
+  const fearReady = !clash && heatLive && oppLive && (board.length === 3 || board.length === 4);
+
   // the same player's range by hand class (needs a flop), without the combos the known cards rule out
   const classes = useMemo(
     () => (heatLive && board.length >= 3 ? rangeClasses(board, heatLive, vsField) : null),
@@ -329,6 +337,20 @@ export function EquityPage() {
           )}
           {methodText && <p className="mt-2 text-xs text-faint">{methodText}</p>}
         </section>
+
+        {fearReady && (
+          <FearPanel
+            player={heatPlayer}
+            board={board}
+            weights={heatLive}
+            opponent={oppLive}
+            vsField={vsField}
+            inputsKey={JSON.stringify([heatPlayer, setup.players.map(normalise), setup.board])}
+          />
+        )}
+        {setup.players.length > 2 && board.length >= 3 && board.length <= 4 && (
+          <p className="px-1 text-xs text-faint">Buckets and fear: with two players only (fear is measured against one range).</p>
+        )}
 
         {classes && (
           <section className="rounded-lg border border-line bg-surface p-4">

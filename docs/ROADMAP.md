@@ -97,7 +97,7 @@ engine, saved-hand format and Django backend are replaced. v3 lives on GitHub as
        against the others, per combo on hover. The setup is remembered in the browser.
        Hands played part of the time fill that part of their heat-map cell; picked board cards
        show greyed in the card picker.
-19. [x] **Hand classes** (`src/core/handClass.ts`, 2026-10-07): made class (straight flush ... top / 2nd /
+19. [x] **Hand classes** (`src/core/handClass.ts`, 2026-10-06): made class (straight flush ... top / 2nd /
        3rd / low pair, ace-high, king-high, air) with kicker, level (nut / 2nd / 3rd / low) or position;
        flush draws with their level, straight draws (open = 2+ completing ranks, gutshot) and whether
        they draw to the nut straight, backdoors, overcards. Only what the hole cards add counts.
@@ -105,7 +105,97 @@ engine, saved-hand format and Django backend are replaced. v3 lives on GitHub as
        bug). `rangeClasses()` = the Excel's made-hands and draws summaries, with average equity per
        class; shown on the EQ page for the heat-map player.
 
-## Next: villain response model and bet-size EV (agreed 2026-10-06, start next session)
+## Direction (agreed 2026-10-06): HHP made visible, fear and greed as the engine
+
+Goal: practise hands that show Hungry Horse Poker's concepts instead of stating them: the opponent
+capped after calling a small flop bet on a wet board, top pair that calls any size on a blank turn,
+the static board that hides traps.
+
+Sources:
+- The spec: `OneDrive\Poker\165 - HungryHorse Plan\List of strategies HHP.docx` (77 video summaries).
+  Its claims become tests.
+- Marius's earlier attempts, same folder: `01 HHP Plan.xlsx` (sheet Rules = HHP's decision tree for
+  Hero; DRY = his wet/dry and static/dynamic scoring) and `30 !!! New hand simulator REV3.xlsm`
+  (preflop ranges per archetype in RangeDB; its ToDo already planned post-flop buckets, a "what-if"
+  class filter, a drill "Director", the "quantum villain" and a psychology engine).
+- Psychology: prospect theory (cautious when ahead, risk-seeking when behind) and regret theory;
+  poker studies Smith, Levere & Kurtzman 2009 (looser after a big loss) and Eil & Lien 2014
+  (break-even effect when losing, less risk when ahead).
+
+**Organising principle (Marius, 2026-10-06): every player decision derives from fear and greed.**
+Both are anticipated regret, measured in pots:
+- fear: "I had the best hand and let them outdraw me". Strongest when many next cards hurt the hand
+  (wet, dynamic boards) → bet or raise now, big (fast-play, the "big bet = strong" sizing tell).
+- greed: "I had the best hand and didn't get paid". Wins when little can hurt the hand (static
+  boards) → check, call, trap. On the river, fear of it checking through → lead.
+- also loss aversion on absolute money (comfort in BB), embarrassment (showing a failed bluff, being
+  pushed around) and the session reference point (winning → protect the win, losing → chase).
+Player types are weights on these motives; statuses shift them. Texture is never a hand-made label:
+it falls out of the fear numbers.
+
+Found 2026-10-06: the step-3 response model below is texture-blind. BB defence vs a BTN open, ⅓-pot
+bet: a Reg raises sets 90 % on J♠9♦2♠ and 97 % on A♣7♦2♥ (HHP: raise on wet, trap on static), so it
+shows the Reg capped after a call on A-7-2. Phase 1 replaces it.
+
+Defaults unless Marius says otherwise: HHP's bucket names; heads-up first, multiway later.
+
+### Phase 1: the fear-and-greed engine (`src/core`, test-first)
+1. [x] HHP buckets on top of the hand classes (`src/core/buckets.ts`, 2026-10-06): can play for
+       stacks, thick value, thin value, showdown value, strong draws, weak draws, air; one main
+       bucket per combo, a strong draw lifts thin value / showdown value / air into the draw bucket.
+       Note (HHP video 7zlh-B0dSII): HHP's other split - value / showdown value / bluff - is
+       relative to the opponent's range after their actions, so it comes from equity with step 3.
+2. [x] Fear numbers (`src/core/fear.ts`, 2026-10-06): per combo, the share of the other range it
+       beats now ("ahead") and, per next card, the share that overtakes it; fear = the part of the
+       lead one card takes away on average. Exact, ~0.1 s for two real ranges; flop or turn only.
+       BTN vs BB, can-play-for-stacks bucket: J♠9♦2♠ fear 4.9 % with 10 scary cards (the spades),
+       A♣7♦2♥ 1.1 % with none. EQ page: "buckets and fear" panel (two players, flop or turn) with
+       the card map of the next card per bucket.
+3. [ ] Motive model, replacing the settings of `villain/response.ts` (spec: the Strategy Bible's
+       claims, `OneDrive\Poker\165 - HungryHorse Plan\Strategy Bible`; "fear of tough decisions" -
+       panic jams, spazzy merged all-ins, nits jamming AK/QQ preflop to avoid postflop - is a big
+       motive there). One rule for every spot -
+       facing a bet (fold / call / raise sizes), checked to (check / bet sizes), first to act (check /
+       lead). The current settings regroup under the motives (comfortBB + fear → loss aversion;
+       sunk cost and drawLove → chasing when behind; bigBetRead → monsters under the bed;
+       callIncentive → not being pushed around).
+4. [ ] HHP doctrine as tests: sets raise more on wet than on static boards; capped after a call on
+       J♠9♦2♠, not on A♣7♦2♥; bluffs pick smaller sizes than value; missed draws in position check
+       the river; a player behind in the session plays looser.
+
+### Phase 2: see it (the Lab)
+5. [ ] Quantum villain: the villain plays their whole range; each action filters it through the
+       model (god-mode override stays); a showdown picks a hand from what is left.
+6. [ ] Range story: bucket bars per street with the cap visible; the 13x13 with removed combos
+       greyed ("raised: 14 combos"); the motive per bucket ("99 raised: fear, 14 of 45 turn cards
+       hurt it"); the fear map of the next card.
+
+### Phase 3: choose it (sizes and lines)
+7. [ ] Size explorer (was step 5): continue % per bucket by size (elastic or not), EV per size,
+       value and bluff side by side (the inverse question); the same for Hero facing a bet.
+8. [ ] "What happens if": check / bet small / bet big → the villain's range on the next street,
+       on a blank and on a scare card.
+
+### Phase 4: practise it (trainer)
+9. [ ] Director: set up a spot (positions, pot type, villain type, board texture) and deal from the
+       ranges.
+10. [ ] Concept library: each HHP spot as a ready hand; timed drills (15-30 s); multiverse buttons
+        (another turn card, another villain); HHP's answer from Marius's Rules tree; Hero's own
+        choices tagged with the fear they show.
+
+### Phase 5: calibrate
+11. [ ] Fit to the Excel table (was step 4) for the magnitudes; Marius's DRY scoring as a
+        cross-check of the computed fear numbers.
+
+Open: "drinking" - the Excel simulator made a drinking player loose-passive, the step-3 presets make
+them looser and more aggressive. "Winning" becomes "protect the win" (tighter) in Phase 1, as in
+Marius's simulator and Eil & Lien; the step-3 presets do the opposite.
+
+Later: multiway; HHP's own preflop charts (the doc lists 200 BB ranges) beside v2's library; villain
+preflop ranges per type from the simulator's RangeDB (TAG, LAG, NIT, LAS, ...); postflop narrowing
+for 3+ players; Ranges page top-x % and quick selects; v2's card backs.
+
+## Before the change of direction: villain response model (2026-10-06)
 
 Goal: approximate how a villain answers every Hero bet size, realistic but with few inputs, then
 the EV of each size (Marius's old Excel "03 - New GUI.xlsm" did this with 4 numbers per hand class
@@ -129,9 +219,9 @@ Design decisions:
   if the fit is poor, a setting is missing).
 
 Build order:
-1. [x] Hand classes for any board (done 2026-10-07, see 19 above).
+1. [x] Hand classes for any board (done 2026-10-06, see 19 above).
 2. [x] Villain's equity per combo against Hero's range on the board (exact engine, range-vs-range mode).
-3. [x] Response model (`src/core/villain/response.ts`, done 2026-10-07). Scores in pot units:
+3. [x] Response model (`src/core/villain/response.ts`, done 2026-10-06; texture-blind, see above). Scores in pot units:
    fold 0; call = mix of price thinking (equity x realisation x pot after the call - the call) and
    hand thinking (class equity vs 40 %, small size effect) + call incentive - fear (BB beyond the
    comfort amount) + sunk cost + draw love (by draw strength, needs chips behind); raise = the same
@@ -144,12 +234,9 @@ Build order:
    Not checked any more: "defends near MDF" - only true against a balanced Hero range.
    Change of plan: step 2 (villain per-combo equity vs Hero's range) came with the EQ page
    (`rangeVsRange(...).players[1].vsField`).
-4. Fit to the Excel table → first preset.
+4. Fit to the Excel table → moved to Phase 5 (11).
 5. Lab: villain profile + sliders, S-curve preview per class, EV-by-size curve with the best size;
-   the same model for Hero facing a bet.
-
-Later: postflop range narrowing (today the automatic ranges stay preflop ranges after the flop);
-Ranges page top-x % and quick selects; v2's card backs.
+   the same model for Hero facing a bet → moved to Phase 3 (7).
 
 ## Decisions on record
 

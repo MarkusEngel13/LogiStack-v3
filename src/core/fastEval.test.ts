@@ -30,7 +30,7 @@ describe('fast evaluator', () => {
     expect(mismatches).toBe(0);
     expect(counts).toEqual(FIVE_CARD_COUNTS);
     expect(distinct.size).toBe(7462); // the number of distinct 5-card poker hands
-  });
+  }, 30_000); // 2.6 M hands through the readable evaluator: ~3 s, more on a busy machine
 
   test('random 6- and 7-card hands score like the reference', () => {
     let seed = 12345;

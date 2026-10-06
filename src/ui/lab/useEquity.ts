@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react';
 import type { Card } from '../../core/cards';
 import type { FieldResult } from '../../core/equity/field';
+import type { FearResult } from '../../core/fear';
 import type { Weights } from '../../core/ranges/range';
 
-/** Hero's hand against villain ranges (the Lab), or every player a range (the EQ page). */
-export type Question = { kind: 'hero'; hero: Card[]; board: Card[]; villains: Weights[] } | { kind: 'field'; ranges: Weights[]; board: Card[] };
+/**
+ * Hero's hand against villain ranges (the Lab), every player a range (the EQ page), or the fear
+ * numbers of range a against range b (flop or turn).
+ */
+export type Question =
+  | { kind: 'hero'; hero: Card[]; board: Card[]; villains: Weights[] }
+  | { kind: 'field'; ranges: Weights[]; board: Card[] }
+  | { kind: 'fear'; a: Weights; b: Weights; board: Card[] };
 
 export type EquityQuestion = Question & { id: number };
 
@@ -18,6 +25,8 @@ export interface EquityAnswer {
   combos?: number[];
   /** kind 'field' */
   field?: FieldResult;
+  /** kind 'fear' */
+  fear?: FearResult;
   error?: string;
 }
 
