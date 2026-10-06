@@ -111,8 +111,14 @@ const BITE = 0.03;
 const TRAP = 0.5;
 /** All-in is on the menu only when it is not absurd: at most this many pots (after a call). */
 const MAX_JAM_POTS = 3;
-/** Facing a raise of one's own bet, it reads like a bet this many pots bigger (see `read`). */
-const RAISE_READ = 0.75;
+/**
+ * Facing a raise of one's own bet, it reads like a bet this many pots bigger (see `read`), and
+ * everyone who doesn't suspect big bets respects it at least this much: check-raises are
+ * underbluffed, and even recreational players have learned it - they fold more to a check-raise
+ * than to an overbet of the same size (Marius, HHP).
+ */
+const RAISE_READ = 1.5;
+const RAISE_RESPECT = 0.45;
 /**
  * How embarrassing a called bluff is before the river, against a river bluff shown down (1): a
  * called flop or turn stab isn't seen yet (players over-stab, HHP), a called bluff-raise is.
@@ -288,7 +294,7 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
   // A raise of one's own bet reads strong at any size (raises are underbluffed: HHP's check-raise
   // = two pair or better), even for players who ignore big bets - not for those who suspect them.
   const cRead = s.facingRaise ? c + RAISE_READ : c;
-  const respect = s.facingRaise && p.respect >= 0 ? Math.max(p.respect, 0.3) : p.respect;
+  const respect = s.facingRaise && p.respect >= 0 ? Math.max(p.respect, RAISE_RESPECT) : p.respect;
   const read = facing ? Math.min(4, Math.max(0.4, 1 + 2 * respect * late * Math.min(1.5, Math.max(0, cRead - 0.75)))) : 1;
   // past the comfortable amount, every further comfort-sized chunk weighs one more loss aversion
   const lambda = (chips: number) => p.lossAversion * (1 + Math.max(0, chips / bb / p.comfortBB - 1));

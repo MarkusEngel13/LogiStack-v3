@@ -15,7 +15,7 @@ import { whyBucket } from './why';
 const CHARTS: ChartChoice[] = LIBRARY.map((r) => ({ ...r }));
 
 /** 6-max, 1/1 EUR... in cents: blinds 50/100, 100 BB deep. The button opens to 2.5 BB, the BB (a Fish) calls. */
-function btnVsBb(flop: string, post: HandEvent[], bbTags: string[] = []): HandRecord {
+function btnVsBb(flop: string, post: HandEvent[], bbTags: string[] = [], btnType?: string): HandRecord {
   return {
     format: 'logistack.hand/0',
     id: 'story-test',
@@ -27,7 +27,7 @@ function btnVsBb(flop: string, post: HandEvent[], bbTags: string[] = []): HandRe
       seat,
       name: seat === 3 ? 'Hero' : `P${seat}`,
       stack: 10000,
-      ...(seat === 5 ? { playerType: 'Fish', tags: bbTags } : {}),
+      ...(seat === 5 ? { playerType: 'Fish', tags: bbTags } : seat === 3 && btnType ? { playerType: btnType } : {}),
     })),
     events: [
       { type: 'action', seat: 0, action: 'fold' },
@@ -153,10 +153,12 @@ describe('the quantum villain: postflop actions narrow the ranges', { timeout: 1
   });
 
   // HHP-iTV2FKgpTZ0-57, HHP-S7eq8103TDg-43: a check-raise gets more fold equity than betting big
-  // ourselves - players over-stab when checked to (HHP--3j77Bl9GuQ-04), and a raise reads strong.
-  test('check-raising wins far more per chip risked than leading big', () => {
-    const answer = (post: HandEvent[]) => {
-      const h = btnVsBb(WET, post);
+  // ourselves - players over-stab when checked to (HHP--3j77Bl9GuQ-04), and check-raises are
+  // underbluffed, which even recreational players have learned (Marius): more folds than to a
+  // bigger lead, from a Reg and from a Fish alike.
+  test('a check-raise gets more folds than a bigger lead, and far more per chip risked', () => {
+    const folds = (flop: string, post: HandEvent[], btnType: string) => {
+      const h = btnVsBb(flop, post, [], btnType);
       const steps = replaySteps(h);
       const inp = storyInput(h, steps, CHARTS)!;
       const st = runStory(inp);
@@ -170,15 +172,21 @@ describe('the quantum villain: postflop actions narrow the ranges', { timeout: 1
       );
       return d.options.reduce((f, o, i) => f + (o.kind === 'fold' ? d.shares[i]! : 0), 0);
     };
-    const lead = answer([{ type: 'action', seat: 5, action: 'bet', to: 825 }]);
-    const xr = answer([
+    const lead: HandEvent[] = [{ type: 'action', seat: 5, action: 'bet', to: 825 }];
+    const xr: HandEvent[] = [
       { type: 'action', seat: 5, action: 'check' },
       { type: 'action', seat: 3, action: 'bet', to: 183 },
       { type: 'action', seat: 5, action: 'raise', to: 641 },
-    ]);
-    expect(xr).toBeGreaterThan(0.4);
-    // what a fold wins per chip risked: the pot (550) for 825, or the pot and the c-bet (916) for 641
-    expect((xr * 916) / 641).toBeGreaterThan((1.5 * (lead * 550)) / 825);
+    ];
+    for (const btn of ['Reg', 'Fish']) {
+      for (const flop of [WET, STATIC]) {
+        const l = folds(flop, lead, btn);
+        const x = folds(flop, xr, btn);
+        expect(x, `${btn} on ${flop}`).toBeGreaterThan(l);
+        // what a fold wins per chip risked: the pot and the c-bet (916) for 641, or the pot (550) for 825
+        expect((x * 916) / 641).toBeGreaterThan((1.5 * (l * 550)) / 825);
+      }
+    }
   });
 
   test('multiway: every action narrows against everyone still in, and each player sees the others their own way', () => {

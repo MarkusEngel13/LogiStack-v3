@@ -254,10 +254,11 @@ clicking opens the range window; hole cards are set by clicking the cards. The r
 Normalized (scaled so the fullest cell is full: the shape of a thin range), Full (every cell still in
 the range filled by its bucket mix).
 Check-raises (Marius's test, 2026-10-07; HHP-iTV2FKgpTZ0-57, HHP-S7eq8103TDg-43): a raise of one's own
-bet reads strong at any size; called flop / turn stabs are less embarrassing than river bluffs
-(players over-stab), a bluff-raise still is; more players = more witnesses (audience effect). On
-J♠9♦2♠ the check-raise to 641 gets ~58 % folds from the c-bet range, as many as a 1.5x pot lead,
-for fewer chips and a bigger pot: over twice the fold equity per chip risked.
+bet reads as a much bigger bet, and even players who ignore big bets respect it (check-raises are
+underbluffed and everyone has learned it - Marius); called flop / turn stabs are less embarrassing
+than river bluffs (players over-stab), a bluff-raise still is; more players = more witnesses
+(audience effect). Against a check-raise to 641 the c-bettor folds 85-86 % (Reg) and 73-80 % (Fish)
+on J♠9♦2♠ and A♣7♦2♥, against a 1.5x pot lead (825) 57-65 %.
 
 ### Phase 4: practise it (trainer)
 9. [ ] Director: set up a spot (positions, pot type, villain type, board texture) and deal from the
