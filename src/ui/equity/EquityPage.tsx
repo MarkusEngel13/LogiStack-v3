@@ -146,19 +146,27 @@ export function EquityPage() {
         ? `Exact: every ${board.length === 3 ? 'turn and river' : board.length === 4 ? 'river' : 'hand on this board'}.`
         : `Simulated: ${field.samples?.toLocaleString('en')} deals (equity ± about ${pct(2 * Math.max(...field.players.map((p) => p.stdError ?? 0)), 2)}).`;
 
+  // cards known to be out for a player: the board and the exact hands of the others
+  const exacts = useMemo(() => parsed.map((p) => (p.weights ? exactCards(p.weights) : null)), [parsed]);
+  const deadFor = (i: number): Card[] => [...board, ...exacts.flatMap((cards, j) => (j !== i && cards ? cards : []))];
+
   // heat map of one player's hands against the rest
   const heatWeights = parsed[heatPlayer]?.weights;
   const vsField = field?.players[heatPlayer]?.vsField;
+  const heatDead = deadFor(heatPlayer);
+  const heatDeadKey = heatDead.join(',');
+  // keyed on the dead cards' text: the array itself is new on every render
+  const heatLive = useMemo(() => (heatWeights ? withoutCards(heatWeights, heatDead) : null), [heatWeights, heatDeadKey]);
   const cellInfo = useMemo(() => {
-    if (!heatWeights) return null;
-    const live = withoutCards(heatWeights, board);
+    if (!heatLive) return null;
+    const live = heatLive;
     return Array.from({ length: CELLS }, (_, cell) => {
       let w = 0;
       let e = 0;
       let known = 0;
-      let dealable = 0; // combos the board doesn't block
+      let dealable = 0; // combos the known cards don't block
       for (const c of combosOfCell(cell)) {
-        if (!board.some((b) => cardsFromComboIndex(c).includes(b))) dealable++;
+        if (!heatDead.some((d) => cardsFromComboIndex(c).includes(d))) dealable++;
         const wc = live[c]!;
         if (wc <= 0) continue;
         w += wc;
@@ -171,12 +179,12 @@ export function EquityPage() {
       // how much of the cell is in the range: AQs at 50 % fills half the cell
       return { weight: w, share: dealable > 0 ? Math.min(1, w / dealable) : 0, equity: known > 0 ? e / known : NaN };
     });
-  }, [heatWeights, vsField, board]);
+  }, [heatLive, vsField]); // heatLive changes whenever the dead cards do
 
-  // the same player's range by hand class (needs a flop)
+  // the same player's range by hand class (needs a flop), without the combos the known cards rule out
   const classes = useMemo(
-    () => (heatWeights && board.length >= 3 ? rangeClasses(board, heatWeights, vsField) : null),
-    [heatWeights, vsField, board],
+    () => (heatLive && board.length >= 3 ? rangeClasses(board, heatLive, vsField) : null),
+    [heatLive, vsField, board],
   );
 
   return (
@@ -192,7 +200,7 @@ export function EquityPage() {
           <div className="space-y-3">
             {setup.players.map((text, i) => {
               const p = parsed[i]!;
-              const live = p.weights ? comboTotal(withoutCards(p.weights, board)) : 0;
+              const live = p.weights ? comboTotal(withoutCards(p.weights, deadFor(i))) : 0;
               return (
                 <div key={i}>
                   <div className="flex items-center gap-2">
@@ -401,16 +409,14 @@ export function EquityPage() {
             </div>
             <p className="mt-2 text-xs text-faint">
               Each hand of Player {heatPlayer + 1} against the others: red loses, green wins. A hand played part of the time fills that
-              part of its cell. Grey: in the range but blocked by the board.
+              part of its cell. Grey: in the range but blocked by the board or another player's cards.
               {field?.method === 'monte-carlo' ? ' Simulated, so single hands carry a few % of noise.' : ''}
             </p>
           </div>
         </section>
       </div>
 
-      {hover && heatWeights && vsField && (
-        <HeatPopup cell={hover.cell} x={hover.x} y={hover.y} weights={withoutCards(heatWeights, board)} vsField={vsField} />
-      )}
+      {hover && heatLive && vsField && <HeatPopup cell={hover.cell} x={hover.x} y={hover.y} weights={heatLive} vsField={vsField} />}
 
       {editing !== null && (
         <VillainRangeModal
