@@ -87,8 +87,10 @@ export function CardPicker({
                 disabled={isTaken}
                 aria-label={cardToString(card)}
                 onClick={() => toggle(card)}
+                aria-pressed={isPicked}
+                title={isPicked ? 'Picked: click to take it back' : undefined}
                 className={`rounded py-1.5 text-center text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-20 ${
-                  isPicked ? 'ring-2 ring-accent' : 'hover:brightness-110'
+                  isPicked ? 'opacity-45 ring-2 ring-accent' : 'hover:brightness-110'
                 }`}
                 style={{ background: 'var(--card-face)', color: SUIT_VARS[suitTone(suit, settings.fourColor)] }}
               >

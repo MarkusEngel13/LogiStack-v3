@@ -95,6 +95,15 @@ engine, saved-hand format and Django backend are replaced. v3 lives on GitHub as
        range from the table preflop, after the flop every runout with a sorted sweep (win and tie
        split too); 3+ players Monte Carlo (200,000 deals). Heat map: each hand class of a player
        against the others, per combo on hover. The setup is remembered in the browser.
+       Hands played part of the time fill that part of their heat-map cell; picked board cards
+       show greyed in the card picker.
+19. [x] **Hand classes** (`src/core/handClass.ts`, 2026-10-07): made class (straight flush ... top / 2nd /
+       3rd / low pair, ace-high, king-high, air) with kicker, level (nut / 2nd / 3rd / low) or position;
+       flush draws with their level, straight draws (open = 2+ completing ranks, gutshot) and whether
+       they draw to the nut straight, backdoors, overcards. Only what the hole cards add counts.
+       Rewritten rather than ported (v2 had board-flush/straight and card-order bugs besides the draw
+       bug). `rangeClasses()` = the Excel's made-hands and draws summaries, with average equity per
+       class; shown on the EQ page for the heat-map player.
 
 ## Next: villain response model and bet-size EV (agreed 2026-10-06, start next session)
 
@@ -120,7 +129,7 @@ Design decisions:
   if the fit is poor, a setting is missing).
 
 Build order:
-1. Hand classes for any board (port v2 `HandEvaluatorInt`, fix its draw bug).
+1. [x] Hand classes for any board (done 2026-10-07, see 19 above).
 2. Villain's equity per combo against Hero's range on the board (exact engine, range-vs-range mode).
 3. Response model as pure tested functions (presets, statuses, overrides); checks: a neutral
    noise-free player defends near MDF, stronger classes never continue less than weaker ones.

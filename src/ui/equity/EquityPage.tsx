@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { cardsFromComboIndex, cardToString, parseCard, type Card } from '../../core/cards';
+import { DRAW_ROWS, MADE_CLASSES, MADE_LABELS, rangeClasses, type ClassRow } from '../../core/handClass';
 import { CELLS, CELL_NAMES, comboLabel, combosOfCell } from '../../core/ranges/hands';
 import { parseRange, RangeSyntaxError } from '../../core/ranges/notation';
 import { comboTotal, withoutCards, type Weights } from '../../core/ranges/range';
@@ -155,7 +156,9 @@ export function EquityPage() {
       let w = 0;
       let e = 0;
       let known = 0;
+      let dealable = 0; // combos the board doesn't block
       for (const c of combosOfCell(cell)) {
+        if (!board.some((b) => cardsFromComboIndex(c).includes(b))) dealable++;
         const wc = live[c]!;
         if (wc <= 0) continue;
         w += wc;
@@ -165,9 +168,16 @@ export function EquityPage() {
           known += wc;
         }
       }
-      return { weight: w, equity: known > 0 ? e / known : NaN };
+      // how much of the cell is in the range: AQs at 50 % fills half the cell
+      return { weight: w, share: dealable > 0 ? Math.min(1, w / dealable) : 0, equity: known > 0 ? e / known : NaN };
     });
   }, [heatWeights, vsField, board]);
+
+  // the same player's range by hand class (needs a flop)
+  const classes = useMemo(
+    () => (heatWeights && board.length >= 3 ? rangeClasses(board, heatWeights, vsField) : null),
+    [heatWeights, vsField, board],
+  );
 
   return (
     <div className="mx-auto grid max-w-[1500px] gap-5 px-6 py-5 xl:grid-cols-[560px_minmax(0,1fr)]">
@@ -311,6 +321,37 @@ export function EquityPage() {
           )}
           {methodText && <p className="mt-2 text-xs text-faint">{methodText}</p>}
         </section>
+
+        {classes && (
+          <section className="rounded-lg border border-line bg-surface p-4">
+            <h2 className="mb-3 text-xs font-bold tracking-wider text-muted uppercase">Player {heatPlayer + 1}: hand classes</h2>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-muted">
+                  <th className="py-1 font-semibold">Made hands</th>
+                  <th className="py-1 text-right font-semibold">Combos</th>
+                  <th className="py-1 text-right font-semibold">% of range</th>
+                  <th className="py-1 text-right font-semibold">Equity</th>
+                </tr>
+              </thead>
+              <tbody>
+                {MADE_CLASSES.filter((k) => classes.made[k].combos > 0).map((k) => (
+                  <ClassLine key={k} label={MADE_LABELS[k]} row={classes.made[k]} total={classes.total} />
+                ))}
+                {DRAW_ROWS.some(([k]) => classes.draws[k].combos > 0) && (
+                  <tr>
+                    <td colSpan={4} className="pt-3 pb-1 text-xs font-semibold text-muted">
+                      Draws (overlap the made hands)
+                    </td>
+                  </tr>
+                )}
+                {DRAW_ROWS.filter(([k]) => classes.draws[k].combos > 0).map(([k, label]) => (
+                  <ClassLine key={k} label={label} row={classes.draws[k]} total={classes.total} indent={k === 'nut-flush-draw'} />
+                ))}
+              </tbody>
+            </table>
+          </section>
+        )}
       </div>
 
       <div>
@@ -343,7 +384,11 @@ export function EquityPage() {
                       padding: '0.5cqw 0.6cqw',
                       fontSize: '2.2cqw',
                       lineHeight: 1.05,
-                      background: known ? heat(info.equity) : inRange ? 'var(--surface-3)' : 'var(--surface-2)',
+                      background: known
+                        ? `linear-gradient(to right, ${heat(info.equity)} 0 ${info.share * 100}%, var(--surface-2) ${info.share * 100}% 100%)`
+                        : inRange
+                          ? 'var(--surface-3)'
+                          : 'var(--surface-2)',
                       color: known ? '#ffffff' : 'var(--text-faint)',
                       textShadow: known ? '0 1px 1px rgba(0,0,0,0.5)' : undefined,
                     }}
@@ -355,7 +400,8 @@ export function EquityPage() {
               })}
             </div>
             <p className="mt-2 text-xs text-faint">
-              Each hand of Player {heatPlayer + 1} against the others: red loses, green wins. Grey: in the range but blocked by the board.
+              Each hand of Player {heatPlayer + 1} against the others: red loses, green wins. A hand played part of the time fills that
+              part of its cell. Grey: in the range but blocked by the board.
               {field?.method === 'monte-carlo' ? ' Simulated, so single hands carry a few % of noise.' : ''}
             </p>
           </div>
@@ -397,6 +443,25 @@ export function EquityPage() {
         />
       )}
     </div>
+  );
+}
+
+function ClassLine({ label, row, total, indent = false }: { label: string; row: ClassRow; total: number; indent?: boolean }) {
+  return (
+    <tr className="border-t border-line">
+      <td className={`py-1.5 ${indent ? 'pl-4 text-muted' : ''}`}>{label.trim()}</td>
+      <td className="py-1.5 text-right tabular-nums">{combosText(row.combos)}</td>
+      <td className="py-1.5 text-right tabular-nums text-muted">{total > 0 ? `${((row.combos / total) * 100).toFixed(1)}%` : '–'}</td>
+      <td className="py-1.5 text-right">
+        {Number.isNaN(row.equity) ? (
+          <span className="text-faint">–</span>
+        ) : (
+          <span className="inline-block min-w-12 rounded px-1.5 text-center text-xs font-bold text-white tabular-nums" style={{ background: heat(row.equity) }}>
+            {Math.round(row.equity * 100)}%
+          </span>
+        )}
+      </td>
+    </tr>
   );
 }
 
