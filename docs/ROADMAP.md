@@ -130,9 +130,20 @@ Design decisions:
 
 Build order:
 1. [x] Hand classes for any board (done 2026-10-07, see 19 above).
-2. Villain's equity per combo against Hero's range on the board (exact engine, range-vs-range mode).
-3. Response model as pure tested functions (presets, statuses, overrides); checks: a neutral
-   noise-free player defends near MDF, stronger classes never continue less than weaker ones.
+2. [x] Villain's equity per combo against Hero's range on the board (exact engine, range-vs-range mode).
+3. [x] Response model (`src/core/villain/response.ts`, done 2026-10-07). Scores in pot units:
+   fold 0; call = mix of price thinking (equity x realisation x pot after the call - the call) and
+   hand thinking (class equity vs 40 %, small size effect) + call incentive - fear (BB beyond the
+   comfort amount) + sunk cost + draw love (by draw strength, needs chips behind); raise = the same
+   value without the call-only likings + aggression x (strength - size) + semi-bluffs; soft choice
+   with the player's noise. Big-bet read is a power curve on equity (bluff-catchers drop, nuts stay).
+   Presets for the wizard's 8 types; tilt / drinking / winning shift them; per-class overrides.
+   Checked: neutral player = pot-odds rule; continuing falls with size below 50 % equity (except
+   suspicious players, by design); rises with strength; sets never fold; fear at 400 BB deep;
+   sunk cost; draws; statuses; a station folds less than a reg, a reg less than a nit (from 1/2 pot).
+   Not checked any more: "defends near MDF" - only true against a balanced Hero range.
+   Change of plan: step 2 (villain per-combo equity vs Hero's range) came with the EQ page
+   (`rangeVsRange(...).players[1].vsField`).
 4. Fit to the Excel table → first preset.
 5. Lab: villain profile + sliders, S-curve preview per class, EV-by-size curve with the best size;
    the same model for Hero facing a bet.
