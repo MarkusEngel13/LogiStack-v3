@@ -22,7 +22,7 @@ interface Props {
   error: string | null;
   /** Each player's range at this step (the range story), for dealing a showdown hand from it. */
   ranges?: Map<number, Weights> | null;
-  /** After the flop: let the motive model act for the player to act (dealing them cards from their range if unknown). */
+  /** Let a bot act for the player to act: the chart before the flop, the motive model after it (dealing cards if unknown). */
   onBot?: () => void;
   botBusy?: boolean;
   /** What the last bot move was and why (its chances). */
@@ -157,12 +157,12 @@ function BettingControls({ hand, state, money, onEvent, onBot, botBusy }: Props)
             </label>
           </>
         )}
-        {onBot && state.board.length >= 3 && (
+        {onBot && (
           <Button
             variant="secondary"
             disabled={botBusy}
             onClick={onBot}
-            title={`The fear-and-greed model plays ${seat.name}'s cards${seat.cards ? '' : ' (dealt from their range first)'}`}
+            title={`${state.board.length >= 3 ? 'The fear-and-greed model' : 'The chart for the spot, bent by player type,'} plays ${seat.name}'s cards${seat.cards ? '' : ' (dealt first)'}`}
           >
             {botBusy ? 'Bot thinking…' : '🤖 Bot plays'}
           </Button>

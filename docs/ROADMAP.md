@@ -273,7 +273,7 @@ on J♠9♦2♠ and A♣7♦2♥, against a 1.5x pot lead (825) 57-65 %.
         flop" acts for every seat but Hero. A bot without cards is dealt a hand from its range at
         that point (what its actions so far allow). In bots mode their cards stay hidden until the
         showdown, the note shows only the action, and when the hand is over "How the bots decided"
-        lists every bot move with its chances. Still to do: preflop bots, the deal / play loop.
+        lists every bot move with its chances. Before the flop (`motives/preflop.ts`): the chart for the spot the bot faces (open, vs limpers, vs an open, squeeze, vs a 3-bet, vs a 4-bet), bent by player type - width against a Chen-formula hand order (Fish x1.7, whale x2.6, nit x0.7), calls and limps instead of raises for Fish and whales (premiums still raise), more raises for LAG and maniac - and HHP's live sizes (open 3 BB, isolate 6 BB + 1 per limper in position, 7 + 1 out of it, 3-bet 3x / 4x, 4-bet 2.5x / 3x, 5-bet all-in). A bot with unknown cards gets a random hand. Still to do: the deal / play loop (new hand, same table, random Hero cards).
         Plan: After the flop each bot holds real
         cards and draws its action from the motive model's chances for that combo (the same model
         that narrows ranges, so the range story after the hand shows exactly how its line read);

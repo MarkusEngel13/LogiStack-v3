@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { HandError, applyEvent, initialState } from '../../core/engine/replay';
+import { HandError, applyEvent, initialState, unknownCards } from '../../core/engine/replay';
 import type { CardStr, HandEvent, HandRecord } from '../../core/hand/types';
 import { CardPicker } from '../cards/CardPicker';
 import { Button } from '../controls';
 import { notesBefore, withNote, withoutNote } from '../../core/ranges/handRanges';
-import { cardsFromRange } from '../../core/motives/bot';
+import { cardsFromRange, type BotChoice } from '../../core/motives/bot';
+import { preflopChoice, randomHand } from '../../core/motives/preflop';
 import { rangesAt, storyInput } from '../../core/motives/story';
 import { ActionBar } from '../lab/ActionBar';
 import { DecisionPanel } from '../lab/DecisionPanel';
@@ -187,12 +188,14 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onEditCopy }:
   const botPlay = async () => {
     const st = steps[cursor]!;
     const seat = st.toAct;
-    if (botBusy || seat === null || st.phase !== 'betting' || st.board.length < 3) return;
+    if (botBusy || seat === null || st.phase !== 'betting') return;
+    const preflop = st.board.length < 3;
     const s = st.seats.find((x) => x.seat === seat)!;
     let h = hand;
     if (!s.cards) {
-      const w = storyRanges?.get(seat);
-      const cards = w ? cardsFromRange(st, w) : null;
+      // before the flop: a random hand; after it: a hand from what its actions so far allow
+      const w = preflop ? null : storyRanges?.get(seat);
+      const cards = preflop ? randomHand(unknownCards(st)) : w ? cardsFromRange(st, w) : null;
       if (!cards) {
         setEditError(w ? `No hand is left in ${s.name}'s range.` : 'Still narrowing the ranges, try again in a moment.');
         return;
@@ -200,31 +203,41 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onEditCopy }:
       h = { ...hand, players: hand.players.map((p) => (p.seat === seat ? { ...p, cards } : p)) };
     }
     const hs = safeSteps(h).steps;
-    const input = storyInput(h, hs.slice(0, cursor + 1), charts);
-    if (!input || !hs[cursor]) return;
-    setBotBusy(true);
-    const a = await ask({ kind: 'bot', input, state: hs[cursor]!, step: cursor });
-    setBotBusy(false);
-    if (!a.bot) {
-      setEditError(a.error ?? 'The bot could not decide.');
-      return;
+    if (!hs[cursor]) return;
+    let choice: BotChoice;
+    if (preflop) {
+      choice = preflopChoice(hs[cursor]!, charts);
+    } else {
+      const input = storyInput(h, hs.slice(0, cursor + 1), charts);
+      if (!input) return;
+      setBotBusy(true);
+      const a = await ask({ kind: 'bot', input, state: hs[cursor]!, step: cursor });
+      setBotBusy(false);
+      if (!a.bot) {
+        setEditError(a.error ?? 'The bot could not decide.');
+        return;
+      }
+      choice = a.bot;
     }
-    const chosen = a.bot.options[a.bot.picked]!;
-    const others = a.bot.options.filter((o, i) => i !== a.bot!.picked && o.p >= 0.01).map((o) => `${o.label} ${pctText(o.p)}`);
-    const full = `${s.name}${s.cards ? '' : ' (dealt from their range)'}: ${chosen.label}, chance ${pctText(chosen.p)}${others.length ? ` · ${others.join(' · ')}` : ''}`;
+    const chosen = choice.options[choice.picked]!;
+    const others = choice.options.filter((o, i) => i !== choice.picked && o.p >= 0.01).map((o) => `${o.label} ${pctText(o.p)}`);
+    const dealt = s.cards ? '' : preflop ? ' (dealt a random hand)' : ' (dealt from their range)';
+    const full = `${s.name}${dealt}: ${chosen.label}, chance ${pctText(chosen.p)}${others.length ? ` · ${others.join(' · ')}` : ''}`;
     // while bots play, the chances would give their hand away: just the action until the hand is over
     setBotNote(autoBots ? `${s.name}: ${chosen.label}` : full);
-    const street = st.board.length === 3 ? 'Flop' : st.board.length === 4 ? 'Turn' : 'River';
+    const street = preflop ? 'Preflop' : st.board.length === 3 ? 'Flop' : st.board.length === 4 ? 'Turn' : 'River';
     setBotLog((log) => [...log.filter((x) => x.step < cursor), { step: cursor, text: `${street} · ${full}` }]);
-    const events = [...h.events.slice(0, cursor), a.bot.event];
+    const events = [...h.events.slice(0, cursor), choice.event];
     commit(h.ranges ? { ...h, events, ranges: notesBefore(h.ranges, cursor) } : { ...h, events }, cursor + 1);
   };
 
-  // Bots play the others: whenever it's someone else's turn after the flop, at the end of the hand.
+  // Bots play the others: whenever it's someone else's turn, at the end of the hand (after the
+  // flop once the ranges are narrowed).
   useEffect(() => {
     const st = steps[cursor]!;
-    if (!autoBots || !editable || botBusy || cursor !== last || !story.steps) return;
-    if (st.phase !== 'betting' || st.toAct === null || st.toAct === hand.hero || st.board.length < 3) return;
+    if (!autoBots || !editable || botBusy || cursor !== last) return;
+    if (st.phase !== 'betting' || st.toAct === null || st.toAct === hand.hero) return;
+    if (st.board.length >= 3 && !story.steps) return;
     const t = setTimeout(() => void botPlay(), BOT_PAUSE_MS);
     return () => clearTimeout(t);
   }, [autoBots, editable, botBusy, cursor, last, story.steps, hand]); // botPlay reads the same state
@@ -364,7 +377,7 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onEditCopy }:
           {editable && (
             <label className="flex w-fit cursor-pointer items-center gap-2 px-1 text-sm text-muted select-none">
               <input type="checkbox" checked={autoBots} onChange={(e) => setAutoBots(e.target.checked)} className="h-4 w-4 accent-[var(--accent)]" />
-              🤖 Bots play the others after the flop (dealing them cards from their range when unknown; their cards stay hidden)
+              🤖 Bots play the others (they get cards when unknown - after the flop from their range - and keep them hidden)
             </label>
           )}
           {editable && (
@@ -388,7 +401,7 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onEditCopy }:
           />
         </div>
         <div className="flex flex-col gap-3 xl:h-[calc(100vh-170px)] xl:max-h-[820px]">
-          {!error && autoBots && editable && state.phase === 'betting' && state.toAct !== null && state.toAct !== hand.hero && state.board.length >= 3 ? (
+          {!error && autoBots && editable && state.phase === 'betting' && state.toAct !== null && state.toAct !== hand.hero ? (
             <div className="rounded-lg border border-line bg-surface px-4 py-3 text-sm text-muted">
               🤖 {state.seats.find((s) => s.seat === state.toAct)?.name} is thinking…
             </div>

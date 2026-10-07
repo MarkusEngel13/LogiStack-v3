@@ -24,9 +24,11 @@ export interface PreflopSpot {
 
 /** Order of play after the flop: SB first, button last. */
 const POSTFLOP_ORDER = ['SB', 'BB', 'UTG', 'UTG+1', 'UTG+2', 'UTG+3', 'LJ', 'HJ', 'CO', 'BTN'];
-const actsLater = (a: string, b: string) => POSTFLOP_ORDER.indexOf(a) > POSTFLOP_ORDER.indexOf(b);
+/**  acts after  after the flop (10-max position names). */
+export const actsLater = (a: string, b: string) => POSTFLOP_ORDER.indexOf(a) > POSTFLOP_ORDER.indexOf(b);
 
-const openerGroup = (pos: string): Scenario => {
+/** The chart scenario for facing an open from this position. */
+export const openerGroup = (pos: string): Scenario => {
   if (pos === 'UTG' || pos === 'UTG+1' || pos === 'UTG+2') return 'vs RFI EP';
   if (pos === 'UTG+3' || pos === 'LJ' || pos === 'HJ') return 'vs RFI MP';
   if (pos === 'CO') return 'vs RFI CO';
