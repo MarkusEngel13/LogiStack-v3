@@ -291,14 +291,31 @@ on J♠9♦2♠ and A♣7♦2♥, against a 1.5x pot lead (825) 57-65 %.
         says "feels right" or "smells fishy", with a note; the verdicts are saved with the spot so
         they become test cases (fishy ones point at the motive weight to fix).
 
-### Strategy Bible backlog (paused 2026-10-06, "for another night")
-The bible (`OneDrive\Poker\165 - HungryHorse Plan\Strategy Bible`): 134 videos, 7072 claims so far
-(pilot + HHP batches 1-13, 2026-10-08). Still to do, in batches Marius OKs:
-- [ ] HHP: 64 videos left in `videos_HHP.csv` - 53 videos and 11 vlog episodes (Mark's low-stakes Ep 1-11).
-- [ ] Charlie Carrel: all of `videos_CC.csv` (~399), the bankroll-challenge episodes too (he gives
-      advice while playing).
-- [ ] Clean-up: merge the claims that repeat across videos into one claim with several sources;
-      check them against the old 77-summary doc (vs_doc).
+### Strategy Bible backlog
+The bible (`OneDrive\Poker\165 - HungryHorse Plan\Strategy Bible`): HHP complete on 2026-10-08 -
+all 197 videos, 9058 claims (two age-restricted videos skipped).
+- [x] HHP: every video, the vlogs too.
+- [~] Charlie Carrel: all of `videos_CC.csv` (~399), the bankroll-challenge episodes too (he gives
+      advice while playing). Drama / reaction videos with under 4 poker terms per 1000 words are
+      skipped (they gave 0-6 claims; the transcript is kept).
+- [~] Streamlining into a playbook (2026-10-08): claims grouped by street into ~300-claim chunks,
+      pass 1 merges each chunk into entries tagged with the advice vocabulary, pass 2 merges each
+      street across chunks, `build.py` fills in the sources (video at the moment, speaker, quote).
+      Tools in `Tools\ytdlp\work\playbook`; output `Strategy Bible\playbook\HHP_playbook.json`
+      and a readable `HHP_PLAYBOOK.md`. Charlie Carrel's gets its own playbook when his are in.
+- [ ] vs_doc: check the playbook against the old 77-summary doc.
+
+### Advice at the right moment ("HHP says", 2026-10-08)
+`core/advice/spot.ts` names any moment of a hand in the playbook's words (street, pot type,
+players, position, preflop role, decision, size faced, the line so far, board and scare cards,
+the opponent's type and statuses, depth); `core/advice/playbook.ts` matches the playbook's
+entries to it (every dimension an entry names must fit; the most specific first, then the best
+sourced). The Lab shows the top 3 under the Decision panel for the player to act, with what
+drives the opponent, the coaches' own words and a link to the video at that moment. The
+playbook is private: the user loads their copy from a file (kept in the browser's IndexedDB),
+it never ships with the app. Next: the same in the gym and watch mode as a coach's voice
+("HHP says fold here" vs what the bot did), Charlie Carrel's playbook beside HHP's, and
+"smells fishy" verdicts on entries that show at the wrong moment.
 
 Drinking: both, by phase (see step 3). "Winning" = "protect the win" (tighter), as in Marius's
 simulator and Eil & Lien (done in `motives/profile.ts`).

@@ -9,6 +9,7 @@ import { notesBefore, withNote, withoutNote } from '../../core/ranges/handRanges
 import { cardsFromRange, type BotChoice } from '../../core/motives/bot';
 import { preflopChoice, randomHand } from '../../core/motives/preflop';
 import { rangesAt, storyInput } from '../../core/motives/story';
+import { AdvicePanel } from '../advice/AdvicePanel';
 import { ActionBar } from '../lab/ActionBar';
 import { DecisionPanel } from '../lab/DecisionPanel';
 import { RangeModal } from '../lab/RangeModal';
@@ -358,6 +359,12 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onNextHand, o
   const otherLive = rangeSeat ? state.seats.filter((s) => s.dealtIn && !s.folded && s.seat !== rangeSeat.seat) : [];
   const rangeOpponent = otherLive.length === 1 ? (state.board.length >= 3 ? storyRanges?.get(otherLive[0]!.seat) : undefined) : undefined;
 
+  // HHP's advice for the player to act - not while the bots play on by themselves
+  const adviceSeat =
+    !error && state.phase === 'betting' && state.toAct !== null && !(watching && !paused) && !(autoBots && !watching && state.toAct !== hand.hero)
+      ? state.toAct
+      : null;
+
   const pickerTaken = (seat: number) =>
     new Set([...final.board, ...final.seats.filter((s) => s.seat !== seat && s.cards).flatMap((s) => s.cards!)]);
   const cardsPlayer = hand.players.find((p) => p.seat === cardsFor);
@@ -535,6 +542,11 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onNextHand, o
             </div>
           ) : !error && (
             <DecisionPanel hand={hand} state={state} step={cursor} editable={editable} money={money} charts={charts} story={story} onSetRange={setRange} onAction={editable ? addEvent : undefined} />
+          )}
+          {adviceSeat !== null && (
+            <div className="max-h-[45vh] shrink-0 overflow-auto">
+              <AdvicePanel state={state} seat={adviceSeat} />
+            </div>
           )}
           <div className="min-h-[260px] flex-1">
             <ActionList rows={rows} step={cursor} atEnd={cursor === last} onJump={jump} />
