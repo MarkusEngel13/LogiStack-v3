@@ -22,7 +22,7 @@ import { playerRange } from '../ranges/handRanges';
 import { parseRange } from '../ranges/notation';
 import type { Weights } from '../ranges/range';
 import type { ChartChoice } from '../ranges/spot';
-import { DEFAULT_BETS, DEFAULT_RAISES, decide, type Decision, type Motives, type OptionKind, type Situation } from './decide';
+import { DEFAULT_BETS, DEFAULT_RAISES, OPP_BETS, decide, oppBetsOn, type Decision, type Motives, type OptionKind, type Situation } from './decide';
 import { profileFor, type MotiveProfile } from './profile';
 
 /** One action after the flop, as the model sees it. */
@@ -134,7 +134,11 @@ export function situationOf(state: TableState, seat: SeatNo): { situation: Situa
     for (let k = state.log.length - 1; k >= 0; k--) {
       const e = state.log[k]!;
       if (e.kind === 'action' && (e.action === 'bet' || e.action === 'raise')) {
-        if (opps.some((o) => o.seat === e.seat)) situation.oppInitiative = true;
+        if (opps.some((o) => o.seat === e.seat)) {
+          situation.oppInitiative = true;
+          // after a card that changed the nuts they expect the bettor to check
+          if (oppBetsOn(state.board) !== OPP_BETS) situation.oppBets = oppBetsOn(state.board);
+        }
         break;
       }
     }

@@ -19,13 +19,17 @@ export const playerTypeColor = (id: string | undefined) =>
  */
 export const STATUS_TAGS = [
   { id: 'winning', label: 'Winning', icon: '🏆' },
+  { id: 'stuck', label: 'Stuck (chasing)', icon: '💸' },
   { id: 'tilt', label: 'On tilt', icon: '🔥' },
   { id: 'drinking', label: 'Drinking, lively', icon: '🍺' },
   { id: 'drinking-tired', label: 'Drinking, tired', icon: '🥴' },
 ] as const;
 
-/** Statuses that exclude each other: a player is lively or tired, not both. */
-const EXCLUSIVE: readonly (readonly string[])[] = [['drinking', 'drinking-tired']];
+/** Statuses that exclude each other: lively or tired, winning or stuck - not both. */
+const EXCLUSIVE: readonly (readonly string[])[] = [
+  ['drinking', 'drinking-tired'],
+  ['winning', 'stuck'],
+];
 
 /** Switch a status on or off; switching one on drops the ones it excludes. */
 export function toggleStatus<T extends string>(tags: readonly T[], tag: T): T[] {

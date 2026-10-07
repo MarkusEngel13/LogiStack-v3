@@ -83,7 +83,7 @@ export const MOTIVE_PRESETS: Record<string, MotiveProfile> = {
 MOTIVE_PRESETS.Unknown = { ...MOTIVE_PRESETS.Reg!, name: 'Unknown' };
 
 export interface PlayerState {
-  /** The wizard's statuses: 'winning', 'tilt', 'drinking' (lively), 'drinking-tired'. */
+  /** The wizard's statuses: 'winning', 'stuck', 'tilt', 'drinking' (lively), 'drinking-tired'. */
   tags?: readonly string[];
   /** Won (+) or lost (-) this session, in big blinds: losses make players chase. */
   sessionBB?: number;
@@ -115,7 +115,11 @@ export function withState(p: MotiveProfile, s: PlayerState = {}): MotiveProfile 
     q = { ...q, lossAversion: q.lossAversion * 0.85, comfortBB: q.comfortBB * 1.3, embarrassment: q.embarrassment * 0.7, rangeReading: q.rangeReading * 0.7, longShot: q.longShot * 0.9, noise: q.noise + 0.04 };
     q = tired ? { ...q, aggression: q.aggression - 0.12, stickiness: q.stickiness + 0.12 } : { ...q, aggression: q.aggression + 0.04 };
   }
-  // behind in the session: chasing (break-even effect; stronger after drinking - Tobias-Webb et al. 2019)
-  if ((s.sessionBB ?? 0) < -30) q = { ...q, lossAversion: q.lossAversion * (drinking ? 0.75 : 0.85), longShot: q.longShot * 0.95 };
+  // behind in the session: chasing (break-even effect; stronger after drinking - Tobias-Webb et al.
+  // 2019). HHP: a stuck player "just wants to get his money back so bad" and won't fold made hands
+  // - don't bluff him, value-bet him thin (HHP-dq1Jn4HfegA-25, HHP-5I3oId9IV9k-43, HHP-JqjtIXgR-kI-20)
+  if (tags.includes('stuck') || (s.sessionBB ?? 0) < -30) {
+    q = { ...q, lossAversion: q.lossAversion * (drinking ? 0.75 : 0.85), longShot: q.longShot * 0.95, stickiness: q.stickiness + 0.03 };
+  }
   return q;
 }

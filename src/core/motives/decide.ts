@@ -22,6 +22,7 @@ import type { Card } from '../cards';
 import { rangeEquity } from '../equity/field';
 import { aheadNow, fearNumbers } from '../fear';
 import type { Weights } from '../ranges/range';
+import { nutsChanged } from '../texture';
 import { believedContinue } from './beliefs';
 import type { MotiveProfile } from './profile';
 
@@ -49,6 +50,12 @@ export interface Situation {
    * after: their bet is expected, so a check keeps the check-raise and rarely gives a free card.
    */
   oppInitiative?: boolean;
+  /**
+   * How often this player expects the one with the initiative to bet when checked to (default
+   * OPP_BETS). Lower after a card that changed the nuts (`oppBetsOn`): they expect a check, so
+   * their strong hands lead.
+   */
+  oppBets?: number;
   /**
    * Players still to act after this one on this street (multiway): a call keeps them in, so a
    * strong hand flats to string them along (HHP: a call next to act is not capped).
@@ -128,7 +135,27 @@ const EMBARRASS_BET = { flop: 0.4, turn: 0.6 };
 const AUDIENCE = 0.5;
 const EMBARRASS_RAISE = 0.8;
 /** How often a player expects the one with the initiative to bet when checked to. */
-const OPP_BETS = 0.6;
+export const OPP_BETS = 0.6;
+/**
+ * The same after a card that changed the nuts (the flush or a straight got there, the board
+ * paired): they expect the bettor to check, "they are not expecting us to continue to value bet
+ * because they would not continue to value bet" - so they lead their strong hands, and a river
+ * lead on a nut-changing card is almost never a bluff (HHP-2RK1vrj9xhU-05, -11).
+ */
+export const OPP_BETS_SCARY = 0.3;
+/** What a player out of position expects from the one with the initiative on this board. */
+export const oppBetsOn = (board: readonly Card[]) => (nutsChanged(board) ? OPP_BETS_SCARY : OPP_BETS);
+/**
+ * In position the fear of a bad next card is smaller: the player sees what the other does first
+ * and keeps control of the pot, so strong hands slow-play more, even on wet boards ("way less
+ * anxiety ... about bad turn cards coming that kill their action", HHP-CzhdeGrmJVI-19).
+ */
+const IP_FEAR = 0.7;
+/**
+ * ...and a trap is worth more in position: the trapper sees the bettor act first on every street
+ * and decides how big the pot gets, so a flat or a check-back keeps more value than out of position.
+ */
+const IP_TRAP = 1.8;
 /**
  * What a flat call is worth per player still to act behind, in pots: they stay in now (no card
  * comes first), may call or raise into the strong hand, and pay later streets.
@@ -305,8 +332,9 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
     const e = equity[combo]!;
     const A = ahead[combo]!;
     const F = scary[combo]!;
-    // the fear of being outdrawn belongs to hands that feel good: the stronger, the more to lose
-    const fearNow = A ** 6 * F;
+    // the fear of being outdrawn belongs to hands that feel good: the stronger, the more to lose;
+    // in position it is smaller (IP_FEAR)
+    const fearNow = A ** 6 * F * (s.inPosition ? IP_FEAR : 1);
     // delayed gratification only pays if the hand stays good and the board stays safe
     const keep = 1 - F;
     const none: Motives = { gain: 0, loss: 0, fear: 0, trap: 0, tough: 0, embarrassment: 0, liking: 0 };
@@ -317,12 +345,15 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
         const we = weigh(e, p.longShot);
         // checking to the one with the initiative: their bet is coming (q), so the free card is
         // less likely and the money keeps coming in (check-raise, check-call) - "check to the raiser"
-        const q = !s.inPosition && s.oppInitiative ? OPP_BETS : 0;
+        const q = !s.inPosition && s.oppInitiative ? (s.oppBets ?? OPP_BETS) : 0;
+        // out of position a check also keeps this street's check-raise / check-call - worth less
+        // when the bettor is expected to check (after a card that changed the nuts)
+        const thisStreet = s.inPosition ? 0 : 0.5 * (s.oppInitiative ? q / OPP_BETS : 1);
         return {
           ...none,
           gain: we,
           fear: fearNow * (1 - q),
-          trap: TRAP * A * (q + (1 - q) * keep) * (streetsLeft + (s.inPosition ? 0 : 0.5)),
+          trap: TRAP * A * (q + (1 - q) * keep) * (streetsLeft * (s.inPosition ? IP_TRAP : 1) + thisStreet),
           tough: s.inPosition ? 0 : 0.5 * mid(e) * pressure(2 * P, s.stack),
           embarrassment: river && !s.inPosition ? 0.2 * (1 - e) : 0,
         };
@@ -336,7 +367,7 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
           loss: (1 - eP) * cc,
           fear: fearNow,
           // worse hands kept in for later streets, and the players behind kept in now (no card first)
-          trap: TRAP * A * keep * streetsLeft + TRAP_BEHIND * A ** 2 * (s.behind ?? 0),
+          trap: TRAP * A * keep * streetsLeft * (s.inPosition ? IP_TRAP : 1) + TRAP_BEHIND * A ** 2 * (s.behind ?? 0),
           tough: streetsLeft > 0 ? mid(eP) * pressure(P + 2 * o.amount, s.stack - o.amount) : 0,
           liking: 0,
         };

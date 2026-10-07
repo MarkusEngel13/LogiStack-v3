@@ -11,7 +11,7 @@ import { comboIndex, parseCards } from '../cards';
 import { rangeEquity } from '../equity/field';
 import { classifyAll } from '../handClass';
 import { parseRange } from '../ranges/notation';
-import { decide, rangeAfter, type Decision, type Situation } from './decide';
+import { decide, oppBetsOn, rangeAfter, type Decision, type Situation } from './decide';
 import { MOTIVE_PRESETS, NEUTRAL, withState, type MotiveProfile } from './profile';
 
 const hero = parseRange('22+, A2s+, K8s+, Q9s+, J9s+, T8s+, 97s+, 86s+, 75s+, 65s, 54s, A8o+, KTo+, QTo+, JTo');
@@ -229,6 +229,18 @@ describe('fear of tough decisions, sessions and statuses', { timeout: 60_000 }, 
     expect(at(tired, 'call')).toBeGreaterThan(at(sober, 'call'));
   });
 
+  // HHP-dq1Jn4HfegA-25 ("he just want to get his money back so bad"), HHP-5I3oId9IV9k-43 (don't
+  // bluff a stuck player), HHP-JqjtIXgR-kI-20 (stuck players overcall: overbet them for thin value).
+  test('stuck: the status makes a player chase - more calls with weak hands, fewer folds', () => {
+    const s = facingCbet(WET, 0.75);
+    const weak = bucketIs(WET, 'sdv', 'air', 'weak-draw');
+    const all = () => true;
+    const even = decide(fish, s, bb, hero);
+    const stuck = decide(withState(fish, { tags: ['stuck'] }), s, bb, hero);
+    expect(shareOf(stuck, bb, ['call', 'raise'], weak)).toBeGreaterThan(shareOf(even, bb, ['call', 'raise'], weak));
+    expect(shareOf(stuck, bb, ['fold'], all)).toBeLessThan(shareOf(even, bb, ['fold'], all));
+  });
+
   test('protecting a win: a winning player folds more to a big bet', () => {
     const s = facingCbet(WET, 1);
     const all = () => true;
@@ -244,4 +256,60 @@ test('explain gives each option its motives, adding up to the score', { timeout:
     const w = x.weighted;
     expect(w.gain + w.loss + w.fear + w.trap + w.tough + w.embarrassment + w.liking).toBeCloseTo(x.score, 9);
   }
+});
+
+describe('position, scare cards, sizes and depth (batches 11-13)', { timeout: 120_000 }, () => {
+  // HHP-CzhdeGrmJVI-19: in position "way less anxiety ... about bad turn cards coming that kill
+  // their action": strong hands slow-play much more, even on wet boards.
+  test('in position, sets raise a wet-board c-bet less than out of position', () => {
+    const oop = decide(fish, facingCbet(WET), bb, hero);
+    const ip = decide(fish, { ...facingCbet(WET), inPosition: true }, bb, hero);
+    const sets = madeIs(WET, 'set');
+    expect(shareOf(ip, bb, ['raise'], sets)).toBeLessThan(shareOf(oop, bb, ['raise'], sets) - 0.1);
+  });
+
+  // HHP-2RK1vrj9xhU-05/-11: on a river that changes the nuts they lead their strong hands ("not
+  // expecting us to continue to value bet"), and that lead is almost never a bluff.
+  test('a river lead after the flush gets there is strong: value hands lead more, fewer of the leads are bluffs', () => {
+    const SCARY = 'Ks 8d 2s 3h 7s';
+    const BLANK = 'Ks 8d 2s 3h Qh';
+    expect(oppBetsOn(cards(SCARY))).toBeLessThan(oppBetsOn(cards(BLANK)));
+    const river = (board: string): Situation => ({
+      board: cards(board), pot: 1500, toCall: 0, stack: 8500, oppStack: 8500, bb: 100, inPosition: false,
+      oppInitiative: true, oppBets: oppBetsOn(cards(board)),
+    });
+    const scared = decide(fish, river(SCARY), bb, hero);
+    const usual = decide(fish, { ...river(SCARY), oppBets: undefined }, bb, hero);
+    const strong = bucketIs(SCARY, 'cpfs', 'thick');
+    expect(shareOf(scared, bb, ['bet'], strong)).toBeGreaterThan(shareOf(usual, bb, ['bet'], strong));
+    // the bluffs' share of the lead range
+    const air = bucketIs(SCARY, 'air');
+    const bluffShare = (d: Decision) => {
+      let v = 0;
+      let t = 0;
+      for (let c = 0; c < 1326; c++) {
+        if (!(bb[c]! > 0) || Number.isNaN(d.probs[0]![c]!)) continue;
+        const pBet = d.options.reduce((x, o, i) => x + (o.kind === 'bet' ? d.probs[i]![c]! : 0), 0);
+        t += bb[c]! * pBet;
+        if (air(c)) v += bb[c]! * pBet;
+      }
+      return v / t;
+    };
+    expect(bluffShare(scared)).toBeLessThan(bluffShare(usual));
+  });
+
+  // Not tested here: HHP-4VqO8f5PKuY-10/-11 and HHP-yrkrExta9ug-10 (a small bet on the flush turn
+  // lets flushes raise, a big one scares them of a bigger flush so they flat). Against an
+  // un-narrowed range the model raises flushes into any size; in a hand the bettor's range is
+  // narrowed by the size first (story.ts), which is where this has to show - a case for the
+  // "smells right?" page (ROADMAP step 12).
+
+  // HHP-8-KBQ3GNrhQ (24:32): very deep, "risk aversion comes in" - regs fold strong hands.
+  test('deep stacks: a reg folds more thick value to a pot-sized river bet at 300 BB than at 30 BB', () => {
+    const RIVER = 'Ks 7d 2c 5h 9s';
+    const at = (potBB: number): Situation => ({ board: cards(RIVER), pot: potBB * 100, toCall: potBB * 100, stack: potBB * 200, oppStack: potBB * 100, bb: 100, inPosition: false });
+    const thick = bucketIs(RIVER, 'thick');
+    const reg = MOTIVE_PRESETS.Reg!;
+    expect(shareOf(decide(reg, at(300), bb, hero), bb, ['fold'], thick)).toBeGreaterThan(shareOf(decide(reg, at(30), bb, hero), bb, ['fold'], thick));
+  });
 });

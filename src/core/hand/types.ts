@@ -23,7 +23,7 @@ export type CardStr = string;
 export type Venue = 'home' | 'casino';
 
 /** Built-in status badges. Free text is allowed for house-specific tags. */
-export type PlayerTag = 'winning' | 'tilt' | 'drinking' | 'drinking-tired' | (string & {});
+export type PlayerTag = 'winning' | 'stuck' | 'tilt' | 'drinking' | 'drinking-tired' | (string & {});
 
 export interface Currency {
   code: string; // 'EUR', 'USD', 'CHIPS'
