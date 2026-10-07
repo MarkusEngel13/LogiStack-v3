@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
-import { cardsFromComboIndex, cardToString } from '../../core/cards';
+import { cardToString } from '../../core/cards';
+import { cardsFromRange } from '../../core/motives/bot';
 import { legalActions, potTotal, straddleOptions, unknownCards, type StraddleOption } from '../../core/engine/replay';
 import type { TableState } from '../../core/engine/state';
 import type { ActionKind, HandEvent, HandRecord } from '../../core/hand/types';
@@ -21,6 +22,11 @@ interface Props {
   error: string | null;
   /** Each player's range at this step (the range story), for dealing a showdown hand from it. */
   ranges?: Map<number, Weights> | null;
+  /** After the flop: let the motive model act for the player to act (dealing them cards from their range if unknown). */
+  onBot?: () => void;
+  botBusy?: boolean;
+  /** What the last bot move was and why (its chances). */
+  botNote?: string | null;
   onEvent: (ev: HandEvent) => void;
   onNewHand: () => void;
 }
@@ -41,6 +47,7 @@ export function ActionBar(props: Props) {
       {state.phase === 'dealing' && <DealControls key={key} {...props} />}
       {state.phase === 'showdown' && <ShowdownControls key={key} {...props} />}
       {state.phase === 'complete' && <CompleteControls key={key} {...props} />}
+      {props.botNote && <div className="text-sm text-muted">🤖 {props.botNote}</div>}
       {error && <div className="text-sm text-danger">{error}</div>}
     </div>
   );
@@ -75,7 +82,7 @@ function Who({ state, seat, children }: { state: TableState; seat: number; child
 
 // ---------------------------------------------------------------------------------------------
 
-function BettingControls({ hand, state, money, onEvent }: Props) {
+function BettingControls({ hand, state, money, onEvent, onBot, botBusy }: Props) {
   const legal = legalActions(state)!;
   const seat = state.seats.find((s) => s.seat === legal.seat)!;
   const presets = sizePresets(state, legal, hand.table.blinds.sb);
@@ -149,6 +156,16 @@ function BettingControls({ hand, state, money, onEvent }: Props) {
               Blind {BLIND_ICON}
             </label>
           </>
+        )}
+        {onBot && state.board.length >= 3 && (
+          <Button
+            variant="secondary"
+            disabled={botBusy}
+            onClick={onBot}
+            title={`The fear-and-greed model plays ${seat.name}'s cards${seat.cards ? '' : ' (dealt from their range first)'}`}
+          >
+            {botBusy ? 'Bot thinking…' : '🤖 Bot plays'}
+          </Button>
         )}
       </div>
 
@@ -266,29 +283,6 @@ function ShowCardsPicker({ state, seat, onEvent, onClose }: { state: TableState;
   );
 }
 
-/** A hand from what is left of a range, by weight, among the cards nobody has seen (the quantum villain). */
-function dealFromRange(state: TableState, w: Weights): [string, string] | null {
-  const free = new Set(unknownCards(state));
-  const pool: { combo: number; w: number }[] = [];
-  let total = 0;
-  for (let c = 0; c < 1326; c++) {
-    if (!(w[c]! > 0)) continue;
-    const [a, b] = cardsFromComboIndex(c);
-    if (!free.has(a) || !free.has(b)) continue;
-    pool.push({ combo: c, w: w[c]! });
-    total += w[c]!;
-  }
-  let r = Math.random() * total;
-  for (const p of pool) {
-    r -= p.w;
-    if (r <= 0) {
-      const [a, b] = cardsFromComboIndex(p.combo);
-      return [cardToString(a), cardToString(b)];
-    }
-  }
-  return null;
-}
-
 function ShowdownControls({ state, money, ranges, onEvent, onNewHand }: Props) {
   const [picking, setPicking] = useState<number | null>(null);
   const live = state.seats.filter((s) => s.dealtIn && !s.folded);
@@ -329,7 +323,7 @@ function ShowdownControls({ state, money, ranges, onEvent, onNewHand }: Props) {
                     variant="secondary"
                     title="Deal a hand from what is left of their range after the hand's actions"
                     onClick={() => {
-                      const cards = dealFromRange(state, ranges.get(s.seat)!);
+                      const cards = cardsFromRange(state, ranges.get(s.seat)!);
                       if (cards) onEvent({ type: 'show', seat: s.seat, cards });
                     }}
                   >

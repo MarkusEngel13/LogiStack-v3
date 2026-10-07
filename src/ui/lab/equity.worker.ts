@@ -7,6 +7,7 @@
  * - 'story': every postflop action of a hand through the motive model (ranges narrowed).
  * - 'sizes': the size explorer for the player to act.
  * - 'whatif': each line of the player to act and what reaches the next street.
+ * - 'bot': the action of a bot holding real cards (after the flop).
  * The preflop table is fetched once, on first need.
  */
 
@@ -15,6 +16,7 @@ import { equityVsRange, monteCarloEquity } from '../../core/equity/equity';
 import { monteCarloField, rangeVsRange } from '../../core/equity/field';
 import { PreflopTable } from '../../core/equity/preflopTable';
 import { fearNumbers } from '../../core/fear';
+import { botChoice } from '../../core/motives/bot';
 import { exploreSizes } from '../../core/motives/sizes';
 import { runStory, type StoryCache } from '../../core/motives/story';
 import { whatIf } from '../../core/motives/whatIf';
@@ -42,7 +44,10 @@ ctx.onmessage = async (e) => {
   const q = e.data;
   const answer = (a: Omit<EquityAnswer, 'id'>) => ctx.postMessage({ id: q.id, ...a });
   try {
-    if (q.kind === 'whatif') {
+    if (q.kind === 'bot') {
+      if (storyCache.size > 400) storyCache.clear();
+      answer({ bot: botChoice(q.input, q.state, q.step, Math.random, storyCache) });
+    } else if (q.kind === 'whatif') {
       answer({ whatIf: whatIf(q.q) });
     } else if (q.kind === 'sizes') {
       answer({ sizes: exploreSizes(q.q) });

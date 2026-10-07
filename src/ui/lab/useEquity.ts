@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import type { Card } from '../../core/cards';
 import type { FieldResult } from '../../core/equity/field';
 import type { FearResult } from '../../core/fear';
+import type { BotChoice } from '../../core/motives/bot';
 import type { SizeAnswer, SizeQuestion } from '../../core/motives/sizes';
 import type { StoryInput, StoryStep } from '../../core/motives/story';
+import type { TableState } from '../../core/engine/state';
 import type { WhatIfAnswer } from '../../core/motives/whatIf';
 import type { Weights } from '../../core/ranges/range';
 
@@ -17,7 +19,8 @@ export type Question =
   | { kind: 'fear'; a: Weights; b: Weights; board: Card[] }
   | { kind: 'story'; input: StoryInput }
   | { kind: 'sizes'; q: SizeQuestion }
-  | { kind: 'whatif'; q: SizeQuestion };
+  | { kind: 'whatif'; q: SizeQuestion }
+  | { kind: 'bot'; input: StoryInput; state: TableState; step: number };
 
 export type EquityQuestion = Question & { id: number };
 
@@ -39,6 +42,8 @@ export interface EquityAnswer {
   sizes?: SizeAnswer;
   /** kind 'whatif' */
   whatIf?: WhatIfAnswer;
+  /** kind 'bot' */
+  bot?: BotChoice;
   error?: string;
 }
 
@@ -55,6 +60,15 @@ function getWorker(): Worker {
     };
   }
   return worker;
+}
+
+/** One question, one answer (for actions like a bot's move, not for what the screen shows). */
+export function ask(question: Question): Promise<EquityAnswer> {
+  return new Promise((resolve) => {
+    const id = nextId++;
+    waiting.set(id, resolve);
+    getWorker().postMessage({ id, ...question } satisfies EquityQuestion);
+  });
 }
 
 /**

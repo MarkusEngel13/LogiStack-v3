@@ -266,7 +266,15 @@ on J♠9♦2♠ and A♣7♦2♥, against a 1.5x pot lead (825) 57-65 %.
 10. [ ] Concept library: each HHP spot as a ready hand; timed drills (15-30 s); multiverse buttons
         (another turn card, another villain); HHP's answer from Marius's Rules tree; Hero's own
         choices tagged with the fear they show.
-10b. [ ] Gym (Marius, 2026-10-07): play hands against bots. After the flop each bot holds real
+10b. [~] Gym (Marius, 2026-10-07): play hands against bots. Done (2026-10-07): bots after the flop
+        (`motives/bot.ts`): the player to act's real cards draw an action from the motive model's
+        chances for that combo - the same chances that narrow its range, so its line always fits
+        its range story. Lab: "🤖 Bot plays" for the player to act; "Bots play the others after the
+        flop" acts for every seat but Hero. A bot without cards is dealt a hand from its range at
+        that point (what its actions so far allow). In bots mode their cards stay hidden until the
+        showdown, the note shows only the action, and when the hand is over "How the bots decided"
+        lists every bot move with its chances. Still to do: preflop bots, the deal / play loop.
+        Plan: After the flop each bot holds real
         cards and draws its action from the motive model's chances for that combo (the same model
         that narrows ranges, so the range story after the hand shows exactly how its line read);
         before the flop it plays its chart frequencies. Needs: preflop bot play (charts per spot,

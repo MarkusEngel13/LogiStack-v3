@@ -4,11 +4,13 @@ import type { CardStr, HandEvent, HandRecord } from '../../core/hand/types';
 import { CardPicker } from '../cards/CardPicker';
 import { Button } from '../controls';
 import { notesBefore, withNote, withoutNote } from '../../core/ranges/handRanges';
-import { rangesAt } from '../../core/motives/story';
+import { cardsFromRange } from '../../core/motives/bot';
+import { rangesAt, storyInput } from '../../core/motives/story';
 import { ActionBar } from '../lab/ActionBar';
 import { DecisionPanel } from '../lab/DecisionPanel';
 import { RangeModal } from '../lab/RangeModal';
 import { seatRange, SeatRangeSummary } from '../lab/SeatRange';
+import { ask } from '../lab/useEquity';
 import { useStory } from '../lab/useStory';
 import { allCharts } from '../ranges/charts';
 import { downloadJson, saveHand } from '../library';
@@ -21,6 +23,11 @@ import { TableCenter } from './TableCenter';
 import { actionRows, anchorSeat, moneyFor, replaySeatViews, resultSummary, safeSteps, streetSteps, type ListRow } from './views';
 
 const STEP_MS = 1100;
+/** A bot's pause before it acts when bots play the others, so you can follow the hand. */
+const BOT_PAUSE_MS = 700;
+const AUTO_BOTS_KEY = 'logistack.autoBots';
+
+const pctText = (p: number) => `${Math.round(p * 100)}%`;
 
 interface Props {
   initial: HandRecord;
@@ -40,6 +47,25 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onEditCopy }:
   const [editError, setEditError] = useState<string | null>(null);
   const [cardsFor, setCardsFor] = useState<number | null>(null);
   const [rangeFor, setRangeFor] = useState<number | null>(null);
+  const [botBusy, setBotBusy] = useState(false);
+  const [botNote, setBotNote] = useState<string | null>(null);
+  /** Every bot decision of this hand with its chances, by the step it was made at: shown when the hand is over. */
+  const [botLog, setBotLog] = useState<{ step: number; text: string }[]>([]);
+  const [autoBots, setAutoBotsState] = useState(() => {
+    try {
+      return localStorage.getItem(AUTO_BOTS_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const setAutoBots = (on: boolean) => {
+    setAutoBotsState(on);
+    try {
+      localStorage.setItem(AUTO_BOTS_KEY, on ? '1' : '0');
+    } catch {
+      // storage blocked: the switch lasts for this screen only
+    }
+  };
 
   const { steps, error } = useMemo(() => safeSteps(hand), [hand]);
   const last = steps.length - 1;
@@ -153,6 +179,56 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onEditCopy }:
     [story.input, story.steps, cursor],
   );
 
+  /**
+   * The motive model acts for the player to act (after the flop). Without known cards it first
+   * deals them a hand from their range at this point - what their actions so far allow - and the
+   * cards and the action go in as one change (Undo takes both back).
+   */
+  const botPlay = async () => {
+    const st = steps[cursor]!;
+    const seat = st.toAct;
+    if (botBusy || seat === null || st.phase !== 'betting' || st.board.length < 3) return;
+    const s = st.seats.find((x) => x.seat === seat)!;
+    let h = hand;
+    if (!s.cards) {
+      const w = storyRanges?.get(seat);
+      const cards = w ? cardsFromRange(st, w) : null;
+      if (!cards) {
+        setEditError(w ? `No hand is left in ${s.name}'s range.` : 'Still narrowing the ranges, try again in a moment.');
+        return;
+      }
+      h = { ...hand, players: hand.players.map((p) => (p.seat === seat ? { ...p, cards } : p)) };
+    }
+    const hs = safeSteps(h).steps;
+    const input = storyInput(h, hs.slice(0, cursor + 1), charts);
+    if (!input || !hs[cursor]) return;
+    setBotBusy(true);
+    const a = await ask({ kind: 'bot', input, state: hs[cursor]!, step: cursor });
+    setBotBusy(false);
+    if (!a.bot) {
+      setEditError(a.error ?? 'The bot could not decide.');
+      return;
+    }
+    const chosen = a.bot.options[a.bot.picked]!;
+    const others = a.bot.options.filter((o, i) => i !== a.bot!.picked && o.p >= 0.01).map((o) => `${o.label} ${pctText(o.p)}`);
+    const full = `${s.name}${s.cards ? '' : ' (dealt from their range)'}: ${chosen.label}, chance ${pctText(chosen.p)}${others.length ? ` · ${others.join(' · ')}` : ''}`;
+    // while bots play, the chances would give their hand away: just the action until the hand is over
+    setBotNote(autoBots ? `${s.name}: ${chosen.label}` : full);
+    const street = st.board.length === 3 ? 'Flop' : st.board.length === 4 ? 'Turn' : 'River';
+    setBotLog((log) => [...log.filter((x) => x.step < cursor), { step: cursor, text: `${street} · ${full}` }]);
+    const events = [...h.events.slice(0, cursor), a.bot.event];
+    commit(h.ranges ? { ...h, events, ranges: notesBefore(h.ranges, cursor) } : { ...h, events }, cursor + 1);
+  };
+
+  // Bots play the others: whenever it's someone else's turn after the flop, at the end of the hand.
+  useEffect(() => {
+    const st = steps[cursor]!;
+    if (!autoBots || !editable || botBusy || cursor !== last || !story.steps) return;
+    if (st.phase !== 'betting' || st.toAct === null || st.toAct === hand.hero || st.board.length < 3) return;
+    const t = setTimeout(() => void botPlay(), BOT_PAUSE_MS);
+    return () => clearTimeout(t);
+  }, [autoBots, editable, botBusy, cursor, last, story.steps, hand]); // botPlay reads the same state
+
   // In the Lab a click goes to just before that line, so the next entry replaces it.
   const jump = (row: ListRow) => {
     if (editable) go(row.event >= 0 && Number.isFinite(row.event) ? row.event : 0);
@@ -240,7 +316,12 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onEditCopy }:
               size={t.seats}
               anchorSeat={anchorSeat(hand)}
               buttonSeat={hand.button}
-              seats={replaySeatViews(hand, state, { money, showAllCards: settings.showAllCards || editable, isLastStep: cursor === last })}
+              seats={replaySeatViews(hand, state, {
+                money,
+                // while bots play the others, their cards stay hidden until the showdown, whatever Options say
+                showAllCards: editable && autoBots ? false : settings.showAllCards || editable,
+                isLastStep: cursor === last,
+              })}
               center={<TableCenter state={state} money={money} summary={cursor === last ? resultSummary(hand, state.result, money) : []} />}
               onSeatClick={(seat) => seatRangeAt(seat) && setRangeFor(seat)}
               onCardsClick={editable ? setCardsFor : undefined}
@@ -258,9 +339,33 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onEditCopy }:
               laterEvents={hand.events.length - cursor}
               error={editError}
               ranges={storyRanges}
-              onEvent={addEvent}
+              onBot={botPlay}
+              botBusy={botBusy}
+              botNote={botNote}
+              onEvent={(ev) => {
+                setBotNote(null);
+                addEvent(ev);
+              }}
               onNewHand={onNewHand}
             />
+          )}
+          {editable && cursor === last && (state.phase === 'showdown' || state.phase === 'complete') && botLog.some((x) => x.step < cursor) && (
+            <div className="rounded-lg border border-line bg-surface px-4 py-3 text-sm">
+              <div className="mb-1 text-xs font-bold tracking-wider text-muted uppercase">How the bots decided</div>
+              <ul className="space-y-0.5 text-muted">
+                {botLog
+                  .filter((x) => x.step < cursor)
+                  .map((x) => (
+                    <li key={x.step}>🤖 {x.text}</li>
+                  ))}
+              </ul>
+            </div>
+          )}
+          {editable && (
+            <label className="flex w-fit cursor-pointer items-center gap-2 px-1 text-sm text-muted select-none">
+              <input type="checkbox" checked={autoBots} onChange={(e) => setAutoBots(e.target.checked)} className="h-4 w-4 accent-[var(--accent)]" />
+              🤖 Bots play the others after the flop (dealing them cards from their range when unknown; their cards stay hidden)
+            </label>
           )}
           {editable && (
             <p className="px-1 text-xs text-faint">
@@ -283,7 +388,11 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onEditCopy }:
           />
         </div>
         <div className="flex flex-col gap-3 xl:h-[calc(100vh-170px)] xl:max-h-[820px]">
-          {!error && (
+          {!error && autoBots && editable && state.phase === 'betting' && state.toAct !== null && state.toAct !== hand.hero && state.board.length >= 3 ? (
+            <div className="rounded-lg border border-line bg-surface px-4 py-3 text-sm text-muted">
+              🤖 {state.seats.find((s) => s.seat === state.toAct)?.name} is thinking…
+            </div>
+          ) : !error && (
             <DecisionPanel hand={hand} state={state} step={cursor} editable={editable} money={money} charts={charts} story={story} onSetRange={setRange} onAction={editable ? addEvent : undefined} />
           )}
           <div className="min-h-[260px] flex-1">
