@@ -17,6 +17,7 @@ import { seatRange, SeatRangeSummary } from '../lab/SeatRange';
 import { ask } from '../lab/useEquity';
 import { useStory } from '../lab/useStory';
 import { allCharts } from '../ranges/charts';
+import { addFishy } from '../fishy';
 import { deleteHand, downloadJson, nextHandNo, saveHand } from '../library';
 import { nextHand } from '../../core/hand/nextHand';
 import { SQUID_ICON } from '../playerTypes';
@@ -190,6 +191,18 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onNextHand, o
     commit(on ? { ...hand, watch: { keep: true } } : rest, cursor);
   };
   const keepHand = () => commit({ ...hand, watch: { keep: true } }, cursor);
+
+  /** A bot move that smells fishy: noted for calibration, and the hand is kept to replay it. */
+  const markFishy = (step: number, move: string) => {
+    if (watching) setPaused(true);
+    const note = window.prompt(`What smells fishy about this move?\n\n${move}`, '');
+    if (note === null) return;
+    addFishy({ id: crypto.randomUUID(), at: new Date().toISOString(), handId: hand.id, handNo: hand.handNo, step, move, note });
+    if (hand.watch && !hand.watch.keep) keepHand();
+    else saveHand(hand);
+    setFishyNote(`Noted 🐟 - it's in the "Smells fishy" list on the Hands page.`);
+  };
+  const [fishyNote, setFishyNote] = useState<string | null>(null);
 
   // ---- playback ---------------------------------------------------------------------------
   useEffect(() => {
@@ -466,9 +479,20 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onNextHand, o
                 {botLog
                   .filter((x) => x.step < cursor)
                   .map((x) => (
-                    <li key={x.step}>🤖 {x.text}</li>
+                    <li key={x.step} className="group flex items-start gap-2">
+                      <span className="flex-1">🤖 {x.text}</span>
+                      <button
+                        type="button"
+                        className="shrink-0 rounded px-1 text-xs opacity-40 group-hover:opacity-100 hover:bg-surface-2"
+                        title="Smells fishy: note what's wrong with this move (kept for calibrating the model)"
+                        onClick={() => markFishy(x.step, x.text)}
+                      >
+                        🐟
+                      </button>
+                    </li>
                   ))}
               </ul>
+              {fishyNote && <p className="mt-1 text-xs text-accent">{fishyNote}</p>}
             </div>
           )}
           {watching && (

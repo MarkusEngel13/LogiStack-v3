@@ -3,6 +3,7 @@ import { FIXTURES } from '../core/fixtures';
 import type { HandRecord } from '../core/hand/types';
 import { Button, Section } from './controls';
 import { formatAmount } from './format';
+import { deleteFishy, loadFishy } from './fishy';
 import { deleteHand, downloadJson, loadHands } from './library';
 
 function describe(h: HandRecord) {
@@ -45,6 +46,7 @@ function Row({ hand, onOpen, onDelete }: { hand: HandRecord; onOpen: () => void;
 /** Your hands open in the Lab (editable); sample hands open as a replay. */
 export function HandsList({ onOpen, onWatch }: { onOpen: (hand: HandRecord, editable: boolean) => void; onWatch?: () => void }) {
   const [hands, setHands] = useState(loadHands);
+  const [fishy, setFishy] = useState(loadFishy);
   return (
     <div className="mx-auto max-w-4xl space-y-5 px-6 py-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -76,6 +78,42 @@ export function HandsList({ onOpen, onWatch }: { onOpen: (hand: HandRecord, edit
           </ul>
         )}
       </Section>
+      {fishy.length > 0 && (
+        <Section title="Smells fishy">
+          <p className="mb-2 text-xs text-muted">Bot moves you flagged while watching or playing - cases for calibrating the model.</p>
+          <ul className="space-y-2">
+            {[...fishy].reverse().map((m) => {
+              const h = hands.find((x) => x.id === m.handId);
+              return (
+                <li key={m.id} className="flex flex-wrap items-start justify-between gap-3 rounded-md border border-line bg-surface-2 px-4 py-3 text-sm">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold">🐟 {m.note || '(no note)'}</div>
+                    <div className="text-xs text-muted">
+                      {m.move} · hand #{m.handNo ?? '?'} · {new Date(m.at).toLocaleString()}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    {h && (
+                      <Button variant="secondary" onClick={() => onOpen(h, true)}>
+                        Open hand
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        deleteFishy(m.id);
+                        setFishy(loadFishy());
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </Section>
+      )}
       <Section title="Sample hands">
         <ul className="space-y-2">
           {Object.values(FIXTURES).map((h) => (

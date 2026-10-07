@@ -183,10 +183,13 @@ export function spotTags(state: TableState, seat: SeatNo): SpotTags {
   const eff = Math.min(me.startStack, Math.max(0, ...others.map((o) => o.startStack))) / state.rules.bb;
   const depth = eff < 60 ? 'short' : eff <= 150 ? '100bb' : eff <= 300 ? 'deep' : 'very-deep';
 
+  // before the flop only those who put money in by choice count (the rest may still fold)
+  const inPot = street === 'preflop' ? others.filter((o) => on('preflop').some((a) => a.seat === o.seat && (a.action === 'call' || aggressive(a)))) : others;
+
   return {
     street: [street],
     pot: [pot],
-    players: [others.length > 1 ? 'multiway' : 'hu'],
+    players: [inPot.length > 1 ? 'multiway' : 'hu'],
     position: street === 'preflop' ? [] : [ip ? 'ip' : 'oop'],
     role: pfr === null ? [] : [pfr === seat ? 'pfr' : 'caller'],
     decision: [decision],
