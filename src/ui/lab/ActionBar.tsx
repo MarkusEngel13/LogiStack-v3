@@ -29,6 +29,8 @@ interface Props {
   botNote?: string | null;
   onEvent: (ev: HandEvent) => void;
   onNewHand: () => void;
+  /** The gym: deal the next hand at the same table (button moves, stacks carry over). */
+  onNextHand?: () => void;
 }
 
 /** The Lab's input panel: whatever the hand needs next at the current step. */
@@ -283,7 +285,23 @@ function ShowCardsPicker({ state, seat, onEvent, onClose }: { state: TableState;
   );
 }
 
-function ShowdownControls({ state, money, ranges, onEvent, onNewHand }: Props) {
+/** When the hand is over: deal the next one (the gym), or set up a new hand in the wizard. */
+function NextButtons({ onNewHand, onNextHand, ready }: { onNewHand: () => void; onNextHand?: () => void; ready: boolean }) {
+  return (
+    <span className="flex flex-wrap gap-2">
+      {onNextHand && ready && (
+        <Button variant="primary" onClick={onNextHand} title="Same table: the button moves, stacks carry over, you get new cards (key: N)">
+          Deal next hand
+        </Button>
+      )}
+      <Button variant={onNextHand && ready ? 'secondary' : 'primary'} onClick={onNewHand}>
+        Set up a new hand…
+      </Button>
+    </span>
+  );
+}
+
+function ShowdownControls({ state, money, ranges, onEvent, onNewHand, onNextHand }: Props) {
   const [picking, setPicking] = useState<number | null>(null);
   const live = state.seats.filter((s) => s.dealtIn && !s.folded);
   const resolved = state.result?.resolved ?? false;
@@ -296,9 +314,7 @@ function ShowdownControls({ state, money, ranges, onEvent, onNewHand }: Props) {
             {resolved ? `· pot ${money(potTotal(state))} settled` : '· enter the unknown hands, or muck them, to settle the pot'}
           </span>
         </span>
-        <Button variant="primary" onClick={onNewHand}>
-          New hand, same table
-        </Button>
+        <NextButtons onNewHand={onNewHand} onNextHand={onNextHand} ready={resolved} />
       </div>
       <div className="flex flex-wrap gap-2">
         {live.map((s) => (
@@ -345,7 +361,7 @@ function ShowdownControls({ state, money, ranges, onEvent, onNewHand }: Props) {
   );
 }
 
-function CompleteControls({ state, money, onEvent, onNewHand }: Props) {
+function CompleteControls({ state, money, onEvent, onNewHand, onNextHand }: Props) {
   const [picking, setPicking] = useState(false);
   const winner = state.seats.find((s) => s.dealtIn && !s.folded)!;
   const won = winnings(state.result).get(winner.seat) ?? 0;
@@ -360,9 +376,7 @@ function CompleteControls({ state, money, onEvent, onNewHand }: Props) {
           {winner.name} shows the cards
         </Button>
       )}
-      <Button variant="primary" onClick={onNewHand}>
-        New hand, same table
-      </Button>
+      <NextButtons onNewHand={onNewHand} onNextHand={onNextHand} ready />
       {picking && <ShowCardsPicker state={state} seat={winner.seat} onEvent={onEvent} onClose={() => setPicking(false)} />}
     </div>
   );

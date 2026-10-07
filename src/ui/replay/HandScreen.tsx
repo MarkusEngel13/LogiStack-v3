@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { HandError, applyEvent, initialState, unknownCards } from '../../core/engine/replay';
+import { cardToString } from '../../core/cards';
 import type { CardStr, HandEvent, HandRecord } from '../../core/hand/types';
 import { CardPicker } from '../cards/CardPicker';
 import { Button } from '../controls';
@@ -14,7 +15,8 @@ import { seatRange, SeatRangeSummary } from '../lab/SeatRange';
 import { ask } from '../lab/useEquity';
 import { useStory } from '../lab/useStory';
 import { allCharts } from '../ranges/charts';
-import { downloadJson, saveHand } from '../library';
+import { downloadJson, nextHandNo, saveHand } from '../library';
+import { nextHand } from '../../core/hand/nextHand';
 import { SQUID_ICON } from '../playerTypes';
 import { useSettings } from '../settings';
 import { PokerTable } from '../table/PokerTable';
@@ -36,12 +38,14 @@ interface Props {
   editable: boolean;
   onBack: () => void;
   onNewHand: () => void;
+  /** The gym: the next hand at the same table, ready to play (the caller saves and opens it). */
+  onNextHand?: (next: HandRecord) => void;
   onEditCopy?: (hand: HandRecord) => void;
 }
 
 const errorText = (e: unknown) => (e instanceof HandError ? e.message.replace(/^(Event \d+|Setup): /, '') : String(e));
 
-export function HandScreen({ initial, editable, onBack, onNewHand, onEditCopy }: Props) {
+export function HandScreen({ initial, editable, onBack, onNewHand, onNextHand, onEditCopy }: Props) {
   const { settings } = useSettings();
   const [hand, setHand] = useState(initial);
   const [undoStack, setUndoStack] = useState<{ hand: HandRecord; step: number }[]>([]);
@@ -136,6 +140,14 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onEditCopy }:
     commit(next, cursor);
   };
 
+  /** The hand is over (pot settled): the next one can be dealt. */
+  const finalState = steps[last]!;
+  const handOver = finalState.phase === 'complete' || (finalState.phase === 'showdown' && !!finalState.result?.resolved);
+  const dealNext = () => {
+    if (!onNextHand || !handOver) return;
+    onNextHand(nextHand(hand, finalState, { id: crypto.randomUUID(), createdAt: new Date().toISOString(), handNo: nextHandNo() }));
+  };
+
   // ---- playback ---------------------------------------------------------------------------
   useEffect(() => {
     if (!playing) return;
@@ -153,7 +165,7 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onEditCopy }:
       if (editable && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
         undo();
-      } else if (e.key === 'ArrowRight') go(cursor + 1);
+      } else if (editable && e.key.toLowerCase() === 'n' && !e.ctrlKey && !e.metaKey && cursor === last && handOver) dealNext(); else if (e.key === 'ArrowRight') go(cursor + 1);
       else if (e.key === 'ArrowLeft') go(cursor - 1);
       else if (e.key === 'Home') go(0);
       else if (e.key === 'End') go(last);
@@ -232,10 +244,19 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onEditCopy }:
   };
 
   // Bots play the others: whenever it's someone else's turn, at the end of the hand (after the
-  // flop once the ranges are narrowed).
+  // flop once the ranges are narrowed); the board comes by itself too.
   useEffect(() => {
     const st = steps[cursor]!;
     if (!autoBots || !editable || botBusy || cursor !== last) return;
+    if (st.phase === 'dealing') {
+      const t = setTimeout(() => {
+        const pool = unknownCards(st);
+        const cards: string[] = [];
+        for (let i = 0; i < st.needCards; i++) cards.push(cardToString(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]!));
+        addEvent({ type: 'board', cards });
+      }, BOT_PAUSE_MS);
+      return () => clearTimeout(t);
+    }
     if (st.phase !== 'betting' || st.toAct === null || st.toAct === hand.hero) return;
     if (st.board.length >= 3 && !story.steps) return;
     const t = setTimeout(() => void botPlay(), BOT_PAUSE_MS);
@@ -360,6 +381,7 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onEditCopy }:
                 addEvent(ev);
               }}
               onNewHand={onNewHand}
+              onNextHand={onNextHand ? dealNext : undefined}
             />
           )}
           {editable && cursor === last && (state.phase === 'showdown' || state.phase === 'complete') && botLog.some((x) => x.step < cursor) && (
@@ -377,7 +399,7 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onEditCopy }:
           {editable && (
             <label className="flex w-fit cursor-pointer items-center gap-2 px-1 text-sm text-muted select-none">
               <input type="checkbox" checked={autoBots} onChange={(e) => setAutoBots(e.target.checked)} className="h-4 w-4 accent-[var(--accent)]" />
-              🤖 Bots play the others (they get cards when unknown - after the flop from their range - and keep them hidden)
+              🤖 Bots play the others and deal the board (bots get cards when unknown - after the flop from their range - and keep them hidden)
             </label>
           )}
           {editable && (

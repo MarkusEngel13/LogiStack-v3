@@ -96,6 +96,10 @@ export default function App() {
             editable={open.editable}
             onBack={() => setPage('hands')}
             onNewHand={newHand}
+            onNextHand={(next) => {
+              saveHand(next);
+              openHand(next, true);
+            }}
             onEditCopy={editCopy}
           />
         )}
