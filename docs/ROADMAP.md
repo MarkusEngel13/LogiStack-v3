@@ -292,9 +292,9 @@ on J♠9♦2♠ and A♣7♦2♥, against a 1.5x pot lead (825) 57-65 %.
         they become test cases (fishy ones point at the motive weight to fix).
 
 ### Strategy Bible backlog (paused 2026-10-06, "for another night")
-The bible (`OneDrive\Poker\165 - HungryHorse Plan\Strategy Bible`): 34 videos, 1996 claims so far
-(pilot + HHP batches 1-3). Still to do, batches of 10, Marius OKs each:
-- [ ] HHP: 166 videos left in `videos_HHP.csv` - 122 videos and 44 vlog episodes (include them), ~89 h.
+The bible (`OneDrive\Poker\165 - HungryHorse Plan\Strategy Bible`): 104 videos, 5596 claims so far
+(pilot + HHP batches 1-10, 2026-10-07). Still to do, in batches Marius OKs:
+- [ ] HHP: 95 videos left in `videos_HHP.csv` - 73 videos and 22 vlog episodes (include them).
 - [ ] Charlie Carrel: all of `videos_CC.csv` (~399), the bankroll-challenge episodes too (he gives
       advice while playing).
 - [ ] Clean-up: merge the claims that repeat across videos into one claim with several sources;
