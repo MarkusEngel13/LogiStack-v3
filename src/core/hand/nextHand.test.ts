@@ -32,4 +32,10 @@ describe('the next hand at the same table', () => {
     expect(n.players.find((p) => p.seat === 0)!.stack).toBe(100);
     expect(n.button).toBe(0);
   });
+
+  test('watch mode carries over, but the new hand is not kept until pinned', () => {
+    expect(next.watch).toBeUndefined();
+    const watched = nextHand({ ...prev, watch: { keep: true } }, final, { id: 'w', createdAt: '' });
+    expect(watched.watch).toEqual({});
+  });
 });

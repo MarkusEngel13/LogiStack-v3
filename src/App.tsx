@@ -9,6 +9,8 @@ import { EquityPage } from './ui/equity/EquityPage';
 import { HandScreen } from './ui/replay/HandScreen';
 import { SettingsProvider } from './ui/settings';
 import { HandWizard } from './ui/wizard/HandWizard';
+import { toHandRecord } from './ui/wizard/draft';
+import { watchDraft } from './ui/wizard/watchTable';
 
 type Page = 'new' | 'hands' | 'hand' | 'ranges' | 'equity';
 
@@ -26,6 +28,16 @@ export default function App() {
   const newHand = () => {
     setWizardKey((k) => k + 1);
     setPage('new');
+  };
+
+  /** The gym's watch table: bots on every seat, dealing hand after hand. */
+  const watchBots = () => {
+    const hand: HandRecord = {
+      ...toHandRecord(watchDraft(), { id: crypto.randomUUID(), createdAt: new Date().toISOString(), handNo: nextHandNo() }),
+      watch: {},
+    };
+    saveHand(hand);
+    openHand(hand, true);
   };
 
   const editCopy = (hand: HandRecord) => {
@@ -86,7 +98,7 @@ export default function App() {
             }}
           />
         )}
-        {page === 'hands' && <HandsList onOpen={openHand} />}
+        {page === 'hands' && <HandsList onOpen={openHand} onWatch={watchBots} />}
         {page === 'ranges' && <RangesPage />}
         {page === 'equity' && <EquityPage />}
         {page === 'hand' && open && (

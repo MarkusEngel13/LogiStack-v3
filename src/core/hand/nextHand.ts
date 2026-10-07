@@ -2,7 +2,8 @@
  * The next hand at the same table (the gym). The button moves to the next player dealt in, stacks
  * carry over from the hand just played (a player left with less than a big blind rebuys to what
  * they started with), Hero gets two random cards and everyone else's stay unknown - bots get
- * theirs when they first act. Players, types, statuses, house rules and side games stay.
+ * theirs when they first act. Players, types, statuses, house rules and side games stay; so does
+ * watch mode, but a new watched hand isn't kept until you pin it.
  */
 
 import { cardToString } from '../cards';
@@ -43,9 +44,9 @@ export function nextHand(
     if (i >= 0) players[i] = { ...players[i]!, cards };
   }
 
-  const { ranges: _ranges, title: _title, notes: _notes, ...table } = prev;
+  const { ranges: _ranges, title: _title, notes: _notes, watch, ...table } = prev;
   void _ranges;
   void _title;
   void _notes;
-  return { ...table, id: o.id, createdAt: o.createdAt, handNo: o.handNo, button, players, events: [] };
+  return { ...table, id: o.id, createdAt: o.createdAt, handNo: o.handNo, button, players, events: [], ...(watch ? { watch: {} } : {}) };
 }

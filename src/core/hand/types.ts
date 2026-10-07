@@ -151,4 +151,10 @@ export interface HandRecord {
   events: HandEvent[];
   /** Ranges set in the Lab; players without one get the chart for their spot. */
   ranges?: RangeNote[];
+  /**
+   * The gym's watch mode: bots play every seat with their cards face up and deal the next hand
+   * themselves. A watched hand is replaced by the next one unless `keep` is set (your own hand
+   * switched to watching, or one you pinned).
+   */
+  watch?: { keep?: boolean };
 }

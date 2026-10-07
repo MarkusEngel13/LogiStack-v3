@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { HandError, applyEvent, initialState, unknownCards } from '../../core/engine/replay';
 import { cardToString } from '../../core/cards';
 import type { CardStr, HandEvent, HandRecord } from '../../core/hand/types';
+import type { TableState } from '../../core/engine/state';
 import { CardPicker } from '../cards/CardPicker';
 import { Button } from '../controls';
 import { notesBefore, withNote, withoutNote } from '../../core/ranges/handRanges';
@@ -15,7 +16,7 @@ import { seatRange, SeatRangeSummary } from '../lab/SeatRange';
 import { ask } from '../lab/useEquity';
 import { useStory } from '../lab/useStory';
 import { allCharts } from '../ranges/charts';
-import { downloadJson, nextHandNo, saveHand } from '../library';
+import { deleteHand, downloadJson, nextHandNo, saveHand } from '../library';
 import { nextHand } from '../../core/hand/nextHand';
 import { SQUID_ICON } from '../playerTypes';
 import { useSettings } from '../settings';
@@ -29,6 +30,12 @@ const STEP_MS = 1100;
 /** A bot's pause before it acts when bots play the others, so you can follow the hand. */
 const BOT_PAUSE_MS = 700;
 const AUTO_BOTS_KEY = 'logistack.autoBots';
+/** Watching: the pause on a finished hand before the next one is dealt (at 1x). */
+const NEXT_HAND_MS = 2500;
+const WATCH_SPEEDS = [0.5, 1, 2, 4] as const;
+const WATCH_SPEED_KEY = 'logistack.watchSpeed';
+/** Pause lasts across hands: each new hand is a new screen. */
+const watchSession = { paused: false };
 
 const pctText = (p: number) => `${Math.round(p * 100)}%`;
 
@@ -70,6 +77,30 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onNextHand, o
     } catch {
       // storage blocked: the switch lasts for this screen only
     }
+  };
+
+  /** The gym's watch mode: bots play every seat, cards face up, the next hand comes by itself. */
+  const watching = editable && !!hand.watch;
+  const [watchSpeed, setWatchSpeedState] = useState<number>(() => {
+    try {
+      const v = Number(localStorage.getItem(WATCH_SPEED_KEY));
+      return (WATCH_SPEEDS as readonly number[]).includes(v) ? v : 1;
+    } catch {
+      return 1;
+    }
+  });
+  const setWatchSpeed = (v: number) => {
+    setWatchSpeedState(v);
+    try {
+      localStorage.setItem(WATCH_SPEED_KEY, String(v));
+    } catch {
+      // storage blocked: the speed lasts for this hand only
+    }
+  };
+  const [paused, setPausedState] = useState(watchSession.paused);
+  const setPaused = (on: boolean) => {
+    watchSession.paused = on;
+    setPausedState(on);
   };
 
   const { steps, error } = useMemo(() => safeSteps(hand), [hand]);
@@ -145,8 +176,19 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onNextHand, o
   const handOver = finalState.phase === 'complete' || (finalState.phase === 'showdown' && !!finalState.result?.resolved);
   const dealNext = () => {
     if (!onNextHand || !handOver) return;
-    onNextHand(nextHand(hand, finalState, { id: crypto.randomUUID(), createdAt: new Date().toISOString(), handNo: nextHandNo() }));
+    const next = nextHand(hand, finalState, { id: crypto.randomUUID(), createdAt: new Date().toISOString(), handNo: nextHandNo() });
+    // a watched hand nobody pinned makes room for the next one
+    if (hand.watch && !hand.watch.keep) deleteHand(hand.id);
+    onNextHand(next);
   };
+
+  /** Watch mode on (this hand stays in your hands) or off (it becomes an ordinary Lab hand). */
+  const setWatching = (on: boolean) => {
+    const { watch: _watch, ...rest } = hand;
+    void _watch;
+    commit(on ? { ...hand, watch: { keep: true } } : rest, cursor);
+  };
+  const keepHand = () => commit({ ...hand, watch: { keep: true } }, cursor);
 
   // ---- playback ---------------------------------------------------------------------------
   useEffect(() => {
@@ -235,33 +277,58 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onNextHand, o
     const others = choice.options.filter((o, i) => i !== choice.picked && o.p >= 0.01).map((o) => `${o.label} ${pctText(o.p)}`);
     const dealt = s.cards ? '' : preflop ? ' (dealt a random hand)' : ' (dealt from their range)';
     const full = `${s.name}${dealt}: ${chosen.label}, chance ${pctText(chosen.p)}${others.length ? ` · ${others.join(' · ')}` : ''}`;
-    // while bots play, the chances would give their hand away: just the action until the hand is over
-    setBotNote(autoBots ? `${s.name}: ${chosen.label}` : full);
+    // while bots play with hidden cards, the chances would give their hand away: just the action until the hand is over
+    setBotNote(autoBots && !watching ? `${s.name}: ${chosen.label}` : full);
     const street = preflop ? 'Preflop' : st.board.length === 3 ? 'Flop' : st.board.length === 4 ? 'Turn' : 'River';
     setBotLog((log) => [...log.filter((x) => x.step < cursor), { step: cursor, text: `${street} · ${full}` }]);
     const events = [...h.events.slice(0, cursor), choice.event];
     commit(h.ranges ? { ...h, events, ranges: notesBefore(h.ranges, cursor) } : { ...h, events }, cursor + 1);
   };
 
-  // Bots play the others: whenever it's someone else's turn, at the end of the hand (after the
-  // flop once the ranges are narrowed); the board comes by itself too.
-  useEffect(() => {
+  const dealBoard = (st: TableState) => {
+    const pool = unknownCards(st);
+    const cards: string[] = [];
+    for (let i = 0; i < st.needCards; i++) cards.push(cardToString(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]!));
+    addEvent({ type: 'board', cards });
+  };
+
+  /** Watching: everyone without cards gets a random hand at once, so you see them from the start. */
+  const dealEveryone = (st: TableState) => {
+    let pool = unknownCards(st);
+    const players = hand.players.map((p) => {
+      const s = st.seats.find((x) => x.seat === p.seat);
+      if (!s?.dealtIn || s.folded || s.cards) return p;
+      const cards = randomHand(pool);
+      pool = pool.filter((c) => cardToString(c) !== cards[0] && cardToString(c) !== cards[1]);
+      return { ...p, cards };
+    });
+    commit({ ...hand, players }, cursor);
+  };
+
+  /**
+   * What the bots do next by themselves: deal the cards or the board, act for the player to act
+   * (after the flop once the ranges are narrowed) or, watching, deal the next hand. Null: Hero's
+   * turn (unless watching), or nothing to do.
+   */
+  const autoMove = (): (() => void) | null => {
     const st = steps[cursor]!;
-    if (!autoBots || !editable || botBusy || cursor !== last) return;
-    if (st.phase === 'dealing') {
-      const t = setTimeout(() => {
-        const pool = unknownCards(st);
-        const cards: string[] = [];
-        for (let i = 0; i < st.needCards; i++) cards.push(cardToString(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]!));
-        addEvent({ type: 'board', cards });
-      }, BOT_PAUSE_MS);
-      return () => clearTimeout(t);
-    }
-    if (st.phase !== 'betting' || st.toAct === null || st.toAct === hand.hero) return;
-    if (st.board.length >= 3 && !story.steps) return;
-    const t = setTimeout(() => void botPlay(), BOT_PAUSE_MS);
+    if (!editable || error || cursor !== last) return null;
+    if (watching && handOver) return onNextHand ? dealNext : null;
+    if (watching && st.phase === 'betting' && st.seats.some((s) => s.dealtIn && !s.folded && !s.cards)) return () => dealEveryone(st);
+    if (st.phase === 'dealing') return () => dealBoard(st);
+    if (st.phase !== 'betting' || st.toAct === null || (!watching && st.toAct === hand.hero)) return null;
+    if (st.board.length >= 3 && !story.steps) return null;
+    return () => void botPlay();
+  };
+
+  // Bots play the others (or, watching, everyone): a short pause before each move so you can follow.
+  useEffect(() => {
+    if (!(autoBots || watching) || botBusy || (watching && paused)) return;
+    const move = autoMove();
+    if (!move) return;
+    const t = setTimeout(move, (watching && handOver ? NEXT_HAND_MS : BOT_PAUSE_MS) / (watching ? watchSpeed : 1));
     return () => clearTimeout(t);
-  }, [autoBots, editable, botBusy, cursor, last, story.steps, hand]); // botPlay reads the same state
+  }, [autoBots, watching, paused, watchSpeed, editable, botBusy, cursor, last, story.steps, hand]); // autoMove reads the same state
 
   // In the Lab a click goes to just before that line, so the next entry replaces it.
   const jump = (row: ListRow) => {
@@ -352,8 +419,9 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onNextHand, o
               buttonSeat={hand.button}
               seats={replaySeatViews(hand, state, {
                 money,
-                // while bots play the others, their cards stay hidden until the showdown, whatever Options say
-                showAllCards: editable && autoBots ? false : settings.showAllCards || editable,
+                // while bots play the others, their cards stay hidden until the showdown, whatever Options say;
+                // watching, everything is face up
+                showAllCards: editable && autoBots && !watching ? false : settings.showAllCards || editable,
                 isLastStep: cursor === last,
               })}
               center={<TableCenter state={state} money={money} summary={cursor === last ? resultSummary(hand, state.result, money) : []} />}
@@ -384,7 +452,7 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onNextHand, o
               onNextHand={onNextHand ? dealNext : undefined}
             />
           )}
-          {editable && cursor === last && (state.phase === 'showdown' || state.phase === 'complete') && botLog.some((x) => x.step < cursor) && (
+          {editable && botLog.some((x) => x.step < cursor) && (watching || (cursor === last && (state.phase === 'showdown' || state.phase === 'complete'))) && (
             <div className="rounded-lg border border-line bg-surface px-4 py-3 text-sm">
               <div className="mb-1 text-xs font-bold tracking-wider text-muted uppercase">How the bots decided</div>
               <ul className="space-y-0.5 text-muted">
@@ -396,11 +464,49 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onNextHand, o
               </ul>
             </div>
           )}
+          {watching && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm">
+              <Button variant="secondary" onClick={() => setPaused(!paused)}>
+                {paused ? '▶ Go on' : '⏸ Pause'}
+              </Button>
+              <Button variant="secondary" disabled={!paused || botBusy || !autoMove()} onClick={() => autoMove()?.()} title="One move: a deal, an action, or the next hand">
+                ⏭ Step
+              </Button>
+              <span className="ml-2 text-xs text-muted">Speed</span>
+              {WATCH_SPEEDS.map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setWatchSpeed(v)}
+                  className={`rounded px-2 py-0.5 text-xs ${v === watchSpeed ? 'bg-accent font-bold text-accent-ink' : 'text-muted hover:text-ink'}`}
+                >
+                  {v === 0.5 ? '½×' : `${v}×`}
+                </button>
+              ))}
+              <span className="flex-1" />
+              {hand.watch?.keep ? (
+                <span className="text-xs text-muted">📌 Kept in your hands</span>
+              ) : (
+                <Button variant="ghost" onClick={keepHand} title="Watched hands make room for the next one; a kept hand stays in your hands">
+                  📌 Keep this hand
+                </Button>
+              )}
+              {paused && <span className="basis-full text-xs text-faint">Paused: the panel on the right shows the decision of the player to act.</span>}
+            </div>
+          )}
           {editable && (
-            <label className="flex w-fit cursor-pointer items-center gap-2 px-1 text-sm text-muted select-none">
-              <input type="checkbox" checked={autoBots} onChange={(e) => setAutoBots(e.target.checked)} className="h-4 w-4 accent-[var(--accent)]" />
-              🤖 Bots play the others and deal the board (bots get cards when unknown - after the flop from their range - and keep them hidden)
-            </label>
+            <div className="flex flex-col gap-1 px-1 text-sm text-muted">
+              {!watching && (
+                <label className="flex w-fit cursor-pointer items-center gap-2 select-none">
+                  <input type="checkbox" checked={autoBots} onChange={(e) => setAutoBots(e.target.checked)} className="h-4 w-4 accent-[var(--accent)]" />
+                  🤖 Bots play the others and deal the board (bots get cards when unknown - after the flop from their range - and keep them hidden)
+                </label>
+              )}
+              <label className="flex w-fit cursor-pointer items-center gap-2 select-none">
+                <input type="checkbox" checked={watching} onChange={(e) => setWatching(e.target.checked)} className="h-4 w-4 accent-[var(--accent)]" />
+                👀 Watch: bots play every seat with their cards face up, and the next hand comes by itself
+              </label>
+            </div>
           )}
           {editable && (
             <p className="px-1 text-xs text-faint">
@@ -423,7 +529,7 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onNextHand, o
           />
         </div>
         <div className="flex flex-col gap-3 xl:h-[calc(100vh-170px)] xl:max-h-[820px]">
-          {!error && autoBots && editable && state.phase === 'betting' && state.toAct !== null && state.toAct !== hand.hero ? (
+          {!error && editable && state.phase === 'betting' && state.toAct !== null && ((autoBots && !watching && state.toAct !== hand.hero) || (watching && !paused)) ? (
             <div className="rounded-lg border border-line bg-surface px-4 py-3 text-sm text-muted">
               🤖 {state.seats.find((s) => s.seat === state.toAct)?.name} is thinking…
             </div>

@@ -43,11 +43,18 @@ function Row({ hand, onOpen, onDelete }: { hand: HandRecord; onOpen: () => void;
 }
 
 /** Your hands open in the Lab (editable); sample hands open as a replay. */
-export function HandsList({ onOpen }: { onOpen: (hand: HandRecord, editable: boolean) => void }) {
+export function HandsList({ onOpen, onWatch }: { onOpen: (hand: HandRecord, editable: boolean) => void; onWatch?: () => void }) {
   const [hands, setHands] = useState(loadHands);
   return (
     <div className="mx-auto max-w-4xl space-y-5 px-6 py-6">
-      <h1 className="text-xl font-bold">Hands</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-bold">Hands</h1>
+        {onWatch && (
+          <Button variant="secondary" onClick={onWatch} title="A 6-max table of bots with mixed types: they play every seat, cards face up, hand after hand">
+            👀 Watch the bots
+          </Button>
+        )}
+      </div>
       <Section title="Your hands">
         {hands.length === 0 ? (
           <p className="text-sm text-muted">No hands yet. Create one with “New hand”.</p>
