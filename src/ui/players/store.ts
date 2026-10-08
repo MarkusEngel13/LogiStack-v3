@@ -41,6 +41,8 @@ export interface SavedPlayer {
   overrides: PlayerOverrides;
   /** Reads and tells: what to look for at the table. */
   notes?: string;
+  /** The question wizard's last answers (question id → option id), to re-check later. */
+  answers?: Record<string, string>;
   updatedAt?: string;
 }
 

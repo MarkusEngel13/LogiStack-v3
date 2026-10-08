@@ -22,6 +22,7 @@ import { useEquity } from '../lab/useEquity';
 import { downloadJson } from '../library';
 import { playerTypeColor } from '../playerTypes';
 import { allCharts } from '../ranges/charts';
+import { QuestionWizard } from './QuestionWizard';
 import { styleSummary } from './SavedPlayerPicker';
 import { testTable, type TestMode } from './seating';
 import {
@@ -58,6 +59,8 @@ export function PlayersPage({ onOpenHand }: { onOpenHand: (hand: HandRecord, mod
     return first ? { kind: 'player', id: first.id } : { kind: 'profile', id: builtInId('Fish') };
   });
   const [error, setError] = useState<string | null>(null);
+  /** The question wizard: for a new player ({}), or to re-check one. */
+  const [asking, setAsking] = useState<{ player?: SavedPlayer } | null>(null);
 
   const reload = () => {
     setPlayers(loadPlayers());
@@ -111,7 +114,19 @@ export function PlayersPage({ onOpenHand }: { onOpenHand: (hand: HandRecord, mod
     <main className="mx-auto max-w-[1500px] px-6 py-6">
       <div className="grid gap-5 xl:grid-cols-[250px_minmax(0,1fr)_400px]">
         <aside className="space-y-5">
-          <ListBlock title="Players" action={<Button variant="secondary" onClick={() => newPlayer()}>+ New</Button>}>
+          <ListBlock
+            title="Players"
+            action={
+              <div className="flex gap-1">
+                <Button variant="primary" className="px-2.5 py-1 text-xs" onClick={() => setAsking({})} title="A new player from a few questions about what you have seen him do">
+                  + Ask me
+                </Button>
+                <Button variant="secondary" className="px-2.5 py-1 text-xs" onClick={() => newPlayer()} title="A new player: start from a profile and set the sliders yourself">
+                  + Sliders
+                </Button>
+              </div>
+            }
+          >
             {players.length === 0 && <p className="px-2 text-xs text-faint">No players yet. Add the people you play with.</p>}
             {[...players]
               .sort((a, b) => a.name.localeCompare(b.name))
@@ -167,6 +182,7 @@ export function PlayersPage({ onOpenHand }: { onOpenHand: (hand: HandRecord, mod
               setSel(null);
             }}
             onTest={(mode) => test(seatStyleOfPlayer(player, profiles), mode)}
+            onAsk={() => setAsking({ player })}
           />
         )}
         {profile && (
@@ -190,6 +206,19 @@ export function PlayersPage({ onOpenHand }: { onOpenHand: (hand: HandRecord, mod
             onTest={(mode) => test(seatStyleOfProfile(profile), mode)}
           />
         )}
+        {asking && (
+          <QuestionWizard
+            player={asking.player}
+            profiles={profiles}
+            onClose={() => setAsking(null)}
+            onSave={(p) => {
+              savePlayer(p);
+              reload();
+              setSel({ kind: 'player', id: p.id });
+              setAsking(null);
+            }}
+          />
+        )}
         {!player && !profile && (
           <div className="rounded-lg border border-line bg-surface p-8 text-sm text-muted xl:col-span-2">Pick a player or a profile on the left.</div>
         )}
@@ -204,7 +233,7 @@ function ListBlock({ title, action, children }: { title: string; action?: React.
   return (
     <section className="rounded-lg border border-line bg-surface p-3">
       <div className="mb-2 flex items-center justify-between px-1">
-        <h3 className="text-xs font-bold tracking-wider text-muted uppercase">{title}</h3>
+        <h3 className="mr-2 text-xs font-bold tracking-wider text-muted uppercase">{title}</h3>
         {action}
       </div>
       <div className="space-y-0.5">{children}</div>
@@ -234,12 +263,14 @@ function PlayerEditor({
   onChange,
   onDelete,
   onTest,
+  onAsk,
 }: {
   player: SavedPlayer;
   profiles: SavedProfile[];
   onChange: (p: SavedPlayer) => void;
   onDelete: () => void;
   onTest: (mode: TestMode) => void;
+  onAsk: () => void;
 }) {
   const profile = profileById(player.profileId, profiles);
   const settings = playerSettings(player, profiles);
@@ -295,6 +326,9 @@ function PlayerEditor({
           </Button>
           <Button onClick={() => onTest('watch')} title="Bots play every seat, cards face up, hand after hand">
             👀 Watch {player.name}
+          </Button>
+          <Button variant="ghost" onClick={onAsk} title="Answer the questions again (your last answers are filled in); sets the sliders from them">
+            ? Re-check with questions
           </Button>
           <div className="flex-1" />
           <Button variant="danger" onClick={onDelete}>

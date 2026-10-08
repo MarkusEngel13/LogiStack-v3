@@ -304,7 +304,14 @@ on J♠9♦2♠ and A♣7♦2♥, against a 1.5x pot lead (825) 57-65 %.
         postflop spots (the motive model, in the worker), next to the profile's or type's numbers.
         Seats carry a `style` snapshot (the hand stays self-contained); the wizard's seat editor picks
         a saved player; "Play against" / "Watch" deal a 6-max test table from your last wizard game.
-        Export / import as JSON. Next: the readout as the calibration screen (Phase 5); a player's
+        Export / import as JSON.
+        Question wizard (2026-10-08, `core/players/questions.ts`, "+ Ask me" / "Re-check with questions"):
+        11 questions about what you have seen him do (table size first; top pair on a dry board for
+        Sticky), "Don't know" keeps the profile's value; the closest profile is suggested and the
+        player is saved on it with the sliders that differ (answers kept for re-checks). "How many
+        hands" is a share of hands turned into Loose through the charts at your table size (VPIP from
+        first-in play x 0.66, so a reg shows ~19 % nine-handed, ~23 % six-handed); Loose 5 widened so
+        it reaches ~60 %. Next: the readout as the calibration screen (Phase 5); a player's
         reads into the advice tags (playbook "opponent calls anything" etc.).
 
 ### Phase 5: calibrate

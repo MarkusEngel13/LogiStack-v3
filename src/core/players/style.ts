@@ -156,7 +156,7 @@ export const SIZING_INFO: Record<Sizing, { label: string; what: string }> = {
  * air, 4 ≈ half, 5 ≈ 80 %. Calibrated 2026-10-08.
  */
 const MAP = {
-  width: [0.6, 0.8, 1, 1.6, 2.6],
+  width: [0.6, 0.8, 1, 1.7, 6],
   raises: [0.35, 0.65, 1, 1.3, 1.8],
   limp: [0.75, 0.35, 0, 0, 0],
   aggression: [-0.05, -0.02, 0, 0.07, 0.2],
@@ -181,8 +181,8 @@ export const TYPE_SLIDERS: Record<string, Sliders> = {
   LAG: { loose: 3.5, pfAggr: 4, postAggr: 4, sticky: 3.5, respect: 3.5, bluffs: 4.5 },
   Nit: { loose: 1.5, pfAggr: 2.5, postAggr: 1.5, sticky: 2, respect: 5, bluffs: 1 },
   Fish: { loose: 4, pfAggr: 1, postAggr: 2, sticky: 4, respect: 4, bluffs: 1.5 },
-  Whale: { loose: 5, pfAggr: 1.5, postAggr: 3, sticky: 5, respect: 2, bluffs: 2.5 },
-  Maniac: { loose: 4.5, pfAggr: 5, postAggr: 5, sticky: 4, respect: 1, bluffs: 5 },
+  Whale: { loose: 4, pfAggr: 1.5, postAggr: 3, sticky: 5, respect: 2, bluffs: 2.5 },
+  Maniac: { loose: 4, pfAggr: 5, postAggr: 5, sticky: 4, respect: 1, bluffs: 5 },
 };
 TYPE_SLIDERS.Unknown = { ...TYPE_SLIDERS.Reg! };
 
