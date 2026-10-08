@@ -6,13 +6,14 @@ import { nextHandNo, saveHand } from './ui/library';
 import { OptionsModal } from './ui/OptionsModal';
 import { RangesPage } from './ui/ranges/RangesPage';
 import { EquityPage } from './ui/equity/EquityPage';
+import { PlayersPage } from './ui/players/PlayersPage';
 import { HandScreen } from './ui/replay/HandScreen';
 import { SettingsProvider } from './ui/settings';
 import { HandWizard } from './ui/wizard/HandWizard';
 import { toHandRecord } from './ui/wizard/draft';
 import { watchDraft } from './ui/wizard/watchTable';
 
-type Page = 'new' | 'hands' | 'hand' | 'ranges' | 'equity';
+type Page = 'new' | 'hands' | 'hand' | 'ranges' | 'equity' | 'players';
 
 export default function App() {
   const [page, setPage] = useState<Page>('new');
@@ -66,6 +67,7 @@ export default function App() {
                   [
                     ['new', 'New hand'],
                     ['hands', 'Hands'],
+                    ['players', 'Players'],
                     ['ranges', 'Ranges'],
                     ['equity', 'EQ'],
                   ] as const
@@ -99,6 +101,22 @@ export default function App() {
           />
         )}
         {page === 'hands' && <HandsList onOpen={openHand} onWatch={watchBots} />}
+        {page === 'players' && (
+          <PlayersPage
+            onOpenHand={(hand, mode) => {
+              // playing: the bots play everyone but you (the Lab's switch, remembered there)
+              if (mode === 'play') {
+                try {
+                  localStorage.setItem('logistack.autoBots', '1');
+                } catch {
+                  // storage blocked: switch "Bots play the others" on in the Lab
+                }
+              }
+              saveHand(hand);
+              openHand(hand, true);
+            }}
+          />
+        )}
         {page === 'ranges' && <RangesPage />}
         {page === 'equity' && <EquityPage />}
         {page === 'hand' && open && (

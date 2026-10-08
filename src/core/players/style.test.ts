@@ -17,7 +17,6 @@ describe('sliders', () => {
     expect(at('stickiness', 3)).toBe(NEUTRAL.stickiness);
     expect(at('aggression', 3)).toBe(NEUTRAL.aggression);
     expect(at('respect', 3)).toBe(NEUTRAL.respect);
-    expect(at('embarrassment', 3)).toBe(NEUTRAL.embarrassment);
     expect(at('foldBelief', 3)).toBe(NEUTRAL.foldBelief);
     expect(at('width', 3)).toBe(STYLES.Reg!.width);
     expect(at('raises', 3)).toBe(STYLES.Reg!.raises);
@@ -39,7 +38,7 @@ describe('sliders', () => {
 
   test('a moved slider changes only its own weights', () => {
     const p = styleMotives(withSlider(fish, 'bluffs', 3), MOTIVE_PRESETS);
-    expect(p.embarrassment).toBe(0);
+    expect(p.embarrassment).toBe(at('embarrassment', 3));
     expect(p.stickiness).toBe(MOTIVE_PRESETS.Fish!.stickiness);
     expect(p.fear).toBe(MOTIVE_PRESETS.Fish!.fear);
   });
@@ -79,6 +78,14 @@ describe('what the sliders do', () => {
     expect(call(5)).toBeGreaterThan(call(2));
     const bluff = (v: number) => postflopRow(styleMotives(withSlider(typeSettings('Reg'), 'bluffs', v), MOTIVE_PRESETS), 'river-bluff').share;
     expect(bluff(4)).toBeGreaterThan(bluff(1));
+  });
+
+  test('bluffs follow the calibration: rarely at 2, a quarter of the air at 3, most at 5', () => {
+    const bluff = (v: number) => postflopRow(styleMotives(withSlider(typeSettings('Reg'), 'bluffs', v), MOTIVE_PRESETS), 'river-bluff').share;
+    expect(bluff(2)).toBeLessThan(0.12);
+    expect(bluff(3)).toBeGreaterThan(0.12);
+    expect(bluff(3)).toBeLessThan(0.4);
+    expect(bluff(5)).toBeGreaterThan(0.65);
   });
 
   test('respect folds one pair to a big river bet', () => {

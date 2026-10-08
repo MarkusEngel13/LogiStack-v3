@@ -292,6 +292,21 @@ on J♠9♦2♠ and A♣7♦2♥, against a 1.5x pot lead (825) 57-65 %.
               per-bucket shares within a few points of the per-combo ones; a test that fails if not.
         - [ ] Bot toggle "fast / exact" in Options, fast by default in the gym.
 
+10d. [x] **Players page** (2026-10-08, `core/players/`, `ui/players/`): real players and profiles as six
+        sliders in poker words (Loose, Preflop aggression, Postflop aggression, Sticky, Respects big
+        bets, Bluffs; 1-5 in half steps, 3 = plays the price, the number is the exploit), a sizing
+        habit and two specials (limp-reraises premiums; leads into the raiser = `expectsBet`). Each
+        slider moves one or two motive weights (`style.ts` MAP); what the sliders don't cover comes
+        from the base type, and a slider left at its type's position keeps the preset's value
+        exactly. Bluffs is calibrated on frequencies, not on the neutral profile (no embarrassment
+        bluffs ~90 % of the air). A profile = a style with a name; a player = a profile + the sliders
+        that differ for them (+ reads and tells). Readout: 4 preflop spots (the bent charts) and 5
+        postflop spots (the motive model, in the worker), next to the profile's or type's numbers.
+        Seats carry a `style` snapshot (the hand stays self-contained); the wizard's seat editor picks
+        a saved player; "Play against" / "Watch" deal a 6-max test table from your last wizard game.
+        Export / import as JSON. Next: the readout as the calibration screen (Phase 5); a player's
+        reads into the advice tags (playbook "opponent calls anything" etc.).
+
 ### Phase 5: calibrate
 11. [ ] Fit to the Excel table (was step 4) for the magnitudes; Marius's DRY scoring as a
         cross-check of the computed fear numbers.

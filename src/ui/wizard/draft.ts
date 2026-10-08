@@ -277,3 +277,15 @@ export function previewPositions(d: WizardDraft): Map<number, string> {
     return new Map();
   }
 }
+
+export const DRAFT_KEY = 'logistack.wizard.draft.v1';
+
+/** The last setup is remembered, so next week's home game starts with the same people. */
+export function loadDraft(): WizardDraft {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    return raw ? upgradeDraft(JSON.parse(raw)) : defaultDraft();
+  } catch {
+    return defaultDraft();
+  }
+}

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { HandRecord } from '../../core/hand/types';
 import { Button } from '../controls';
 import { nextHandNo } from '../library';
-import { defaultDraft, toHandRecord, upgradeDraft, validateDraft, type WizardDraft } from './draft';
+import { defaultDraft, DRAFT_KEY, loadDraft, toHandRecord, validateDraft, type WizardDraft } from './draft';
 import { PlayersStep } from './steps/PlayersStep';
 import { ReviewStep } from './steps/ReviewStep';
 import { RulesStep } from './steps/RulesStep';
@@ -10,18 +10,6 @@ import { TableStep } from './steps/TableStep';
 import { refreshStyles } from '../players/seating';
 
 const STEPS = ['Table', 'Players', 'House rules', 'Review'] as const;
-export const DRAFT_KEY = 'logistack.wizard.draft.v1';
-
-/** The last setup is remembered, so next week's home game starts with the same people. */
-export function loadDraft(): WizardDraft {
-  try {
-    const raw = localStorage.getItem(DRAFT_KEY);
-    return raw ? upgradeDraft(JSON.parse(raw)) : defaultDraft();
-  } catch {
-    return defaultDraft();
-  }
-}
-
 export function HandWizard({ onCreated }: { onCreated: (hand: HandRecord) => void }) {
   const [draft, setDraft] = useState<WizardDraft>(loadDraft);
   const [step, setStep] = useState(0);

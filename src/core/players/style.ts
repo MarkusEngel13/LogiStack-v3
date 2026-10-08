@@ -5,7 +5,7 @@
  * nudged": Dan = Fish, but Bluffs 3 and leads into the raiser.
  *
  * The scale is centred: 3 = plays the price (the NEUTRAL profile's value, the Reg chart's width
- * and raising), below 3 = less of it, above = more. So the number is the exploit: Bluffs 2 = fold
+ * and raising; Bluffs is calibrated on frequencies instead, see MAP), below 3 = less of it, above = more. So the number is the exploit: Bluffs 2 = fold
  * more to his bets, Sticky 4 = value-bet him thin and don't bluff him.
  *
  * What the sliders don't cover comes from the base type: noise, size errors, hand reading, fear of
@@ -147,7 +147,14 @@ export const SIZING_INFO: Record<Sizing, { label: string; what: string }> = {
 
 // ---- the mapping --------------------------------------------------------------------------------
 
-/** Each knob's value at slider 1, 2, 3, 4 and 5; half steps are linear in between. */
+/**
+ * Each knob's value at slider 1, 2, 3, 4 and 5; half steps are linear in between.
+ *
+ * Bluffs is calibrated on what you see, not on the neutral profile: with no embarrassment at all
+ * the model bluffs ~90 % of its air when checked to on the river (players believe folds), so 3
+ * would be a maniac. Instead (readout spot, Reg base): 1 ≈ never, 2 ≈ 5 %, 3 ≈ a quarter of his
+ * air, 4 ≈ half, 5 ≈ 80 %. Calibrated 2026-10-08.
+ */
 const MAP = {
   width: [0.6, 0.8, 1, 1.6, 2.6],
   raises: [0.35, 0.65, 1, 1.3, 1.8],
@@ -155,8 +162,8 @@ const MAP = {
   aggression: [-0.05, -0.02, 0, 0.07, 0.2],
   stickiness: [-0.04, -0.02, 0, 0.06, 0.15],
   respect: [-0.3, -0.1, 0, 0.35, 0.6],
-  embarrassment: [2, 1.3, 0, 0, 0],
-  foldBelief: [0.85, 0.95, 1, 1.25, 1.5],
+  embarrassment: [2, 1, 0.65, 0.4, 0.12],
+  foldBelief: [0.85, 0.95, 1, 1.1, 1.25],
 } as const;
 
 /** A knob's value at slider position v (1..5). */
@@ -169,9 +176,9 @@ export function at(knob: keyof typeof MAP, v: number): number {
 
 /** Where each built-in type sits on the sliders (from its preset's weights, rounded to halves). */
 export const TYPE_SLIDERS: Record<string, Sliders> = {
-  Reg: { loose: 3, pfAggr: 3, postAggr: 3.5, sticky: 3, respect: 4, bluffs: 2 },
+  Reg: { loose: 3, pfAggr: 3, postAggr: 3.5, sticky: 3, respect: 4, bluffs: 1.5 },
   TAG: { loose: 3, pfAggr: 3.5, postAggr: 3.5, sticky: 3, respect: 4, bluffs: 2 },
-  LAG: { loose: 3.5, pfAggr: 4, postAggr: 4, sticky: 3.5, respect: 3.5, bluffs: 3.5 },
+  LAG: { loose: 3.5, pfAggr: 4, postAggr: 4, sticky: 3.5, respect: 3.5, bluffs: 4.5 },
   Nit: { loose: 1.5, pfAggr: 2.5, postAggr: 1.5, sticky: 2, respect: 5, bluffs: 1 },
   Fish: { loose: 4, pfAggr: 1, postAggr: 2, sticky: 4, respect: 4, bluffs: 1.5 },
   Whale: { loose: 5, pfAggr: 1.5, postAggr: 3, sticky: 5, respect: 2, bluffs: 2.5 },
