@@ -3,12 +3,14 @@ import { legalActions, potOdds, potTotal } from '../../core/engine/replay';
 import type { TableState } from '../../core/engine/state';
 import type { HandEvent, HandRecord, SeatNo } from '../../core/hand/types';
 import { profileFor } from '../../core/motives/profile';
-import { fingerprint, rangesAt, situationOf } from '../../core/motives/story';
+import type { SizeQuestion, SizeRow } from '../../core/motives/sizes';
+import { fingerprint, postflopOrder, rangesAt, situationOf } from '../../core/motives/story';
 import { playerRange } from '../../core/ranges/handRanges';
-import { comboTotal, withoutCards } from '../../core/ranges/range';
+import { comboTotal, withoutCards, type Weights } from '../../core/ranges/range';
 import type { ChartChoice } from '../../core/ranges/spot';
 import { PlayingCard } from '../cards/PlayingCard';
 import type { Money } from '../replay/views';
+import { EvTable } from './EvTable';
 import { RangeModal } from './RangeModal';
 import { SizeExplorer } from './SizeExplorer';
 import { WhatIfModal } from './WhatIfModal';
@@ -90,19 +92,59 @@ export function DecisionPanel({
   if (!me) return null;
 
   const legal = legalActions(state);
-  const villain = ranges.length === 1 ? state.seats.find((s) => s.seat === ranges[0]!.seat) : undefined;
-  const heads = !!(legal && villain && myLine && narrowed?.get(villain.seat) && story.steps);
-  const canExplore = heads && !!(legal!.canBet || legal!.canRaise);
-  const canWhatIf = heads && (state.board.length === 3 || state.board.length === 4);
-  // me, the villain and both ranges as the model has them and as each sees the other's
-  const sizeQ =
-    heads && villain
-      ? {
-          situation: situationOf(state, me.seat).situation,
-          actor: { profile: profileFor(me), range: myLine!, seen: seenBy(villain.seat)?.get(me.seat), cards: me.cards ?? undefined },
-          other: { profile: profileFor(villain), range: narrowed!.get(villain.seat)!, seen: seenBy(me.seat)?.get(villain.seat) },
+  // Everyone else still in, in the order they act after the player to act, with the ranges as the
+  // model has them and as each one sees the others: for the EV table, the size explorer and the lines.
+  const myOrder = postflopOrder(state, me.seat);
+  const n = state.rules.tableSeats;
+  const after = (seat: SeatNo) => (postflopOrder(state, seat) - myOrder + n) % n;
+  const sizeQ: SizeQuestion | null = (() => {
+    if (!legal || !myLine || !story.steps || !narrowed || live.length === 0 || live.some((s) => !narrowed.get(s.seat))) return null;
+    const lastToAct = Math.max(...[me, ...live].map((s) => postflopOrder(state, s.seat)));
+    const others = [...live].sort((x, y) => after(x.seat) - after(y.seat));
+    const mine = seenBy(me.seat);
+    return {
+      situation: situationOf(state, me.seat).situation,
+      actor: { profile: profileFor(me), range: myLine, cards: me.cards ?? undefined, streetBet: me.streetBet },
+      others: others.map((o) => {
+        const view = seenBy(o.seat);
+        const seesOthers: Record<number, Weights> = {};
+        for (const x of others) {
+          const w = x.seat !== o.seat ? view?.get(x.seat) : undefined;
+          if (w) seesOthers[x.seat] = w;
         }
-      : null;
+        return {
+          seat: o.seat,
+          profile: profileFor(o),
+          range: narrowed.get(o.seat)!,
+          seen: mine?.get(o.seat),
+          seesActor: view?.get(me.seat),
+          seesOthers,
+          streetBet: o.streetBet,
+          stack: o.stack,
+          inPosition: postflopOrder(state, o.seat) === lastToAct,
+          after: postflopOrder(state, o.seat) > myOrder,
+        };
+      }),
+    };
+  })();
+  const names: Record<number, string> = Object.fromEntries(live.map((s) => [s.seat, s.name]));
+  const villain = sizeQ?.others.length === 1 ? state.seats.find((s) => s.seat === sizeQ.others[0]!.seat) : undefined;
+  const canExplore = !!sizeQ && !!(legal!.canBet || legal!.canRaise);
+  const canWhatIf = !!villain && (state.board.length === 3 || state.board.length === 4);
+  // the EV table works itself out heads-up and on the turn and river; a multiway flop takes seconds, so on a click
+  const evAuto = !!sizeQ && (sizeQ.others.length === 1 || state.board.length >= 4);
+  const whoText = (sizeQ?.others ?? []).map((o) => {
+    const s = state.seats.find((x) => x.seat === o.seat)!;
+    return `${s.name} (${s.position}${s.playerType ? `, ${s.playerType}` : ''})`;
+  });
+  /** Play an option in the Lab (the EV table's and the size explorer's buttons). */
+  const play = (r: SizeRow) => {
+    if (!onAction) return;
+    const seat = me.seat;
+    if (r.kind === 'fold' || r.kind === 'check' || r.kind === 'call') onAction({ type: 'action', seat, action: r.kind });
+    else if (r.allIn) onAction({ type: 'action', seat, action: 'allin' });
+    else onAction({ type: 'action', seat, action: r.kind, to: r.kind === 'bet' ? r.amount : me.streetBet + r.amount });
+  };
   const odds = potOdds(state);
   const toCall = legal?.toCall ?? 0;
   const equity = answer?.equity;
@@ -160,10 +202,14 @@ export function DecisionPanel({
                 <span className="tabular-nums">needs {pct(needed)}</span>
               </div>
             )}
-            {verdict && (
-              <div className="rounded-md px-3 py-1.5 text-center text-sm font-bold" style={{ background: verdict.tone, color: verdict.fg }}>
-                {verdict.text}
-              </div>
+            {sizeQ ? (
+              <EvTable q={sizeQ} money={money} names={names} auto={evAuto} onUse={onAction ? play : undefined} />
+            ) : (
+              verdict && (
+                <div className="rounded-md px-3 py-1.5 text-center text-sm font-bold" style={{ background: verdict.tone, color: verdict.fg }}>
+                  {verdict.text}
+                </div>
+              )
             )}
             {(canExplore || canWhatIf) && (
               <div className="flex gap-2">
@@ -172,7 +218,7 @@ export function DecisionPanel({
                     type="button"
                     onClick={() => setExploring(true)}
                     className="flex-1 rounded-md border border-line px-2 py-1.5 text-sm text-muted hover:border-accent hover:text-ink"
-                    title="Every bet size against their range: who folds, calls or raises, bucket by bucket, and your EV"
+                    title="Every option against everyone still in: who folds, calls or raises, bucket by bucket, and your EV"
                   >
                     Explore bet sizes…
                   </button>
@@ -196,7 +242,7 @@ export function DecisionPanel({
                 : answer?.method
                   ? 'Exact. '
                   : ''}
-              {toCall > 0 ? 'EV assumes the hand is checked down from here.' : `Pot ${money(potTotal(state))}. Bet and raise EV come next.`}
+              {sizeQ ? `Pot ${money(potTotal(state))}.` : toCall > 0 ? 'EV assumes the hand is checked down from here.' : `Pot ${money(potTotal(state))}.`}
             </p>
           </>
         )}
@@ -293,21 +339,17 @@ export function DecisionPanel({
         />
       )}
 
-      {exploring && canExplore && villain && sizeQ && (
+      {exploring && canExplore && sizeQ && (
         <SizeExplorer
-          title={`${me.name} (${me.position}): bet sizes against ${villain.name} (${villain.position}${villain.playerType ? `, ${villain.playerType}` : ''})`}
-          otherName={villain.name}
+          title={`${me.name} (${me.position}): every option against ${whoText.join(', ')}`}
+          names={names}
           money={money}
           q={sizeQ}
           onUse={
             onAction
               ? (r) => {
                   setExploring(false);
-                  onAction(
-                    r.allIn
-                      ? { type: 'action', seat: me.seat, action: 'allin' }
-                      : { type: 'action', seat: me.seat, action: r.kind === 'bet' ? 'bet' : 'raise', to: r.kind === 'bet' ? r.amount : me.streetBet + r.amount },
-                  );
+                  play(r);
                 }
               : undefined
           }

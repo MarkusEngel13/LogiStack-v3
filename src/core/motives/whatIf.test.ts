@@ -14,7 +14,7 @@ const cards = (t: string) => parseCards(t.split(' '));
 const q = (inPosition = true): SizeQuestion => ({
   situation: { board: cards('Js 9d 2s'), pot: 550, toCall: 0, stack: 9750, oppStack: 9750, bb: 100, inPosition },
   actor: { profile: MOTIVE_PRESETS.Reg!, range: hero, cards: cards('Ah Jh') },
-  other: { profile: MOTIVE_PRESETS.Fish!, range: bb },
+  others: [{ seat: 2, profile: MOTIVE_PRESETS.Fish!, range: bb }],
 });
 
 describe('what happens if', { timeout: 120_000 }, () => {
@@ -56,7 +56,7 @@ describe('what happens if', { timeout: 120_000 }, () => {
     const facing = whatIf({
       situation: { board: cards('Js 9d 2s'), pot: 550, toCall: 183, stack: 9750, oppStack: 9567, bb: 100, inPosition: false },
       actor: { profile: MOTIVE_PRESETS.Fish!, range: bb, cards: cards('9s 9c') },
-      other: { profile: MOTIVE_PRESETS.Reg!, range: hero },
+      others: [{ seat: 2, profile: MOTIVE_PRESETS.Reg!, range: hero }],
     });
     expect(facing.lines.map((l) => l.label)).toEqual(['Call', 'Raise 2.5x', 'Raise 3.5x']);
     expect(facing.lines[0]!.answer).toBeNull();

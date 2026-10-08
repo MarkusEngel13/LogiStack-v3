@@ -237,7 +237,25 @@ Defaults unless Marius says otherwise: HHP's bucket names; heads-up first, multi
        equity. On J♠9♦2♠ with A♥J♥ against a Fish: check behind lets 262 combos reach the turn,
        ⅓ pot 217 and capped (its sets raised), 1.5x pot 72 - mostly top pair and good draws; the
        Q♠ costs 18-21 points whatever the line, the 7♦ nothing. Tests: `whatIf.test.ts`.
-       Next: a second step (what they do on that card); multiway for the explorer and the lines.
+       Next: a second step (what they do on that card); multiway for the lines.
+8b. [x] **EV this street, every option** (2026-10-09, `motives/sizes.ts`, `ui/lab/EvTable.tsx`): the Decision
+       panel shows check and each bet size, or fold, call and each raise, all measured the same way (Marius: one
+       street is enough for now) - chips won from here on, checked down once the street is over. A bet: they
+       fold, call or raise (then the better of fold and call); a check out of position: they check behind or
+       bet (then fold or call) - before, a check counted as a free showdown; a call: the players behind answer
+       first. Best marked, each line playable, hover for how they answer. Works itself out heads-up and on the
+       turn and river; a multiway flop on a click (three-way ~5 s, four-way ~11 s in Node). Not seen: a
+       check-raise after a check, later streets (trap value, implied odds). The explorer and the panel share
+       one answer (worker cache).
+       **Size explorer multiway** (same day): every player answers in turn, each counting a player who
+       answered before him as far as that player called (`decide()`'s new `presence`; left out = everyone in,
+       so the story and the bots are unchanged); the first raise ends the round (you against the raiser,
+       earlier calls dead money); equity against several by Monte Carlo. A bucket grid per player. Doctrine
+       test: a bet gets fewer folds from two players than from one (HHP-rQP5RyjqanM-10). "What happens if"
+       stays heads-up.
+       Smell seen (already in the model before, unchanged): a Reg facing a ⅓-pot bet raises about half the
+       time - on 2♥6♠7♣ as the preflop raiser facing a lead, 52 % (58 % of his air), thin value about half.
+       Goes with the "LAG and maniac raise almost every c-bet" calibration below.
 
 Multiway (2026-10-06): the motive model decides against everyone still in - equity and lead are
 the products of the heads-up ones, a card is scary if it hurts the hand against anyone, a bet wins
@@ -328,7 +346,8 @@ all 197 videos, 9058 claims (two age-restricted videos skipped).
 - [x] HHP: every video, the vlogs too.
 - [~] Charlie Carrel: all of `videos_CC.csv` (~399), the bankroll-challenge episodes too (he gives
       advice while playing). Drama / reaction videos with under 4 poker terms per 1000 words are
-      skipped (they gave 0-6 claims; the transcript is kept). ~110 done by 2026-10-08 morning. His
+      skipped (they gave 0-6 claims; the transcript is kept). 184 videos / 3512 claims by 2026-10-09
+      (batch 7: 30 videos, mostly 2021 bankroll-challenge streams - thin, 5-44 claims each). His
       angle differs from HHP's: little fear/greed, much ego and embarrassment (reverse tells,
       "nobody wants to look stupid"), and he calls range-checking lazy - against HHP's "check your
       range out of position against recs".

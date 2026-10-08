@@ -90,7 +90,7 @@ export interface StoryStep {
 // ---- reading the hand ------------------------------------------------------------------------
 
 /** Postflop the button acts last; the first seat after it acts first. */
-const postflopOrder = (state: TableState, seat: SeatNo) => {
+export const postflopOrder = (state: TableState, seat: SeatNo) => {
   const n = state.rules.tableSeats;
   return (((seat - state.button - 1) % n) + n) % n;
 };

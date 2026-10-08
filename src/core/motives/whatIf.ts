@@ -68,17 +68,19 @@ export function whatIf(q: SizeQuestion): WhatIfAnswer {
   const s = q.situation;
   const { board, pot: P } = s;
   if (board.length !== 3 && board.length !== 4) throw new Error('What happens if: on the flop or the turn');
+  const other = q.others[0];
+  if (!other || q.others.length !== 1) throw new Error('What happens if: heads-up only');
   const C = s.toCall;
   const facing = C > 0;
   const hero = q.actor.cards;
-  const mine = decide(q.actor.profile, { ...s, betSizes: LINE_BETS }, q.actor.range, q.other.seen ?? q.other.range);
+  const mine = decide(q.actor.profile, { ...s, betSizes: LINE_BETS }, q.actor.range, other.seen ?? other.range);
 
   const lines: Omit<WhatIfLine, 'cards' | 'equityNow' | 'stacksNow'>[] = [];
   mine.options.forEach((o, i) => {
     if (o.kind === 'fold' || o.allIn) return;
     if (o.kind === 'call' || (o.kind === 'check' && s.inPosition)) {
       // the street ends here: their range goes on as it is
-      lines.push({ label: o.kind === 'call' ? 'Call' : 'Check behind', kind: o.kind, amount: o.amount, answer: null, next: q.other.range, pot: facing ? P + 2 * C : P });
+      lines.push({ label: o.kind === 'call' ? 'Call' : 'Check behind', kind: o.kind, amount: o.amount, answer: null, next: other.range, pot: facing ? P + 2 * C : P });
       return;
     }
     const t = theirAnswer(q, mine, i);

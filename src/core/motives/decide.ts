@@ -193,10 +193,17 @@ interface Aggro {
   callers: number;
 }
 
-/** Per combo, the product of several per-combo arrays (NaN anywhere stays NaN). */
-function product(arrays: readonly Float32Array[]): Float32Array {
+/**
+ * Per combo, the chance to beat everyone present: the product of the per-opponent arrays, each
+ * opponent counting only as far as they are there (`pres`: 1 = in, 0.4 = in four times in ten;
+ * beating an absent player is free). NaN anywhere stays NaN.
+ */
+function product(arrays: readonly Float32Array[], pres?: readonly number[]): Float32Array {
   const out = new Float32Array(1326).fill(1);
-  for (const a of arrays) for (let c = 0; c < 1326; c++) out[c]! *= a[c]!;
+  arrays.forEach((a, i) => {
+    const q = pres?.[i] ?? 1;
+    for (let c = 0; c < 1326; c++) out[c]! *= 1 - q + q * a[c]!;
+  });
   return out;
 }
 
@@ -205,9 +212,14 @@ function product(arrays: readonly Float32Array[]): Float32Array {
  * hand has to beat them all: equity and lead are the products of the heads-up ones, a card is
  * scary if it hurts the hand against anyone, a bet wins the pot only if everyone folds and each
  * caller adds to it.
+ *
+ * `presence` (multiway, same order as `opp`): how likely each one is still in when this player
+ * acts - for a player answering a bet after others who may have folded or called (the size
+ * explorer). Default: everyone is in.
  */
-export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weights | readonly Weights[]): Decision {
+export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weights | readonly Weights[], presence?: readonly number[]): Decision {
   const opps: readonly Weights[] = opp instanceof Float32Array ? [opp] : opp;
+  const pres = opps.map((_, i) => Math.min(1, Math.max(0, presence?.[i] ?? 1)));
   const { board, pot: P, toCall: C, bb } = s;
   if (board.length < 3) throw new Error('The motive model starts on the flop');
   const streetsLeft = 5 - board.length;
@@ -223,7 +235,7 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
   const ALL = new Array<number>(G).fill(1);
   const eqParts: GroupParts[] = opps.map((o) => partsByGroup(mine, o, board, group, G, true));
   const nowParts: GroupParts[] = opps.map((o) => partsByGroup(mine, o, board, group, G, false));
-  const equity = product(eqParts.map((q) => fromParts(q, ALL)));
+  const equity = product(eqParts.map((q) => fromParts(q, ALL)), pres);
   // Felt fear: the share of next cards that would bite into the hand's lead at all (people count
   // the cards that "could" hurt, not how likely the opponent holds the hand), two cards to come
   // scare more than one. 0 on the river.
@@ -231,10 +243,10 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
   const scary = new Float32Array(1326);
   const bites = new Float32Array(1326);
   if (river) {
-    ahead = product(nowParts.map((q) => fromParts(q, ALL)));
+    ahead = product(nowParts.map((q) => fromParts(q, ALL)), pres);
   } else {
     const frs = opps.map((o) => fearNumbers(mine, o, board));
-    ahead = product(frs.map((f) => f.ahead));
+    ahead = product(frs.map((f) => f.ahead), pres);
     const cardsToCome = streetsLeft === 2 ? 1.5 : 1;
     for (let combo = 0; combo < 1326; combo++) {
       const A = ahead[combo]!;
@@ -242,18 +254,18 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
       let n = 0;
       let seen = 0;
       for (const card of frs[0]!.nextCards) {
-        // a card bites if it takes a real part of the lead against anyone
+        // a card bites if it takes a real part of the lead against anyone (who is there)
         let counted = false;
-        let bit = false;
-        for (const fr of frs) {
+        let spared = 1;
+        frs.forEach((fr, i) => {
           const o = fr.outdrawn[combo * 52 + card]!;
-          if (Number.isNaN(o)) continue;
+          if (Number.isNaN(o)) return;
           counted = true;
-          if (o >= BITE * fr.ahead[combo]!) bit = true;
-        }
+          if (o >= BITE * fr.ahead[combo]!) spared *= 1 - pres[i]!;
+        });
         if (!counted) continue;
         seen++;
-        if (bit) n++;
+        n += 1 - spared;
       }
       bites[combo] = seen > 0 ? n / seen : 0;
       scary[combo] = Math.min(1, bites[combo]! * cardsToCome);
@@ -281,7 +293,8 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
         all += total[g]!;
         kept += k[g]! * total[g]!;
       }
-      const fold = all > 0 ? 1 - kept / all : 0;
+      // a player who isn't there counts as one who folds
+      const fold = 1 - pres[i]! * (all > 0 ? kept / all : 1);
       const eq = kept > 0 ? fromParts(eqParts[i]!, k) : new Float32Array(1326).fill(1);
       const ah = kept > 0 ? fromParts(nowParts[i]!, k) : new Float32Array(1326).fill(1);
       return { fold, eq, ah };
@@ -416,7 +429,7 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
           embarrassment:
             0.5 *
             (river ? 1 : o.kind === 'raise' ? EMBARRASS_RAISE : streetsLeft === 2 ? EMBARRASS_BET.flop : EMBARRASS_BET.turn) *
-            (1 + AUDIENCE * (opps.length - 1)) *
+            (1 + AUDIENCE * (pres.reduce((x, q) => x + q, 0) - 1)) *
             (1 - fold) *
             (1 - (Number.isNaN(ec) ? 1 : ec)) *
             (1 + r),

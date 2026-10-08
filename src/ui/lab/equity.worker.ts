@@ -18,7 +18,7 @@ import { monteCarloField, rangeVsRange } from '../../core/equity/field';
 import { PreflopTable } from '../../core/equity/preflopTable';
 import { fearNumbers } from '../../core/fear';
 import { botChoice } from '../../core/motives/bot';
-import { exploreSizes } from '../../core/motives/sizes';
+import { exploreSizes, sizeKey, type SizeAnswer } from '../../core/motives/sizes';
 import { runStory, type StoryCache } from '../../core/motives/story';
 import { whatIf } from '../../core/motives/whatIf';
 import { POSTFLOP_SPOTS, postflopRow, type PostflopRow } from '../../core/players/preview';
@@ -43,6 +43,8 @@ const loadTable = () =>
 const storyCache: StoryCache = new Map();
 /** Preview rows per profile and spot: dragging a slider back costs nothing. */
 const previewCache = new Map<string, PostflopRow>();
+/** Size answers by question: the Decision panel's EV table and the size explorer ask the same one. */
+const sizesCache = new Map<string, SizeAnswer>();
 
 ctx.onmessage = async (e) => {
   const q = e.data;
@@ -65,7 +67,13 @@ ctx.onmessage = async (e) => {
     } else if (q.kind === 'whatif') {
       answer({ whatIf: whatIf(q.q) });
     } else if (q.kind === 'sizes') {
-      answer({ sizes: exploreSizes(q.q) });
+      const key = sizeKey(q.q);
+      let sizes = sizesCache.get(key);
+      if (!sizes) {
+        if (sizesCache.size > 20) sizesCache.clear();
+        sizesCache.set(key, (sizes = exploreSizes(q.q)));
+      }
+      answer({ sizes });
     } else if (q.kind === 'story') {
       if (storyCache.size > 400) storyCache.clear();
       answer({ story: runStory(q.input, storyCache) });

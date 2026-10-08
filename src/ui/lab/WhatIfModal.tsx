@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { prettyCard, RANK_CHARS, suitOf, type Card } from '../../core/cards';
-import type { SizeQuestion } from '../../core/motives/sizes';
-import { fingerprint } from '../../core/motives/story';
+import { sizeKey, type SizeQuestion } from '../../core/motives/sizes';
 import type { WhatIfAnswer, WhatIfLine } from '../../core/motives/whatIf';
 import { comboTotal, withoutCards } from '../../core/ranges/range';
 import { Modal } from '../controls';
@@ -57,17 +56,7 @@ export function WhatIfModal({
   otherName: string;
   onClose: () => void;
 }) {
-  const key = JSON.stringify([
-    q.situation,
-    q.actor.profile.name,
-    q.other.profile,
-    fingerprint(q.actor.range),
-    fingerprint(q.other.range),
-    q.actor.seen && fingerprint(q.actor.seen),
-    q.other.seen && fingerprint(q.other.seen),
-    q.actor.cards,
-  ]);
-  const { answer, pending } = useEquity({ kind: 'whatif', q }, `whatif:${key}`);
+  const { answer, pending } = useEquity({ kind: 'whatif', q }, `whatif:${sizeKey(q)}`);
   const a = answer?.whatIf;
   const [picked, setPicked] = useState<number | null>(null);
   const card = picked ?? a?.blank ?? null;
