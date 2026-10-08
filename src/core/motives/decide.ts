@@ -17,10 +17,10 @@
  * cards (fear.ts), and the same against the part of the range that keeps going after a bet.
  */
 
-import { bucketAll, type Bucket } from '../buckets';
+import { BUCKETS, bucketAll, type Bucket } from '../buckets';
 import type { Card } from '../cards';
-import { rangeEquity } from '../equity/field';
-import { aheadNow, fearNumbers } from '../fear';
+import { fromParts, partsByGroup, type GroupParts } from '../equity/field';
+import { fearNumbers } from '../fear';
 import type { Weights } from '../ranges/range';
 import { nutsChanged } from '../texture';
 import { believedContinue } from './beliefs';
@@ -215,7 +215,15 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
   const usualBet = p.betHabit[board.length - 3] ?? 0;
   const buckets = bucketAll(board);
 
-  const equity = product(opps.map((o) => rangeEquity(mine, o, board)));
+  // Equity and lead against each opponent, split by the opponent's buckets in one pass each: a
+  // bet's continuing range is the buckets scaled by how often each goes on, so every bet size is
+  // a re-weighting of these parts, not a new run over the board (exact, and many times faster).
+  const G = BUCKETS.length;
+  const group = buckets.map((b) => (b ? BUCKETS.indexOf(b) : -1));
+  const ALL = new Array<number>(G).fill(1);
+  const eqParts: GroupParts[] = opps.map((o) => partsByGroup(mine, o, board, group, G, true));
+  const nowParts: GroupParts[] = opps.map((o) => partsByGroup(mine, o, board, group, G, false));
+  const equity = product(eqParts.map((q) => fromParts(q, ALL)));
   // Felt fear: the share of next cards that would bite into the hand's lead at all (people count
   // the cards that "could" hurt, not how likely the opponent holds the hand), two cards to come
   // scare more than one. 0 on the river.
@@ -223,7 +231,7 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
   const scary = new Float32Array(1326);
   const bites = new Float32Array(1326);
   if (river) {
-    ahead = product(opps.map((o) => aheadNow(mine, o, board)));
+    ahead = product(nowParts.map((q) => fromParts(q, ALL)));
   } else {
     const frs = opps.map((o) => fearNumbers(mine, o, board));
     ahead = product(frs.map((f) => f.ahead));
@@ -256,7 +264,6 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
   const options: Option[] = [];
   const aggro: Aggro[] = [];
   const facing = C > 0;
-  const oppTotals = opps.map((o) => sumWeights(o, buckets));
 
   const addAggro = (kind: 'bet' | 'raise', amount: number, maxAmount: number, label: string) => {
     const amt = Math.min(Math.round(amount), maxAmount);
@@ -265,18 +272,18 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
     const option: Option = { kind, amount: amt, allIn, label: allIn ? 'All-in' : label };
     const size = kind === 'bet' ? amt / P : (amt - C) / (P + 2 * C);
     // each opponent: the believed share that folds, and equity / lead against the part that goes on
-    const each = opps.map((o, i) => {
-      const cont = new Float32Array(1326);
+    const k = BUCKETS.map((b) => believedContinue(b, size, p.foldBelief, kind === 'raise'));
+    const each = opps.map((_, i) => {
+      const { total } = eqParts[i]!;
+      let all = 0;
       let kept = 0;
-      for (let c = 0; c < 1326; c++) {
-        const b = buckets[c];
-        if (!b || !(o[c]! > 0)) continue;
-        cont[c] = o[c]! * believedContinue(b, size, p.foldBelief, kind === 'raise');
-        kept += cont[c]!;
+      for (let g = 0; g < G; g++) {
+        all += total[g]!;
+        kept += k[g]! * total[g]!;
       }
-      const fold = oppTotals[i]! > 0 ? 1 - kept / oppTotals[i]! : 0;
-      const eq = kept > 0 ? rangeEquity(mine, cont, board) : new Float32Array(1326).fill(1);
-      const ah = kept > 0 ? aheadNow(mine, cont, board) : new Float32Array(1326).fill(1);
+      const fold = all > 0 ? 1 - kept / all : 0;
+      const eq = kept > 0 ? fromParts(eqParts[i]!, k) : new Float32Array(1326).fill(1);
+      const ah = kept > 0 ? fromParts(nowParts[i]!, k) : new Float32Array(1326).fill(1);
       return { fold, eq, ah };
     });
     // everyone folds; else the hand must beat each one who goes on (one who folds is beaten)
@@ -474,12 +481,6 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
       });
     },
   };
-}
-
-function sumWeights(w: Weights, buckets: (Bucket | null)[]): number {
-  let t = 0;
-  for (let c = 0; c < 1326; c++) if (buckets[c] && w[c]! > 0) t += w[c]!;
-  return t;
 }
 
 const NAMED_SIZES: [number, string][] = [[1 / 3, '⅓ pot'], [0.5, '½ pot'], [2 / 3, '⅔ pot'], [0.75, '¾ pot'], [1, 'pot']];

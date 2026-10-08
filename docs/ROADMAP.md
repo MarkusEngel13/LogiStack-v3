@@ -280,18 +280,16 @@ on J♠9♦2♠ and A♣7♦2♥, against a 1.5x pot lead (825) 57-65 %.
         before the flop it plays its chart frequencies. Needs: preflop bot play (charts per spot,
         sizes, limps), a deal / play loop, timing, a hand review screen. Caveats: one-street
         thinking, fixed size menu, no memory between hands, uncalibrated presets.
-10c. [ ] Bucket decisions for the gym (Marius, 2026-10-08): faster postflop bots. Today each bot
-        decision runs the motive model over every combo of its range (2-10 s, multiway slowest), so a
-        6-handed hand can mean a minute of waiting. In the gym the bot's real cards are known, so it
-        only needs the chances for its own combo's bucket:
-        - [ ] Decide per bucket: one representative score per bucket (average equity, ahead, fear),
-              then the bot draws from its bucket's chances. Target: under 1 s per decision.
-        - [ ] Keep the full per-combo model where ranges matter: the Lab, the range story, watch
-              mode's "How the bots decided" (can run after the hand, off the critical path).
-        - [ ] Check it against the full model: on the doctrine spots (J♠9♦2♠, A♣7♦2♥, multiway),
-              per-bucket shares within a few points of the per-combo ones; a test that fails if not.
-        - [ ] Bot toggle "fast / exact" in Options, fast by default in the gym.
-
+10c. [x] Faster postflop bots (2026-10-08), exact instead of by bucket: (a) a bet's continuing range is
+        the other range's buckets scaled by how often each goes on, so `partsByGroup` (equity/field.ts)
+        sweeps the board once per opponent keeping totals per bucket, and every bet size re-weights
+        them (`fromParts`) - before, each size ran its own sweep; (b) a bot decides from its one real
+        hand (the model scores each hand on its own, so the chances are identical). Same decisions,
+        ~4x faster: 30 seeded hands at a mixed 6-max table, postflop decision median 916 -> 207 ms,
+        p90 3.9 -> 0.9 s, worst 18 -> 4 s (multiway flops); a hand 5.4 -> 1.5 s on average.
+        `core/sim/play.ts` plays whole hands headless (the stats report's engine); timing:
+        `SLOW=1 npx vitest run src/core/sim/bench.test.ts`. Left: multiway flops (fear numbers are
+        n×m×49 per opponent), the story's full-range decisions (needed to narrow ranges).
 10d. [x] **Players page** (2026-10-08, `core/players/`, `ui/players/`): real players and profiles as six
         sliders in poker words (Loose, Preflop aggression, Postflop aggression, Sticky, Respects big
         bets, Bluffs; 1-5 in half steps, 3 = plays the price, the number is the exploit), a sizing

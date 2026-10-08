@@ -332,3 +332,147 @@ export function monteCarloField(
     }),
   };
 }
+
+// ---- by group: one pass, the parts against each group of the second range --------------------
+
+/**
+ * What combo `a` scores against each group of range `b`, unnormalised, so any re-weighting of
+ * the groups is a sum: equity against `b` with group g scaled by k[g] is
+ *   Σ_g k[g]·share[c·G+g]  /  Σ_g k[g]·faced[c·G+g].
+ * `share` = weight beaten + half the weight tied, `faced` = weight not blocked (card removal
+ * exact, as in rangeEquity). `runouts`: every turn and river (equity) or the board as it is
+ * (who is ahead now). Index c = combo of `a`.
+ */
+export interface GroupParts {
+  groups: number;
+  share: Float64Array;
+  faced: Float64Array;
+  /** Weight of each group of `b` left after the board. */
+  total: Float64Array;
+}
+
+export function partsByGroup(a: Weights, b: Weights, board: readonly Card[], group: ArrayLike<number>, G: number, runouts: boolean): GroupParts {
+  checkBoard(board);
+  if (board.length < 3) throw new Error('partsByGroup works after the flop');
+  const [boardLo, boardHi] = packed(board);
+  const listA = liveCombos(a, boardLo, boardHi);
+  const listB = liveCombos(b, boardLo, boardHi).filter((v) => group[v.combo]! >= 0);
+  const share = new Float64Array(1326 * G);
+  const faced = new Float64Array(1326 * G);
+  const total = new Float64Array(G);
+  for (const v of listB) total[group[v.combo]!]! += v.weight;
+  if (listA.length === 0 || listB.length === 0) return { groups: G, share, faced, total };
+
+  const deck: Card[] = [];
+  for (let c = 0; c < 52; c++) if (!board.includes(c)) deck.push(c);
+  const need = runouts ? 5 - board.length : 0;
+
+  const keys = new Float64Array(listB.length);
+  const scores = new Int32Array(listB.length);
+  const cum = new Float64Array((listB.length + 1) * G);
+  const cardScores = new Int32Array(52 * 51);
+  const cardCum = new Float64Array(52 * 52 * G);
+  const cardCount = new Int32Array(52);
+  const scoreOfCombo = new Int32Array(1326).fill(-1);
+  const groupOf = (j: number) => group[listB[j]!.combo]!;
+
+  const playOut = (runLo: number, runHi: number) => {
+    const lo = boardLo | runLo;
+    const hi = boardHi | runHi;
+    let n = 0;
+    for (let j = 0; j < listB.length; j++) {
+      const v = listB[j]!;
+      if ((v.lo & runLo) | (v.hi & runHi)) continue;
+      keys[n++] = evalPacked(v.lo | lo, v.hi | hi) * 2048 + j;
+    }
+    const sorted = keys.subarray(0, n).sort();
+    cardCount.fill(0);
+    for (let g = 0; g < G; g++) cum[g] = 0;
+    for (let k = 0; k < n; k++) {
+      const key = sorted[k]!;
+      const j = key % 2048;
+      const score = (key - j) / 2048;
+      const v = listB[j]!;
+      const g0 = groupOf(j);
+      scores[k] = score;
+      for (let g = 0; g < G; g++) cum[(k + 1) * G + g] = cum[k * G + g]! + (g === g0 ? v.weight : 0);
+      scoreOfCombo[v.combo] = score;
+      const [c1, c2] = comboCards[v.combo]!;
+      for (const c of [c1, c2]) {
+        const at = cardCount[c]!;
+        cardScores[c * 51 + at] = score;
+        const from = (c * 52 + at) * G;
+        // row `at` = the card's first `at` combos (row 0 is never written: always zero)
+        for (let g = 0; g < G; g++) cardCum[from + G + g] = cardCum[from + g]! + (g === g0 ? v.weight : 0);
+        cardCount[c] = at + 1;
+      }
+    }
+    const pos = (s: number, upTo: boolean) => search(scores, 0, n, s, upTo);
+    const posCard = (c: number, s: number, upTo: boolean) => search(cardScores, c * 51, c * 51 + cardCount[c]!, s, upTo) - c * 51;
+
+    for (const h of listA) {
+      if ((h.lo & runLo) | (h.hi & runHi)) continue;
+      const s = evalPacked(h.lo | lo, h.hi | hi);
+      const [x, y] = comboCards[h.combo]!;
+      const same = scoreOfCombo[h.combo]!;
+      const sameG = same >= 0 ? group[h.combo]! : -1;
+      const sameW = same >= 0 ? (b[h.combo] ?? 0) : 0;
+      const kLess = pos(s, false);
+      const kUp = pos(s, true);
+      const xLess = posCard(x, s, false);
+      const xUp = posCard(x, s, true);
+      const yLess = posCard(y, s, false);
+      const yUp = posCard(y, s, true);
+      const kl = kLess * G;
+      const ku = kUp * G;
+      const kn = n * G;
+      const xl = (x * 52 + xLess) * G;
+      const xu = (x * 52 + xUp) * G;
+      const xa = (x * 52 + cardCount[x]!) * G;
+      const yl = (y * 52 + yLess) * G;
+      const yu = (y * 52 + yUp) * G;
+      const ya = (y * 52 + cardCount[y]!) * G;
+      const out = h.combo * G;
+      for (let g = 0; g < G; g++) {
+        let less = cum[kl + g]! - cardCum[xl + g]! - cardCum[yl + g]!;
+        let upTo = cum[ku + g]! - cardCum[xu + g]! - cardCum[yu + g]!;
+        let all = cum[kn + g]! - cardCum[xa + g]! - cardCum[ya + g]!;
+        if (g === sameG) {
+          if (same < s) less += sameW;
+          if (same <= s) upTo += sameW;
+          all += sameW;
+        }
+        share[out + g]! += (less + upTo) / 2;
+        faced[out + g]! += all;
+      }
+    }
+    for (let k = 0; k < n; k++) scoreOfCombo[listB[sorted[k]! % 2048]!.combo] = -1;
+  };
+
+  if (need === 0) playOut(0, 0);
+  else if (need === 1) for (const c of deck) playOut(CARD_LO[c]!, CARD_HI[c]!);
+  else
+    for (let i = 0; i < deck.length; i++)
+      for (let j = i + 1; j < deck.length; j++) {
+        const p = deck[i]!;
+        const q = deck[j]!;
+        playOut(CARD_LO[p]! | CARD_LO[q]!, CARD_HI[p]! | CARD_HI[q]!);
+      }
+  return { groups: G, share, faced, total };
+}
+
+/** Equity (or lead) per combo against the groups re-weighted by k; NaN where nothing is faced. */
+export function fromParts(p: GroupParts, k: ArrayLike<number>): Float32Array {
+  const out = new Float32Array(1326).fill(NaN);
+  const G = p.groups;
+  for (let c = 0; c < 1326; c++) {
+    let s = 0;
+    let f = 0;
+    for (let g = 0; g < G; g++) {
+      s += k[g]! * p.share[c * G + g]!;
+      f += k[g]! * p.faced[c * G + g]!;
+    }
+    if (f > 0) out[c] = s / f;
+  }
+  return out;
+}

@@ -50,10 +50,12 @@ export function botChoice(input: StoryInput, state: TableState, step: number, ra
   const story = runStory(input, cache);
   const { situation, opps } = situationOf(state, me.seat);
   const seen = rangesAt(input, story, step, { observer: me.seat });
-  const mine = (rangesAt(input, story, step).get(me.seat) ?? new Float32Array(1326).fill(1)).slice();
-  // its own cards are in its range, however unlikely the model found them
+  // The model scores every hand of a range on its own, so the bot's chances come from its one
+  // real hand: the same numbers as the whole range's decision for that hand, at a fraction of
+  // the work (its range only matters for the story, which narrows it for the others).
   const combo = comboIndex(me.cards[0]!, me.cards[1]!);
-  mine[combo] = Math.max(mine[combo]!, 1e-3);
+  const mine = new Float32Array(1326);
+  mine[combo] = 1;
   const theirs = opps.map((o) => seen.get(o.seat) ?? new Float32Array(1326).fill(1));
   const profile = profileFor(me);
   const d = decide(profile, situation, mine, theirs);
