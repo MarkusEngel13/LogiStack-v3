@@ -359,7 +359,8 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
         const we = weigh(e, p.longShot);
         // checking to the one with the initiative: their bet is coming (q), so the free card is
         // less likely and the money keeps coming in (check-raise, check-call) - "check to the raiser"
-        const q = !s.inPosition && s.oppInitiative ? (s.oppBets ?? OPP_BETS) : 0;
+        // a donk-leader expects the bet less (profile.expectsBet), so their strong hands lead
+        const q = !s.inPosition && s.oppInitiative ? Math.min(s.oppBets ?? OPP_BETS, p.expectsBet ?? 1) : 0;
         // out of position a check also keeps this street's check-raise / check-call - worth less
         // when the bettor is expected to check (after a card that changed the nuts)
         const thisStreet = s.inPosition ? 0 : 0.5 * (s.oppInitiative ? q / OPP_BETS : 1);

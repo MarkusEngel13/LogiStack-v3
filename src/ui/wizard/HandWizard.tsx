@@ -7,12 +7,13 @@ import { PlayersStep } from './steps/PlayersStep';
 import { ReviewStep } from './steps/ReviewStep';
 import { RulesStep } from './steps/RulesStep';
 import { TableStep } from './steps/TableStep';
+import { refreshStyles } from '../players/seating';
 
 const STEPS = ['Table', 'Players', 'House rules', 'Review'] as const;
-const DRAFT_KEY = 'logistack.wizard.draft.v1';
+export const DRAFT_KEY = 'logistack.wizard.draft.v1';
 
 /** The last setup is remembered, so next week's home game starts with the same people. */
-function loadDraft(): WizardDraft {
+export function loadDraft(): WizardDraft {
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
     return raw ? upgradeDraft(JSON.parse(raw)) : defaultDraft();
@@ -36,7 +37,8 @@ export function HandWizard({ onCreated }: { onCreated: (hand: HandRecord) => voi
   }, [draft]);
 
   const create = () => {
-    const hand = toHandRecord(draft, { id: crypto.randomUUID(), createdAt: new Date().toISOString(), handNo });
+    // saved players play as they are saved now, not as they were when they were seated
+    const hand = toHandRecord(refreshStyles(draft), { id: crypto.randomUUID(), createdAt: new Date().toISOString(), handNo });
     // Hole cards and the title belong to this hand; the next one starts from the same table without them.
     // Written straight to storage because the wizard unmounts before an effect could save it.
     const next: WizardDraft = { ...draft, title: '', seats: draft.seats.map((p) => (p ? { ...p, cards: null } : p)) };

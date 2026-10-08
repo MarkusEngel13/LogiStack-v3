@@ -19,18 +19,21 @@ import { FOLD } from '../ranges/range';
 import { actsLater, openerGroup, pickChart, type ChartChoice } from '../ranges/spot';
 import { CELL_PERCENTILE } from '../ranges/strength';
 import type { BotChoice, BotOption } from './bot';
+import { stylePreflop } from '../players/style';
 
 /** How a player type bends the Reg chart before the flop. */
-interface PreflopStyle {
+export interface PreflopStyle {
   /** Range width against the chart: 2 = twice as many hands. */
   width: number;
   /** Raising against the chart: < 1 calls instead (premiums still raise), > 1 raises more. */
   raises: number;
   /** When first in: the share of opens that limp instead (premiums still raise). */
   limp: number;
+  /** When first in: the share of premiums that limp to re-raise (limp-reraise trap). */
+  limpTrap?: number;
 }
 
-const STYLES: Record<string, PreflopStyle> = {
+export const STYLES: Record<string, PreflopStyle> = {
   Reg: { width: 1, raises: 1, limp: 0 },
   TAG: { width: 0.95, raises: 1.1, limp: 0 },
   LAG: { width: 1.35, raises: 1.25, limp: 0 },
@@ -44,7 +47,7 @@ const STYLES: Record<string, PreflopStyle> = {
  * orientation): regs and TAGs mix 3 and 4 BB, TAGs and maniacs sometimes 5, maniacs now and then
  * 8; fish open mainly 3 BB (when they don't limp).
  */
-const OPEN_SIZES: Record<string, [number, number][]> = {
+export const OPEN_SIZES: Record<string, [number, number][]> = {
   Reg: [[3, 0.6], [4, 0.4]],
   TAG: [[3, 0.5], [4, 0.4], [5, 0.1]],
   LAG: [[3, 0.4], [4, 0.4], [5, 0.2]],
@@ -119,40 +122,12 @@ export function preflopChoice(state: TableState, charts: readonly ChartChoice[],
   if (!me.cards) throw new Error(`${me.name}'s cards are unknown: a bot needs real cards`);
 
   const f = preflopFacing(state, me.seat);
-  const style = STYLES[me.playerType || 'Reg'] ?? STYLES.Reg!;
+  const style = me.style ? stylePreflop(me.style.settings, STYLES) : (STYLES[me.playerType || 'Reg'] ?? STYLES.Reg!);
   const sizing = PLAYER_TYPES.find((t) => t.name === (me.playerType || 'Reg') && t.env === 'Live')?.sizingAggressiveness ?? 1;
   const chart = pickChart(charts, f.scenario, f.position, me.startStack / state.rules.bb);
   const cell = cellOfCards(me.cards[0]!, me.cards[1]!);
-  const mix = chart?.chart[cell] ?? FOLD;
-  const q = CELL_PERCENTILE[cell]!;
 
-  // the chart's width, and this hand's place against the type's width
-  let width = 0;
-  if (chart) for (let c = 0; c < CELLS; c++) width += (comboCount(c) * (chart.chart[c]!.raise + chart.chart[c]!.call + chart.chart[c]!.allin)) / 100;
-  width /= 1326;
-  const target = Math.min(0.95, width * style.width);
-  const fade = Math.max(0, Math.min(1, (target - q) / 0.04 + 0.5)); // 1 inside the target width, 0 outside
-  const chartGo = (mix.raise + mix.call + mix.allin) / 100;
-  const go = style.width >= 1 ? Math.max(chartGo, fade) : chartGo * fade;
-  const scale = chartGo > 0 ? go / chartGo : 0;
-  let allin = (mix.allin / 100) * scale;
-  let raise = (mix.raise / 100) * scale;
-  // hands the type adds to the chart: loose-passive types call (or limp), aggressive ones raise
-  const added = Math.max(0, go - chartGo * scale);
-  if (style.raises > 1) raise += added;
-  const premium = q <= PREMIUM;
-  if (!premium) raise = style.raises < 1 ? raise * style.raises : Math.min(go - allin, raise * style.raises);
-  let call = Math.max(0, go - raise - allin);
-  if (f.scenario === 'RFI' && !premium && style.limp > 0) {
-    const limps = raise * style.limp;
-    raise -= limps;
-    call += limps;
-  }
-  // the charts have no limps when first in: only loose types complete; others raise or fold
-  if (f.scenario === 'RFI' && style.limp === 0) {
-    raise += call;
-    call = 0;
-  }
+  const { go, call, raise, allin } = bendMix(chart, cell, style, f.scenario === 'RFI');
 
   // sizes (raise-to, in chips): opens by the type's mix (OPEN_SIZES); isolation 6 BB + 1 per limper
   // in position, 7 + 1 out of it; 3-bets 3x in position, 4x out of it (+1x per caller); 4-bets
@@ -216,6 +191,51 @@ export function preflopChoice(state: TableState, charts: readonly ChartChoice[],
     }
   }
   return { seat: me.seat, options: merged, picked, event: merged[picked]!.event };
+}
+
+/**
+ * One hand's mix for a player type: the chart's raise / call / all-in shares for its cell, bent
+ * by the type's style (width, raising, limping). `firstIn`: nobody has raised or limped yet.
+ */
+export function bendMix(chart: ChartChoice | null, cell: number, style: PreflopStyle, firstIn: boolean): { go: number; call: number; raise: number; allin: number } {
+  const mix = chart?.chart[cell] ?? FOLD;
+  const q = CELL_PERCENTILE[cell]!;
+  // the chart's width, and this hand's place against the type's width
+  let width = 0;
+  if (chart) for (let c = 0; c < CELLS; c++) width += (comboCount(c) * (chart.chart[c]!.raise + chart.chart[c]!.call + chart.chart[c]!.allin)) / 100;
+  width /= 1326;
+  const target = Math.min(0.95, width * style.width);
+  const fade = Math.max(0, Math.min(1, (target - q) / 0.04 + 0.5)); // 1 inside the target width, 0 outside
+  const chartGo = (mix.raise + mix.call + mix.allin) / 100;
+  const go = style.width >= 1 ? Math.max(chartGo, fade) : chartGo * fade;
+  const scale = chartGo > 0 ? go / chartGo : 0;
+  let allin = (mix.allin / 100) * scale;
+  let raise = (mix.raise / 100) * scale;
+  // hands the type adds to the chart: loose-passive types call (or limp), aggressive ones raise
+  const added = Math.max(0, go - chartGo * scale);
+  if (style.raises > 1) raise += added;
+  const premium = q <= PREMIUM;
+  if (!premium) raise = style.raises < 1 ? raise * style.raises : Math.min(go - allin, raise * style.raises);
+  let call = Math.max(0, go - raise - allin);
+  if (firstIn && !premium && style.limp > 0) {
+    const limps = raise * style.limp;
+    raise -= limps;
+    call += limps;
+  }
+  // the charts have no limps when first in: only loose types complete; others raise or fold
+  if (firstIn && style.limp === 0) {
+    raise += call;
+    call = 0;
+  }
+
+  // a limp-reraiser limps some premiums first in, to re-raise an isolation (the vs-open charts
+  // raise premiums, so the re-raise comes by itself)
+  if (firstIn && premium && (style.limpTrap ?? 0) > 0) {
+    const t = Math.min(1, style.limpTrap!);
+    call += raise * t;
+    raise *= 1 - t;
+  }
+  return { go, call, raise, allin };
 }
 
 /** A random hand for a bot whose cards nobody knows yet, from the cards not seen anywhere. */

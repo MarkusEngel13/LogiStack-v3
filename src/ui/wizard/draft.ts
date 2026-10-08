@@ -18,6 +18,7 @@ import {
   type StraddleRule,
   type Venue,
 } from '../../core/hand/types';
+import type { SeatStyle } from '../../core/players/style';
 import { CURRENCIES } from '../format';
 
 export interface DraftPlayer {
@@ -28,6 +29,8 @@ export interface DraftPlayer {
   sittingOut: boolean;
   cards: [CardStr, CardStr] | null;
   squids: number;
+  /** A saved player or profile from the Players page (then playerType is its base type). */
+  style?: SeatStyle;
 }
 
 export type AnteKind = 'none' | 'each' | 'bb';
@@ -216,6 +219,7 @@ function baseRecord(d: WizardDraft): HandRecord {
               name: p.name.trim() || `Seat ${seat + 1}`,
               stack: p.stack,
               playerType: p.playerType || undefined,
+              ...(p.style ? { style: p.style } : {}),
               tags: p.tags.length ? [...p.tags] : undefined,
               cards: p.cards ?? undefined,
               squids: d.squid.enabled && p.squids > 0 ? p.squids : undefined,

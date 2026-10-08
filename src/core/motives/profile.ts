@@ -6,6 +6,8 @@
  * Units: "pots" - a weight of 0.1 is worth a tenth of the pot in the player's eyes.
  */
 
+import { styleMotives, type SeatStyle } from '../players/style';
+
 export interface MotiveProfile {
   name: string;
   /** Weight on what an action can win: 1 = plain EV, more = greedy. */
@@ -61,6 +63,12 @@ export interface MotiveProfile {
    * pot in their heads and round to chips. Regs count well; fish miss by a fifth either way.
    */
   sizeError: number;
+  /**
+   * Out of position, how often they expect the player with the initiative to bet when checked to
+   * (default: decide.ts's OPP_BETS). Lower = they don't trust the check, so strong hands lead
+   * (donk-leaders). Optional: only the Players page's "leads into the raiser" sets it.
+   */
+  expectsBet?: number;
 }
 
 /** Plain expected value, no psychology: the reference the tests compare against. */
@@ -121,8 +129,10 @@ export interface PlayerState {
 }
 
 /** A seat's profile: the preset for its player type (Unknown when none) shifted by its statuses. */
-export function profileFor(seat: { playerType?: string; tags?: readonly string[] }): MotiveProfile {
-  const preset = MOTIVE_PRESETS[seat.playerType || 'Unknown'] ?? MOTIVE_PRESETS.Unknown!;
+export function profileFor(seat: { playerType?: string; style?: SeatStyle; tags?: readonly string[] }): MotiveProfile {
+  const preset = seat.style
+    ? styleMotives(seat.style.settings, MOTIVE_PRESETS, seat.style.label)
+    : (MOTIVE_PRESETS[seat.playerType || 'Unknown'] ?? MOTIVE_PRESETS.Unknown!);
   return withState(preset, { tags: seat.tags });
 }
 

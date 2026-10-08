@@ -10,6 +10,7 @@ import { useSettings } from '../../settings';
 import { PokerTable } from '../../table/PokerTable';
 import { newPlayer, previewPositions, type DraftPlayer, type WizardDraft } from '../draft';
 import { draftSeatViews } from '../seatViews';
+import { SavedPlayerPicker } from '../../players/SavedPlayerPicker';
 
 interface Props {
   draft: WizardDraft;
@@ -127,6 +128,17 @@ function PlayerEditor({
         </Button>
       </div>
 
+      {!isHero && (
+        <SavedPlayerPicker
+          style={p.style}
+          onPick={(pick) =>
+            updateSeat((x) =>
+              pick ? { ...x, name: pick.name ?? x.name, playerType: pick.style.settings.base, style: pick.style } : (({ style: _s, ...rest }) => (void _s, rest))(x),
+            )
+          }
+        />
+      )}
+
       <Field label="Name">
         <TextInput value={p.name} onChange={(name) => updateSeat((x) => ({ ...x, name }))} />
       </Field>
@@ -166,13 +178,13 @@ function PlayerEditor({
         </div>
       </Field>
 
-      <Field label="Player type">
+      <Field label="Player type" hint={p.style ? `Picking a type here drops ${p.style.label}’s sliders.` : undefined}>
         <div className="flex flex-wrap gap-1.5">
           {PLAYER_TYPES.map((t) => (
             <button
               key={t.id}
               type="button"
-              onClick={() => updateSeat((x) => ({ ...x, playerType: x.playerType === t.id ? '' : t.id }))}
+              onClick={() => updateSeat(({ style: _style, ...x }) => (void _style, { ...x, playerType: x.playerType === t.id && !p.style ? '' : t.id }))}
               className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs ${
                 p.playerType === t.id ? 'border-accent bg-surface-3 text-ink' : 'border-line text-muted hover:text-ink'
               }`}

@@ -7,6 +7,8 @@ import type { SizeAnswer, SizeQuestion } from '../../core/motives/sizes';
 import type { StoryInput, StoryStep } from '../../core/motives/story';
 import type { TableState } from '../../core/engine/state';
 import type { WhatIfAnswer } from '../../core/motives/whatIf';
+import type { MotiveProfile } from '../../core/motives/profile';
+import type { PostflopRow } from '../../core/players/preview';
 import type { Weights } from '../../core/ranges/range';
 
 /**
@@ -20,7 +22,8 @@ export type Question =
   | { kind: 'story'; input: StoryInput }
   | { kind: 'sizes'; q: SizeQuestion }
   | { kind: 'whatif'; q: SizeQuestion }
-  | { kind: 'bot'; input: StoryInput; state: TableState; step: number };
+  | { kind: 'bot'; input: StoryInput; state: TableState; step: number }
+  | { kind: 'preview'; profile: MotiveProfile };
 
 export type EquityQuestion = Question & { id: number };
 
@@ -44,6 +47,8 @@ export interface EquityAnswer {
   whatIf?: WhatIfAnswer;
   /** kind 'bot' */
   bot?: BotChoice;
+  /** kind 'preview' */
+  preview?: PostflopRow[];
   error?: string;
 }
 

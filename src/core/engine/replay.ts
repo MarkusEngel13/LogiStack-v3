@@ -129,6 +129,7 @@ export function initialState(record: HandRecord): TableState {
         seat: p.seat,
         name: p.name,
         playerType: p.playerType,
+        ...(p.style ? { style: p.style } : {}),
         tags: p.tags ?? [],
         position: '',
         dealtIn: !p.sittingOut && p.stack > 0,

@@ -12,6 +12,8 @@
  * player chooses to straddle.
  */
 
+import type { SeatStyle } from '../players/style';
+
 export const HAND_FORMAT = 'logistack.hand/0' as const;
 
 export type Chips = number;
@@ -58,6 +60,11 @@ export interface PlayerSetup {
   stack: Chips;
   /** Free text: 'Reg', 'Fish', 'Nit', 'LAG', 'Maniac', 'Whale', ... */
   playerType?: string;
+  /**
+   * A saved player or profile from the Players page (sliders on top of the type), as it was when
+   * the hand was set up. `playerType` is then its base type (colours, advice); the bots play this.
+   */
+  style?: SeatStyle;
   tags?: PlayerTag[];
   /** Known hole cards. Leave out if unknown; a 'show' event can reveal them later. */
   cards?: [CardStr, CardStr];

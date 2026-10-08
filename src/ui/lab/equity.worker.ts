@@ -8,6 +8,7 @@
  * - 'sizes': the size explorer for the player to act.
  * - 'whatif': each line of the player to act and what reaches the next street.
  * - 'bot': the action of a bot holding real cards (after the flop).
+ * - 'preview': what a player style does in the Players page's fixed spots.
  * The preflop table is fetched once, on first need.
  */
 
@@ -20,6 +21,7 @@ import { botChoice } from '../../core/motives/bot';
 import { exploreSizes } from '../../core/motives/sizes';
 import { runStory, type StoryCache } from '../../core/motives/story';
 import { whatIf } from '../../core/motives/whatIf';
+import { POSTFLOP_SPOTS, postflopRow, type PostflopRow } from '../../core/players/preview';
 import type { EquityAnswer, EquityQuestion } from './useEquity';
 
 // The app compiles with the DOM types; inside the worker only these two are needed.
@@ -39,12 +41,25 @@ const loadTable = () =>
 
 /** Decisions already made, so entering one more action only costs one more (kept small). */
 const storyCache: StoryCache = new Map();
+/** Preview rows per profile and spot: dragging a slider back costs nothing. */
+const previewCache = new Map<string, PostflopRow>();
 
 ctx.onmessage = async (e) => {
   const q = e.data;
   const answer = (a: Omit<EquityAnswer, 'id'>) => ctx.postMessage({ id: q.id, ...a });
   try {
-    if (q.kind === 'bot') {
+    if (q.kind === 'preview') {
+      if (previewCache.size > 500) previewCache.clear();
+      const key = JSON.stringify(q.profile);
+      answer({
+        preview: POSTFLOP_SPOTS.map((spot) => {
+          const k = `${spot}:${key}`;
+          let row = previewCache.get(k);
+          if (!row) previewCache.set(k, (row = postflopRow(q.profile, spot)));
+          return row;
+        }),
+      });
+    } else if (q.kind === 'bot') {
       if (storyCache.size > 400) storyCache.clear();
       answer({ bot: botChoice(q.input, q.state, q.step, Math.random, storyCache, true) });
     } else if (q.kind === 'whatif') {

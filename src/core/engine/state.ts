@@ -1,4 +1,5 @@
 import type { Card } from '../cards';
+import type { SeatStyle } from '../players/style';
 import type { ActionKind, Chips, PlayerTag, RakeRule, SeatNo, SideGames } from '../hand/types';
 
 export type Street = 'preflop' | 'flop' | 'turn' | 'river';
@@ -17,6 +18,8 @@ export interface SeatState {
   seat: SeatNo;
   name: string;
   playerType?: string;
+  /** The Players page's style for this seat (see PlayerSetup.style). */
+  style?: SeatStyle;
   tags: PlayerTag[];
   /** 'BTN', 'SB', 'BB', 'UTG', 'HJ', 'CO', ...; '' when not dealt in. */
   position: string;

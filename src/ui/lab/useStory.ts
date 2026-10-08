@@ -25,7 +25,7 @@ export function useStory(hand: HandRecord, steps: readonly TableState[], charts:
     hand.events,
     hand.ranges,
     hand.button,
-    hand.players.map((p) => [p.seat, p.stack, p.playerType, p.tags]),
+    hand.players.map((p) => [p.seat, p.stack, p.playerType, p.tags, p.style?.settings]),
   ]);
   const { answer, pending } = useEquity(input ? { kind: 'story', input } : null, `story:${key}`);
   return { input, steps: answer?.story ?? null, pending, error: answer?.error };
