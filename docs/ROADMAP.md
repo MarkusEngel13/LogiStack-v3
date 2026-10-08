@@ -297,12 +297,18 @@ all 197 videos, 9058 claims (two age-restricted videos skipped).
 - [x] HHP: every video, the vlogs too.
 - [~] Charlie Carrel: all of `videos_CC.csv` (~399), the bankroll-challenge episodes too (he gives
       advice while playing). Drama / reaction videos with under 4 poker terms per 1000 words are
-      skipped (they gave 0-6 claims; the transcript is kept).
-- [~] Streamlining into a playbook (2026-10-08): claims grouped by street into ~300-claim chunks,
-      pass 1 merges each chunk into entries tagged with the advice vocabulary, pass 2 merges each
-      street across chunks, `build.py` fills in the sources (video at the moment, speaker, quote).
-      Tools in `Tools\ytdlp\work\playbook`; output `Strategy Bible\playbook\HHP_playbook.json`
-      and a readable `HHP_PLAYBOOK.md`. Charlie Carrel's gets its own playbook when his are in.
+      skipped (they gave 0-6 claims; the transcript is kept). ~110 done by 2026-10-08 morning. His
+      angle differs from HHP's: little fear/greed, much ego and embarrassment (reverse tells,
+      "nobody wants to look stupid"), and he calls range-checking lazy - against HHP's "check your
+      range out of position against recs".
+- [x] HHP playbook (2026-10-08): claims grouped by street into ~300-claim chunks, pass 1 merges each
+      chunk into entries tagged with the advice vocabulary, pass 2 merges each street across chunks
+      (big streets in three parts: first to act / facing a bet / the rest), `build.py` fills in the
+      sources (video at the moment, speaker, quote). 1334 entries (1186 tied to moments, 148
+      general). Tools in `Tools\ytdlp\work\playbook`; output `Strategy Bible\playbook\HHP_playbook.json`
+      and a readable `HHP_PLAYBOOK.md`.
+- [ ] Charlie Carrel's playbook when his videos are in (`group.py` is HHP-only so far), shown beside
+      HHP's, with "Charlie disagrees" where they clash.
 - [ ] vs_doc: check the playbook against the old 77-summary doc.
 
 ### Advice at the right moment ("HHP says", 2026-10-08)
@@ -313,9 +319,15 @@ entries to it (every dimension an entry names must fit; the most specific first,
 sourced). The Lab shows the top 3 under the Decision panel for the player to act, with what
 drives the opponent, the coaches' own words and a link to the video at that moment. The
 playbook is private: the user loads their copy from a file (kept in the browser's IndexedDB),
-it never ships with the app. Next: the same in the gym and watch mode as a coach's voice
-("HHP says fold here" vs what the bot did), Charlie Carrel's playbook beside HHP's, and
-"smells fishy" verdicts on entries that show at the wrong moment.
+it never ships with the app. The bots' log carries the top entry's title beside each move (watch
+mode and the Lab). Next: the gym's coach voice ("HHP says fold here" vs what you did), Charlie
+Carrel's playbook beside HHP's, and "smells fishy" verdicts on entries that show at the wrong moment.
+
+Proposed (2026-10-08, waiting for Marius): after the flop every type picks its bet size by payoff
+only, so value hands drift to pot. HHP: recs split sizes by strength (big = strong, a third to half
+otherwise), regs size by board and range (small range bets, polar later). A sizing habit per type
+would put that tell into the bots. And Charlie's call-side embarrassment: the fear of calling into
+the nuts (players fold to a confident shove) and the ego pull of the hero call.
 
 Drinking: both, by phase (see step 3). "Winning" = "protect the win" (tighter), as in Marius's
 simulator and Eil & Lien (done in `motives/profile.ts`).
