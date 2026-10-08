@@ -10,6 +10,9 @@ import { cardsFromRange, type BotChoice } from '../../core/motives/bot';
 import { preflopChoice, randomHand } from '../../core/motives/preflop';
 import { rangesAt, storyInput } from '../../core/motives/story';
 import { AdvicePanel } from '../advice/AdvicePanel';
+import { usePlaybook } from '../advice/usePlaybook';
+import { matchAdvice } from '../../core/advice/playbook';
+import { spotTags } from '../../core/advice/spot';
 import { ActionBar } from '../lab/ActionBar';
 import { DecisionPanel } from '../lab/DecisionPanel';
 import { RangeModal } from '../lab/RangeModal';
@@ -56,6 +59,7 @@ const errorText = (e: unknown) => (e instanceof HandError ? e.message.replace(/^
 
 export function HandScreen({ initial, editable, onBack, onNewHand, onNextHand, onEditCopy }: Props) {
   const { settings } = useSettings();
+  const { playbook } = usePlaybook();
   const [hand, setHand] = useState(initial);
   const [undoStack, setUndoStack] = useState<{ hand: HandRecord; step: number }[]>([]);
   const [editError, setEditError] = useState<string | null>(null);
@@ -294,7 +298,9 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onNextHand, o
     // while bots play with hidden cards, the chances would give their hand away: just the action until the hand is over
     setBotNote(autoBots && !watching ? `${s.name}: ${chosen.label}` : full);
     const street = preflop ? 'Preflop' : st.board.length === 3 ? 'Flop' : st.board.length === 4 ? 'Turn' : 'River';
-    setBotLog((log) => [...log.filter((x) => x.step < cursor), { step: cursor, text: `${street} · ${full}` }]);
+    // the coach's voice beside the bot's move: the playbook's top advice for that moment
+    const tip = playbook ? matchAdvice(playbook.entries, spotTags(st, seat), 1)[0]?.entry.title : undefined;
+    setBotLog((log) => [...log.filter((x) => x.step < cursor), { step: cursor, text: `${street} · ${full}${tip ? ` · HHP: ${tip}` : ''}` }]);
     const events = [...h.events.slice(0, cursor), choice.event];
     commit(h.ranges ? { ...h, events, ranges: notesBefore(h.ranges, cursor) } : { ...h, events }, cursor + 1);
   };
