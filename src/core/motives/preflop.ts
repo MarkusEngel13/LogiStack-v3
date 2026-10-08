@@ -39,6 +39,21 @@ const STYLES: Record<string, PreflopStyle> = {
   Whale: { width: 2.6, raises: 0.5, limp: 0.6 },
   Maniac: { width: 2, raises: 1.7, limp: 0 },
 };
+/**
+ * Open sizes in big blinds, with how often each is used (Marius's 25c game, 2026-10-08 - for
+ * orientation): regs and TAGs mix 3 and 4 BB, TAGs and maniacs sometimes 5, maniacs now and then
+ * 8; fish open mainly 3 BB (when they don't limp).
+ */
+const OPEN_SIZES: Record<string, [number, number][]> = {
+  Reg: [[3, 0.6], [4, 0.4]],
+  TAG: [[3, 0.5], [4, 0.4], [5, 0.1]],
+  LAG: [[3, 0.4], [4, 0.4], [5, 0.2]],
+  Nit: [[3, 0.6], [4, 0.4]],
+  Fish: [[3, 0.85], [4, 0.15]],
+  Whale: [[3, 0.6], [4, 0.2], [5, 0.2]],
+  Maniac: [[3, 0.2], [4, 0.3], [5, 0.3], [8, 0.2]],
+};
+
 /** Hands this good (share of all combos) raise whatever the type: AA-QQ, AK. */
 const PREMIUM = 0.03;
 
@@ -139,18 +154,31 @@ export function preflopChoice(state: TableState, charts: readonly ChartChoice[],
     call = 0;
   }
 
-  // sizes (raise-to, in chips): opens 3 BB; isolation 6 BB + 1 per limper in position, 7 + 1 out of
-  // it; 3-bets 3x in position, 4x out of it (+1x per caller); 4-bets 2.5x / 3x; 5-bets all-in
+  // sizes (raise-to, in chips): opens by the type's mix (OPEN_SIZES); isolation 6 BB + 1 per limper
+  // in position, 7 + 1 out of it; 3-bets 3x in position, 4x out of it (+1x per caller); 4-bets
+  // 2.5x / 3x; 5-bets all-in. The type's sizing scales all but the opens.
   const blind = state.blindLevel;
   const facing = state.currentBet;
   let to: number;
-  if (f.scenario === 'RFI') to = 3 * blind;
+  if (f.scenario === 'RFI') {
+    const mix = OPEN_SIZES[me.playerType || 'Reg'] ?? OPEN_SIZES.Reg!;
+    let r = rand();
+    let open = mix[mix.length - 1]![0];
+    for (const [bbs, w] of mix) {
+      r -= w;
+      if (r < 0) {
+        open = bbs;
+        break;
+      }
+    }
+    to = open * blind;
+  }
   else if (f.scenario === 'vs Limp') to = (f.inPosition ? 6 : 7) * blind + f.limpers * blind;
   else if (f.raises === 1) to = (f.inPosition ? 3 : 4) * facing + f.callers * facing;
   else if (f.raises === 2) to = (f.inPosition ? 2.5 : 3) * facing;
   else to = legal.maxTo;
   const unit = Math.max(1, Math.round(state.rules.bb / 2));
-  to = Math.round((to * sizing) / unit) * unit;
+  to = Math.round((f.scenario === 'RFI' ? to : to * sizing) / unit) * unit;
 
   const base = { type: 'action' as const, seat: me.seat };
   const raiseEvent: HandEvent =

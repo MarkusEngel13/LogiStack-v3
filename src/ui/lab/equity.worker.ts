@@ -46,7 +46,7 @@ ctx.onmessage = async (e) => {
   try {
     if (q.kind === 'bot') {
       if (storyCache.size > 400) storyCache.clear();
-      answer({ bot: botChoice(q.input, q.state, q.step, Math.random, storyCache) });
+      answer({ bot: botChoice(q.input, q.state, q.step, Math.random, storyCache, true) });
     } else if (q.kind === 'whatif') {
       answer({ whatIf: whatIf(q.q) });
     } else if (q.kind === 'sizes') {

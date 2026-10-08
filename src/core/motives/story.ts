@@ -22,7 +22,7 @@ import { playerRange } from '../ranges/handRanges';
 import { parseRange } from '../ranges/notation';
 import type { Weights } from '../ranges/range';
 import type { ChartChoice } from '../ranges/spot';
-import { DEFAULT_BETS, DEFAULT_RAISES, OPP_BETS, decide, oppBetsOn, type Decision, type Motives, type OptionKind, type Situation } from './decide';
+import { DEFAULT_BETS, DEFAULT_RAISES, OPP_BETS, decide, oppBetsOn, withHabit, type Decision, type Motives, type OptionKind, type Situation } from './decide';
 import { profileFor, type MotiveProfile } from './profile';
 
 /** One action after the flop, as the model sees it. */
@@ -180,9 +180,11 @@ export function storyInput(hand: HandRecord, steps: readonly TableState[], chart
     const { situation, opps } = situationOf(before, entry.seat);
     const { pot, toCall } = situation;
     const kind = entry.action;
+    // the menu the actor chose from: the defaults with its usual size, and the size it took
+    const actor = profileFor(before.seats.find((s) => s.seat === entry.seat)!);
     if (entry.allIn && (kind === 'bet' || kind === 'raise')) situation.allInAlways = true;
-    else if (kind === 'bet' && pot > 0) situation.betSizes = withSize(DEFAULT_BETS, entry.added / pot);
-    else if (kind === 'raise' && toCall > 0) situation.raiseSizes = withSize(DEFAULT_RAISES, entry.added / toCall);
+    else if (kind === 'bet' && pot > 0) situation.betSizes = withSize(withHabit(DEFAULT_BETS, actor.betHabit[before.board.length - 3] ?? 0), entry.added / pot);
+    else if (kind === 'raise' && toCall > 0) situation.raiseSizes = withSize(withHabit(DEFAULT_RAISES, actor.raiseHabit), entry.added / toCall);
     points.push({ event: i, street: entry.street, seat: entry.seat, opps: opps.map((o) => o.seat), situation, taken: { kind, amount: entry.added, allIn: entry.allIn } });
   }
   return { start, resets, profiles, points };

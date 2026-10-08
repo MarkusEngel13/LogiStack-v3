@@ -174,10 +174,12 @@ describe('sizes', { timeout: 60_000 }, () => {
   });
 
   // HHP-iMpJnsP9NMs-41: recs check strong-ish hands on the river: "too scared to value bet thinly".
-  test('recreational players value-bet thin rivers less than regs', () => {
+  // Against the thinking regs (TAG): the half-pot autopilot reg checks thin value too - his one size
+  // is too big for it.
+  test('recreational players value-bet thin rivers less than thinking regs', () => {
     const thin = bucketIs(RIVER, 'thin');
     const f = shareOf(decide(fish, river(true), hero, bb), hero, ['bet'], thin);
-    const r = shareOf(decide(MOTIVE_PRESETS.Reg!, river(true), hero, bb), hero, ['bet'], thin);
+    const r = shareOf(decide(MOTIVE_PRESETS.TAG!, river(true), hero, bb), hero, ['bet'], thin);
     expect(f).toBeLessThan(r);
   });
 
@@ -311,5 +313,89 @@ describe('position, scare cards, sizes and depth (batches 11-13)', { timeout: 12
     const thick = bucketIs(RIVER, 'thick');
     const reg = MOTIVE_PRESETS.Reg!;
     expect(shareOf(decide(reg, at(300), bb, hero), bb, ['fold'], thick)).toBeGreaterThan(shareOf(decide(reg, at(30), bb, hero), bb, ['fold'], thick));
+  });
+});
+
+describe('sizing habits (Marius, 2026-10-08: his 25c live game)', { timeout: 180_000 }, () => {
+  const BOARDS = { flop: WET, turn: 'Js 9d 2s 4c', river: 'Ks 7d 2c 5h 9s' };
+  /** In position, checked to: what the type's whole range bets. */
+  const checkedTo = (type: string, board: string) =>
+    decide(MOTIVE_PRESETS[type]!, { board: cards(board), pot: 1000, toCall: 0, stack: 9000, oppStack: 9000, bb: 100, inPosition: true }, hero, bb);
+  /** Share of the bets (weighted by range and chance) whose size in pots passes `pick`. */
+  const betShare = (d: Decision, pick: (size: number) => boolean, inGroup: (c: number) => boolean = () => true) => {
+    let all = 0;
+    let x = 0;
+    for (let c = 0; c < 1326; c++) {
+      if (!(hero[c]! > 0) || !inGroup(c) || Number.isNaN(d.probs[0]![c]!)) continue;
+      d.options.forEach((o, i) => {
+        if (o.kind !== 'bet') return;
+        const w = hero[c]! * d.probs[i]![c]!;
+        all += w;
+        if (pick(o.amount / 1000)) x += w;
+      });
+    }
+    return all > 0 ? x / all : NaN;
+  };
+  const half = (s: number) => Math.abs(s - 0.5) < 0.01;
+
+  // "Most regs just go bet-bet-bet for half pot, regardless of their range, the board, or the number of opponents."
+  test('the autopilot reg bets half pot on every street, whatever the hand', () => {
+    for (const board of Object.values(BOARDS)) expect(betShare(checkedTo('Reg', board), half), board).toBeGreaterThan(0.95);
+  });
+
+  // "Raising habit is 3x, especially when the original bet was half pot."
+  test('the autopilot reg raises a half-pot bet 3x', () => {
+    const d = decide(MOTIVE_PRESETS.Reg!, facingCbet(WET, 0.5), bb, hero);
+    let all = 0;
+    let three = 0;
+    for (let c = 0; c < 1326; c++) {
+      if (!(bb[c]! > 0) || Number.isNaN(d.probs[0]![c]!)) continue;
+      d.options.forEach((o, i) => {
+        if (o.kind !== 'raise' || o.allIn) return;
+        all += bb[c]! * d.probs[i]![c]!;
+        if (o.label === 'Raise 3x') three += bb[c]! * d.probs[i]![c]!;
+      });
+    }
+    expect(three / all).toBeGreaterThan(0.75);
+  });
+
+  // "Fish size up sometimes, especially on rivers. Some even bluff big, but extremely rarely."
+  // "OTF they skew towards higher (2 thirds possibly), OTT and OTR they skew lower."
+  // HHP-gc7faxBVjm8: recs bet big with strong hands, a third to half pot otherwise - the size tells.
+  test('fish bet their usual size before the river; on the river the strong hands size up and air stays small', () => {
+    expect(betShare(checkedTo('Fish', BOARDS.flop), (s) => s >= 0.49 && s <= 0.76)).toBeGreaterThan(0.6);
+    expect(betShare(checkedTo('Fish', BOARDS.turn), (s) => s <= 0.51)).toBeGreaterThan(0.5);
+    const river = checkedTo('Fish', BOARDS.river);
+    const strong = bucketIs(BOARDS.river, 'cpfs');
+    expect(avgBetSize(river, hero, 1000, strong)).toBeGreaterThan(0.8);
+    expect(avgBetSize(river, hero, 1000, strong)).toBeGreaterThan(avgBetSize(checkedTo('Fish', BOARDS.flop), hero, 1000, bucketIs(BOARDS.flop, 'cpfs')));
+    // big bluffs: almost never
+    const air = bucketIs(BOARDS.river, 'air');
+    expect(shareOf(river, hero, ['bet'], air) * betShare(river, (s) => s >= 1, air)).toBeLessThan(0.01);
+  });
+
+  // "Maniacs bet between half pot and pot, they very rarely overbet."
+  test('maniacs bet between half pot and pot and rarely overbet', () => {
+    for (const board of Object.values(BOARDS)) {
+      const d = checkedTo('Maniac', board);
+      expect(betShare(d, (s) => s >= 0.49 && s <= 1.01), board).toBeGreaterThan(0.85);
+      expect(betShare(d, (s) => s > 1.01), board).toBeLessThan(0.1);
+    }
+  });
+
+  test('nits bet small: overbets only with hands that can play for stacks', () => {
+    for (const board of Object.values(BOARDS)) {
+      const d = checkedTo('Nit', board);
+      expect(avgBetSize(d, hero, 1000, () => true), board).toBeLessThan(0.55);
+      expect(betShare(d, (s) => s > 1.01, (c) => !bucketIs(board, 'cpfs')(c)), board).toBeLessThan(0.02);
+    }
+  });
+
+  // The thinking players size by payoff: big for value, smaller with thinner hands.
+  test('thinking regs (TAG) have no habit: strong hands bet much bigger than thin value', () => {
+    for (const board of Object.values(BOARDS)) {
+      const d = checkedTo('TAG', board);
+      expect(avgBetSize(d, hero, 1000, bucketIs(board, 'cpfs')), board).toBeGreaterThan(avgBetSize(d, hero, 1000, bucketIs(board, 'thin')) + 0.3);
+    }
   });
 });

@@ -44,6 +44,23 @@ export interface MotiveProfile {
   foldBelief: number;
   /** How loosely the better option wins (softmax temperature, pots). */
   noise: number;
+  /** The usual bet size on the flop, turn and river, in pots (0 = none: sizes by payoff). */
+  betHabit: readonly [number, number, number];
+  /** The usual raise, as a multiple of the bet faced (0 = none). */
+  raiseHabit: number;
+  /**
+   * How much the usual sizes hold: pots of liking lost per doubling (or halving) away from them.
+   * Strong = the same size whatever the hand, board or players (Marius's half-pot regs); medium =
+   * only a big enough greed or fear moves them off it - so the size becomes a tell (HHP's recs).
+   */
+  habit: number;
+  /** The habit's hold on the river, against the other streets (1 = the same): fish size up there. */
+  habitRiver: number;
+  /**
+   * How far the chips put in stray from the size meant (spread, as a share): players count the
+   * pot in their heads and round to chips. Regs count well; fish miss by a fifth either way.
+   */
+  sizeError: number;
 }
 
 /** Plain expected value, no psychology: the reference the tests compare against. */
@@ -63,6 +80,11 @@ export const NEUTRAL: MotiveProfile = {
   longShot: 1,
   foldBelief: 1,
   noise: 0.002,
+  betHabit: [0, 0, 0],
+  raiseHabit: 0,
+  habit: 0,
+  habitRiver: 1,
+  sizeError: 0,
 };
 
 const base = (name: string, p: Partial<MotiveProfile>): MotiveProfile => ({ ...NEUTRAL, noise: 0.06, comfortBB: 100, ...p, name });
@@ -70,16 +92,25 @@ const base = (name: string, p: Partial<MotiveProfile>): MotiveProfile => ({ ...N
 /**
  * The wizard's player types. Fish = HHP's typical live recreational player: fast-plays value out
  * of fear, passive with draws, sticky, overweights long shots, hates tough decisions.
+ *
+ * Sizes (Marius's 25c live game, 2026-10-08): most regs go bet-bet-bet half pot whatever their
+ * range, the board or the number of players, and raise 3x (almost always over a half-pot bet);
+ * the thinking players (TAG) size by payoff; nits bet small and size up only with the nuts; fish
+ * mean half pot but miscount and round - nearer two thirds on the flop, under half on the turn
+ * and river - and size up sometimes, mostly on the river, rarely as a bluff (HHP: recs split
+ * sizes by strength, HHP-gc7faxBVjm8); maniacs bet between half pot and pot, rarely overbet.
  */
 export const MOTIVE_PRESETS: Record<string, MotiveProfile> = {
-  Reg: base('Reg', { lossAversion: 1.2, fear: 0.6, trap: 0.8, toughDecision: 0.15, embarrassment: 1.3, aggression: 0.02, respect: 0.3, rangeReading: 0.75, longShot: 0.9 }),
-  TAG: base('TAG', { lossAversion: 1.25, fear: 0.6, trap: 0.7, toughDecision: 0.15, embarrassment: 1.2, aggression: 0.04, respect: 0.35, rangeReading: 0.75, longShot: 0.9 }),
-  LAG: base('LAG', { greed: 1.05, lossAversion: 1, comfortBB: 150, fear: 0.4, trap: 0.5, toughDecision: 0.1, embarrassment: 0.3, aggression: 0.08, stickiness: 0.02, respect: 0.15, rangeReading: 0.6, longShot: 0.85, foldBelief: 1.2, noise: 0.07 }),
-  Nit: base('Nit', { greed: 0.95, lossAversion: 1.8, comfortBB: 40, fear: 1, trap: 0.9, toughDecision: 0.3, embarrassment: 2, aggression: -0.03, stickiness: -0.02, respect: 0.6, rangeReading: 0.4, longShot: 0.8 }),
-  Fish: base('Fish', { greed: 1.1, lossAversion: 1.4, comfortBB: 50, fear: 1.2, trap: 1, toughDecision: 0.4, embarrassment: 1.5, aggression: -0.02, stickiness: 0.06, respect: 0.4, rangeReading: 0.2, longShot: 0.7, foldBelief: 0.9, noise: 0.1 }),
-  Whale: base('Whale', { greed: 1.1, lossAversion: 1.1, comfortBB: 200, fear: 0.6, trap: 1, toughDecision: 0.2, embarrassment: 0.8, stickiness: 0.15, respect: -0.1, rangeReading: 0.1, longShot: 0.6, foldBelief: 0.8, noise: 0.12 }),
-  Maniac: base('Maniac', { greed: 1.2, lossAversion: 0.8, comfortBB: 300, fear: 0.4, trap: 0.3, toughDecision: 0.1, embarrassment: 0.1, aggression: 0.2, stickiness: 0.05, respect: -0.3, rangeReading: 0.2, longShot: 0.7, foldBelief: 1.4, noise: 0.15 }),
+  Reg: base('Reg', { lossAversion: 1.2, fear: 0.6, trap: 0.8, toughDecision: 0.15, embarrassment: 1.3, aggression: 0.02, respect: 0.3, rangeReading: 0.75, longShot: 0.9, betHabit: [0.5, 0.5, 0.5], raiseHabit: 3, habit: 0.6, sizeError: 0.05 }),
+  TAG: base('TAG', { lossAversion: 1.25, fear: 0.6, trap: 0.7, toughDecision: 0.15, embarrassment: 1.2, aggression: 0.04, respect: 0.35, rangeReading: 0.75, longShot: 0.9, sizeError: 0.05 }),
+  LAG: base('LAG', { greed: 1.05, lossAversion: 1, comfortBB: 150, fear: 0.4, trap: 0.5, toughDecision: 0.1, embarrassment: 0.3, aggression: 0.08, stickiness: 0.02, respect: 0.15, rangeReading: 0.6, longShot: 0.85, foldBelief: 1.2, noise: 0.07, betHabit: [0.75, 0.75, 0.75], habit: 0.1, sizeError: 0.1 }),
+  Nit: base('Nit', { greed: 0.95, lossAversion: 1.8, comfortBB: 40, fear: 1, trap: 0.9, toughDecision: 0.3, embarrassment: 2, aggression: -0.03, stickiness: -0.02, respect: 0.6, rangeReading: 0.4, longShot: 0.8, betHabit: [0.4, 0.4, 0.4], raiseHabit: 3, habit: 0.25, sizeError: 0.05 }),
+  Fish: base('Fish', { greed: 1.1, lossAversion: 1.4, comfortBB: 50, fear: 1.2, trap: 1, toughDecision: 0.4, embarrassment: 1.5, aggression: -0.02, stickiness: 0.06, respect: 0.4, rangeReading: 0.2, longShot: 0.7, foldBelief: 0.9, noise: 0.1, betHabit: [0.6, 0.45, 0.45], habit: 0.35, habitRiver: 0.4, sizeError: 0.2 }),
+  Whale: base('Whale', { greed: 1.1, lossAversion: 1.1, comfortBB: 200, fear: 0.6, trap: 1, toughDecision: 0.2, embarrassment: 0.8, stickiness: 0.15, respect: -0.1, rangeReading: 0.1, longShot: 0.6, foldBelief: 0.8, noise: 0.12, betHabit: [0.6, 0.5, 0.45], habit: 0.05, sizeError: 0.25 }),
+  Maniac: base('Maniac', { greed: 1.2, lossAversion: 0.8, comfortBB: 300, fear: 0.4, trap: 0.3, toughDecision: 0.1, embarrassment: 0.1, aggression: 0.2, stickiness: 0.05, respect: -0.3, rangeReading: 0.2, longShot: 0.7, foldBelief: 1.4, noise: 0.15, betHabit: [0.75, 0.75, 0.75], habit: 0.4, sizeError: 0.15 }),
 };
+// an unknown player plays like the pool's reg, half-pot habit included: most players don't think
+// about sizes (Marius, 2026-10-08)
 MOTIVE_PRESETS.Unknown = { ...MOTIVE_PRESETS.Reg!, name: 'Unknown' };
 
 export interface PlayerState {
@@ -105,14 +136,14 @@ export function withState(p: MotiveProfile, s: PlayerState = {}): MotiveProfile 
     q = { ...q, lossAversion: q.lossAversion * 1.2, comfortBB: q.comfortBB * 0.8, embarrassment: q.embarrassment + 0.05 };
   }
   if (tags.includes('tilt')) {
-    q = { ...q, lossAversion: q.lossAversion * 0.75, fear: q.fear * 0.8, aggression: q.aggression + 0.08, stickiness: q.stickiness + 0.05, rangeReading: q.rangeReading * 0.7, longShot: q.longShot * 0.9, noise: q.noise + 0.05 };
+    q = { ...q, lossAversion: q.lossAversion * 0.75, fear: q.fear * 0.8, aggression: q.aggression + 0.08, stickiness: q.stickiness + 0.05, rangeReading: q.rangeReading * 0.7, longShot: q.longShot * 0.9, noise: q.noise + 0.05, sizeError: q.sizeError * 1.2 };
   }
   // Drinking, from the research (docs/ROADMAP.md, Phase 1 step 3): less loss aversion, long shots
   // overweighted, less embarrassment, noisier; lively (rising alcohol, stimulant) adds aggression,
   // tired (falling alcohol, sedative) turns it into calling.
   if (drinking) {
     // alcohol myopia: attention narrows to the most salient cue - their own hand, not the other's actions
-    q = { ...q, lossAversion: q.lossAversion * 0.85, comfortBB: q.comfortBB * 1.3, embarrassment: q.embarrassment * 0.7, rangeReading: q.rangeReading * 0.7, longShot: q.longShot * 0.9, noise: q.noise + 0.04 };
+    q = { ...q, lossAversion: q.lossAversion * 0.85, comfortBB: q.comfortBB * 1.3, embarrassment: q.embarrassment * 0.7, rangeReading: q.rangeReading * 0.7, longShot: q.longShot * 0.9, noise: q.noise + 0.04, sizeError: q.sizeError * 1.5 + 0.03 };
     q = tired ? { ...q, aggression: q.aggression - 0.12, stickiness: q.stickiness + 0.12 } : { ...q, aggression: q.aggression + 0.04 };
   }
   // behind in the session: chasing (break-even effect; stronger after drinking - Tobias-Webb et al.

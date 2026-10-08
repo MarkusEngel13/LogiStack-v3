@@ -84,6 +84,31 @@ describe('bots before the flop', () => {
     expect(preflopFacing(s[s.length - 1]!, 5)).toMatchObject({ scenario: 'vs RFI BTN', raises: 1, inPosition: false });
   });
 
+  // Marius's 25c game (2026-10-08, for orientation): regs open 3 or 4 BB, fish mainly 3, TAGs and
+  // maniacs sometimes 5, maniacs now and then 8.
+  test('open sizes by type: regs 3-4 BB, fish mostly 3, maniacs up to 8', () => {
+    const opens = (type?: string) => {
+      const steps = replaySteps(hand({ seat: 0, type, cards: ['As', 'Ah'] }, []));
+      let s = 11;
+      const rand = () => {
+        s = (s * 1664525 + 1013904223) % 4294967296;
+        return s / 4294967296;
+      };
+      const sizes = new Map<number, number>();
+      for (let i = 0; i < 300; i++) {
+        const e = preflopChoice(steps[steps.length - 1]!, CHARTS, rand).event;
+        if (e.type === 'action' && e.action === 'raise') sizes.set(e.to! / 100, (sizes.get(e.to! / 100) ?? 0) + 1 / 300);
+      }
+      return sizes;
+    };
+    const reg = opens();
+    expect([...reg.keys()].sort()).toEqual([3, 4]);
+    expect(opens('Fish').get(3)).toBeGreaterThan(0.7);
+    const maniac = opens('Maniac');
+    expect(maniac.get(8)).toBeGreaterThan(0.05);
+    expect(maniac.get(5)).toBeGreaterThan(0.1);
+  });
+
   test('the big blind after limps can check, never folds; every option is a legal action', () => {
     const limps: HandEvent[] = [{ type: 'action', seat: 0, action: 'call' }, ...folds(4).slice(1), { type: 'action', seat: 4, action: 'call' }];
     const { c, state, step } = choose(hand({ seat: 5, cards: ['7c', '2d'] }, limps));

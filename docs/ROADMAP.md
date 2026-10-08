@@ -323,11 +323,21 @@ it never ships with the app. The bots' log carries the top entry's title beside 
 mode and the Lab). Next: the gym's coach voice ("HHP says fold here" vs what you did), Charlie
 Carrel's playbook beside HHP's, and "smells fishy" verdicts on entries that show at the wrong moment.
 
-Proposed (2026-10-08, waiting for Marius): after the flop every type picks its bet size by payoff
-only, so value hands drift to pot. HHP: recs split sizes by strength (big = strong, a third to half
-otherwise), regs size by board and range (small range bets, polar later). A sizing habit per type
-would put that tell into the bots. And Charlie's call-side embarrassment: the fear of calling into
-the nuts (players fold to a confident shove) and the ego pull of the hero call.
+Sizing habits (2026-10-08, from Marius's 25c game - the numbers are for orientation). Before, every
+type picked its size by payoff only, so value hands drifted to pot. Now each type has a usual size
+per street and a usual raise, and leaving them costs "habit" (a motive, shown as such): the
+autopilot regs (and unknown players) bet half pot on every street whatever the hand and raise 3x;
+TAGs (the thinking players) size by payoff; nits bet small; fish mean half pot but land nearer two
+thirds on the flop and under half later, and size up mostly on the river (so a big river bet from a
+fish is a tell, his usual size is not); maniacs bet half pot to pot, rarely more. The chips then go
+in like a person's: counted in the head and rounded (`motives/chips.ts`; fish stray a fifth, regs
+little, drinking more). Preflop opens by type: regs and TAGs 3-4 BB, fish mostly 3, TAGs and
+maniacs sometimes 5, maniacs now and then 8.
+- [ ] Limping ranges for fish (they limp a lot; today a share of their opens turns into limps).
+- [ ] Charlie's call-side embarrassment: the fear of calling into the nuts (players fold to a
+      confident shove) and the ego pull of the hero call.
+- [ ] LAG and maniac raise almost every c-bet and bet nearly every hand (their liking for
+      aggression outweighs everything) - calibrate.
 
 Drinking: both, by phase (see step 3). "Winning" = "protect the win" (tighter), as in Marius's
 simulator and Eil & Lien (done in `motives/profile.ts`).

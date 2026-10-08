@@ -13,6 +13,7 @@ import { legalActions, unknownCards } from '../engine/replay';
 import type { Weights } from '../ranges/range';
 import type { TableState } from '../engine/state';
 import type { HandEvent } from '../hand/types';
+import { chipsMade } from './chips';
 import { decide } from './decide';
 import { profileFor } from './profile';
 import { rangesAt, runStory, situationOf, type StoryCache, type StoryInput } from './story';
@@ -29,14 +30,17 @@ export interface BotChoice {
   options: BotOption[];
   /** Index of the option drawn. */
   picked: number;
+  /** The action made: the option drawn, its chips as the player puts them in when `humanize`. */
   event: HandEvent;
 }
 
 /**
  * The bot's action for the player to act in `state` (= the hand after `step` events), after the
  * flop. `input`: storyInput() of the hand's steps up to `step`. `rand` draws the option (0..1).
+ * `humanize`: a bet or raise goes in as a person makes it - the pot counted in the head, the
+ * chips rounded (chips.ts) - instead of the exact size meant.
  */
-export function botChoice(input: StoryInput, state: TableState, step: number, rand: () => number = Math.random, cache?: StoryCache): BotChoice {
+export function botChoice(input: StoryInput, state: TableState, step: number, rand: () => number = Math.random, cache?: StoryCache, humanize = false): BotChoice {
   const legal = legalActions(state);
   if (!legal) throw new Error('Nobody is to act');
   if (state.board.length < 3) throw new Error('Bots play after the flop only (for now)');
@@ -51,7 +55,8 @@ export function botChoice(input: StoryInput, state: TableState, step: number, ra
   const combo = comboIndex(me.cards[0]!, me.cards[1]!);
   mine[combo] = Math.max(mine[combo]!, 1e-3);
   const theirs = opps.map((o) => seen.get(o.seat) ?? new Float32Array(1326).fill(1));
-  const d = decide(profileFor(me), situation, mine, theirs);
+  const profile = profileFor(me);
+  const d = decide(profile, situation, mine, theirs);
 
   const toEvent = (kind: string, amount: number, allIn: boolean): HandEvent => {
     const base = { type: 'action' as const, seat: me.seat };
@@ -78,7 +83,12 @@ export function botChoice(input: StoryInput, state: TableState, step: number, ra
       break;
     }
   }
-  return { seat: me.seat, options, picked, event: options[picked]!.event };
+  let event = options[picked]!.event;
+  if (humanize && event.type === 'action' && (event.action === 'bet' || event.action === 'raise') && event.to !== undefined) {
+    const made = chipsMade(event.to, profile.sizeError, legal, rand);
+    event = made === null ? { type: 'action', seat: me.seat, action: 'allin' } : { ...event, to: made };
+  }
+  return { seat: me.seat, options, picked, event };
 }
 
 /**

@@ -90,7 +90,8 @@ describe('multiway', { timeout: 120_000 }, () => {
     expect(within(mw, caller, WET, ['bet'], 'air')).toBeLessThan(within(hu, caller, WET, ['bet'], 'air'));
     // heads-up the strong hands check to the raiser (to check-raise): the lead is draws and stabs
     expect(strong(hu)).toBeLessThan(0.35);
-    expect(strong(mw)).toBeGreaterThan(0.6);
+    // (0.6 before the sizing habits; at their usual half pot fish check-trap some strong hands)
+    expect(strong(mw)).toBeGreaterThan(0.4);
   });
 
   // HHP-vsSFecrDrb0-27, HHP-rQP5RyjqanM-31: a call next to act with players behind is not capped -

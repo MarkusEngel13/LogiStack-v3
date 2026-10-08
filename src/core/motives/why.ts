@@ -15,7 +15,7 @@ export const MOTIVE_WORDS: Record<keyof Motives, string> = {
   trap: 'trapping: keeping worse hands in',
   tough: 'fear of a tough decision',
   embarrassment: 'embarrassment of a caught bluff',
-  liking: 'habit: likes to bet or to call',
+  liking: 'habit: likes to bet, to call, or its usual size',
 };
 
 export interface BucketWhy {

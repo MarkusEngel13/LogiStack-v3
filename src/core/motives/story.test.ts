@@ -155,7 +155,9 @@ describe('the quantum villain: postflop actions narrow the ranges', { timeout: 1
   // HHP-iTV2FKgpTZ0-57, HHP-S7eq8103TDg-43: a check-raise gets more fold equity than betting big
   // ourselves - players over-stab when checked to (HHP--3j77Bl9GuQ-04), and check-raises are
   // underbluffed, which even recreational players have learned (Marius): more folds than to a
-  // bigger lead, from a Reg and from a Fish alike.
+  // bigger lead, from a Reg and from a Fish alike. Except on the wet board since the sizing habits:
+  // the BB is a half-pot fish, and an overbet lead from him is off his usual size - a tell that he
+  // is strong - so it gets about as many folds there. Per chip risked the check-raise still wins.
   test('a check-raise gets more folds than a bigger lead, and far more per chip risked', () => {
     const folds = (flop: string, post: HandEvent[], btnType: string) => {
       const h = btnVsBb(flop, post, [], btnType);
@@ -182,7 +184,7 @@ describe('the quantum villain: postflop actions narrow the ranges', { timeout: 1
       for (const flop of [WET, STATIC]) {
         const l = folds(flop, lead, btn);
         const x = folds(flop, xr, btn);
-        expect(x, `${btn} on ${flop}`).toBeGreaterThan(l);
+        if (flop === STATIC) expect(x, `${btn} on ${flop}`).toBeGreaterThan(l);
         // what a fold wins per chip risked: the pot and the c-bet (916) for 641, or the pot (550) for 825
         expect((x * 916) / 641).toBeGreaterThan((1.5 * (l * 550)) / 825);
       }

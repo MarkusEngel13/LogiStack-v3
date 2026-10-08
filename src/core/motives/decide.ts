@@ -9,7 +9,7 @@
  *   trap           x the worse hands kept in for later streets (delayed gratification)
  *   tough decision x how likely the line leaves a medium hand in a hard spot (a jam ends it)
  *   embarrassment  x a bluff called and shown (river)
- *   + a liking for betting (aggression) or for calling (stickiness)
+ *   + a liking for betting (aggression) or for calling (stickiness), and for the usual sizes (habit)
  * and the player picks by a soft choice (noise). The fold is the zero.
  *
  * What the player believes about the other side - who folds to which size - is beliefs.ts; the
@@ -39,9 +39,9 @@ export interface Situation {
   bb: number;
   /** The actor acts last on this street. */
   inPosition: boolean;
-  /** Bet sizes in pots when not facing a bet. Default ⅓, ½, ¾, pot, 1.5 pots (plus all-in). */
+  /** Bet sizes in pots when not facing a bet. Default ⅓, ½, ¾, pot, 1.5 pots and the player's usual size (plus all-in). */
   betSizes?: number[];
-  /** Raise-to sizes as multiples of the bet faced. Default 2.5x and 3.5x (plus all-in). */
+  /** Raise-to sizes as multiples of the bet faced. Default 2.5x, 3.5x and the player's usual raise (plus all-in). */
   raiseSizes?: number[];
   /** All-in stays on the menu even when it is many pots (it was taken: the story needs it). */
   allInAlways?: boolean;
@@ -163,6 +163,10 @@ const IP_TRAP = 1.8;
 const TRAP_BEHIND = 1;
 export const DEFAULT_RAISES = [2.5, 3.5];
 
+/** The menu with the player's usual size on it (when it isn't there already). */
+export const withHabit = (sizes: readonly number[], usual: number) =>
+  usual > 0 && !sizes.some((x) => Math.abs(x - usual) < 0.01 * usual) ? [...sizes, usual] : [...sizes];
+
 /**
  * Tversky-Kahneman probability weighting, overweighting side only: long shots feel bigger than
  * they are (draws get chased), but a big favourite is not shrunk - a set facing a shove feels
@@ -208,6 +212,7 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
   if (board.length < 3) throw new Error('The motive model starts on the flop');
   const streetsLeft = 5 - board.length;
   const river = streetsLeft === 0;
+  const usualBet = p.betHabit[board.length - 3] ?? 0;
   const buckets = bucketAll(board);
 
   const equity = product(opps.map((o) => rangeEquity(mine, o, board)));
@@ -298,7 +303,7 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
     options.push({ kind: 'check', amount: 0, allIn: false, label: 'Check' });
     const maxBet = Math.min(s.stack, s.oppStack);
     if (maxBet > 0) {
-      for (const f of s.betSizes ?? DEFAULT_BETS) addAggro('bet', f * P, maxBet, `Bet ${pctLabel(f)}`);
+      for (const f of s.betSizes ?? withHabit(DEFAULT_BETS, usualBet)) addAggro('bet', f * P, maxBet, `Bet ${pctLabel(f)}`);
       if (maxBet <= MAX_JAM_POTS * P || s.allInAlways) addAggro('bet', maxBet, maxBet, 'All-in');
     }
   } else {
@@ -307,7 +312,7 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
     options.push({ kind: 'call', amount: call, allIn: call >= s.stack, label: call >= s.stack ? 'Call all-in' : 'Call' });
     const maxTo = Math.min(s.stack, C + s.oppStack);
     if (maxTo > C) {
-      for (const m of s.raiseSizes ?? DEFAULT_RAISES) addAggro('raise', m * C, maxTo, `Raise ${+m.toFixed(1)}x`);
+      for (const m of s.raiseSizes ?? withHabit(DEFAULT_RAISES, p.raiseHabit)) addAggro('raise', m * C, maxTo, `Raise ${+m.toFixed(1)}x`);
       if (maxTo - C <= MAX_JAM_POTS * (P + 2 * C) || s.allInAlways) addAggro('raise', maxTo, maxTo, 'All-in');
     }
   }
@@ -327,6 +332,15 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
   const lambda = (chips: number) => p.lossAversion * (1 + Math.max(0, chips / bb / p.comfortBB - 1));
   // tough decisions loom when little is left behind: pressure = pot / stack behind after the action
   const pressure = (potAfter: number, behind: number) => (behind <= 0 ? 0 : Math.min(1, potAfter / behind));
+  // the habit: doublings (or halvings) away from the usual size - a bet in pots, a raise as a
+  // multiple of the bet faced; an all-in counts at its real size
+  const habit = p.habit * (river ? p.habitRiver : 1);
+  const offHabit = (o: Option) => {
+    const usual = o.kind === 'bet' ? usualBet : p.raiseHabit;
+    if (!(usual > 0)) return 0;
+    const size = o.kind === 'bet' ? o.amount / P : o.amount / C;
+    return size > 0 ? Math.abs(Math.log2(size / usual)) : 0;
+  };
 
   const motivesOf = (combo: number, o: Option): Motives => {
     const e = equity[combo]!;
@@ -398,7 +412,7 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
             (1 - fold) *
             (1 - (Number.isNaN(ec) ? 1 : ec)) *
             (1 + r),
-          liking: 0,
+          liking: -offHabit(o),
         };
       }
     }
@@ -411,7 +425,7 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
     trap: p.trap * m.trap,
     tough: -p.toughDecision * m.tough,
     embarrassment: -p.embarrassment * m.embarrassment,
-    liking: o.kind === 'bet' || o.kind === 'raise' ? p.aggression : o.kind === 'call' ? p.stickiness : 0,
+    liking: o.kind === 'bet' || o.kind === 'raise' ? p.aggression + habit * m.liking : o.kind === 'call' ? p.stickiness : 0,
   });
   const total = (w: Motives) => w.gain + w.loss + w.fear + w.trap + w.tough + w.embarrassment + w.liking;
 
