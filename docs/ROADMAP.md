@@ -280,6 +280,17 @@ on J♠9♦2♠ and A♣7♦2♥, against a 1.5x pot lead (825) 57-65 %.
         before the flop it plays its chart frequencies. Needs: preflop bot play (charts per spot,
         sizes, limps), a deal / play loop, timing, a hand review screen. Caveats: one-street
         thinking, fixed size menu, no memory between hands, uncalibrated presets.
+10c. [ ] Bucket decisions for the gym (Marius, 2026-10-08): faster postflop bots. Today each bot
+        decision runs the motive model over every combo of its range (2-10 s, multiway slowest), so a
+        6-handed hand can mean a minute of waiting. In the gym the bot's real cards are known, so it
+        only needs the chances for its own combo's bucket:
+        - [ ] Decide per bucket: one representative score per bucket (average equity, ahead, fear),
+              then the bot draws from its bucket's chances. Target: under 1 s per decision.
+        - [ ] Keep the full per-combo model where ranges matter: the Lab, the range story, watch
+              mode's "How the bots decided" (can run after the hand, off the critical path).
+        - [ ] Check it against the full model: on the doctrine spots (J♠9♦2♠, A♣7♦2♥, multiway),
+              per-bucket shares within a few points of the per-combo ones; a test that fails if not.
+        - [ ] Bot toggle "fast / exact" in Options, fast by default in the gym.
 
 ### Phase 5: calibrate
 11. [ ] Fit to the Excel table (was step 4) for the magnitudes; Marius's DRY scoring as a
