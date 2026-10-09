@@ -51,6 +51,11 @@ export interface Situation {
    */
   oppInitiative?: boolean;
   /**
+   * This player bet or raised last (the preflop raiser on the flop, the flop bettor on the turn):
+   * a bet now is a continuation bet, which the player's c-bet habit likes (profile.cbetHabit).
+   */
+  initiative?: boolean;
+  /**
    * How often this player expects the one with the initiative to bet when checked to (default
    * OPP_BETS). Lower after a card that changed the nuts (`oppBetsOn`): they expect a check, so
    * their strong hands lead.
@@ -446,7 +451,12 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
     trap: p.trap * m.trap,
     tough: -p.toughDecision * m.tough,
     embarrassment: -p.embarrassment * m.embarrassment,
-    liking: o.kind === 'bet' || o.kind === 'raise' ? p.aggression + habit * m.liking : o.kind === 'call' ? p.stickiness : 0,
+    liking:
+      o.kind === 'bet' || o.kind === 'raise'
+        ? p.aggression + habit * m.liking + (o.kind === 'bet' && s.initiative ? (p.cbetHabit ?? 0) : 0)
+        : o.kind === 'call'
+          ? p.stickiness
+          : 0,
   });
   const total = (w: Motives) => w.gain + w.loss + w.fear + w.trap + w.tough + w.embarrassment + w.liking;
 

@@ -134,7 +134,8 @@ export function situationOf(state: TableState, seat: SeatNo): { situation: Situa
     for (let k = state.log.length - 1; k >= 0; k--) {
       const e = state.log[k]!;
       if (e.kind === 'action' && (e.action === 'bet' || e.action === 'raise')) {
-        if (opps.some((o) => o.seat === e.seat)) {
+        if (e.seat === me.seat) situation.initiative = true;
+        else if (opps.some((o) => o.seat === e.seat)) {
           situation.oppInitiative = true;
           // after a card that changed the nuts they expect the bettor to check
           if (oppBetsOn(state.board) !== OPP_BETS) situation.oppBets = oppBetsOn(state.board);

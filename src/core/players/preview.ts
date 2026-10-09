@@ -118,7 +118,7 @@ export function postflopRow(p: MotiveProfile, which: PostflopSpot): PostflopRow 
       };
     }
     case 'cbet': {
-      const s = spot('Ac 7d 2h', { inPosition: true });
+      const s = spot('Ac 7d 2h', { inPosition: true, initiative: true });
       const d = decide(p, s, btn, bb);
       return { label: 'Button c-bets A♣7♦2♥ when checked to', what: 'bets', share: share(d, btn, s.board, ['bet']) };
     }
