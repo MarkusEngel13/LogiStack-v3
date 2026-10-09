@@ -4,7 +4,22 @@ import { applyEvent, initialState, replay } from '../engine/replay';
 import type { TableState } from '../engine/state';
 import type { HandEvent, HandRecord } from '../hand/types';
 import { cellByName } from '../ranges/hands';
-import { cellCards, flopCards, handOver, handSummary, nextSuit, postflopLines, preflopLines, showdownUnknown, streetCard, usedCards } from './quick';
+import {
+  cellCards,
+  flopCards,
+  guessedSeats,
+  handOver,
+  handSummary,
+  makeRoom,
+  nextSuit,
+  showdownUnknown,
+  softCards,
+  streetCard,
+  streetKinds,
+  usedCards,
+  withHoleCards,
+} from './quick';
+import { actAs, restPass } from './tap';
 
 const names = ['UTG', 'HJ', 'Hero', 'BTN', 'Fish', 'BB'];
 // seat 0..5, button 3: SB = 4 (Fish), BB = 5, UTG = 0, HJ = 1, CO = 2 (Hero)
@@ -20,8 +35,8 @@ function hand(): HandRecord {
     events: [],
   };
 }
-const n = { hero: 2, name: (s: number) => names[s]! };
 const apply = (state: TableState, events: HandEvent[]) => events.reduce((st, e) => applyEvent(st, e, st.eventsApplied), state);
+const strs = (cards: readonly number[]) => cards.map(cardToString);
 
 describe('cards', () => {
   it('picks free suits for a grid cell', () => {
@@ -30,6 +45,12 @@ describe('cards', () => {
     expect(ak).toEqual(['Ah', 'Kh']);
     expect(cellCards(cellByName('AA')!, new Set(['As', 'Ah', 'Ad'].map(parseCard)))).toBeNull();
     expect(cellCards(cellByName('72o')!, new Set())!.map(cardToString)).toEqual(['7s', '2h']);
+  });
+
+  it('a grid hand stays off the board’s suits where it can (no flush draw nobody saw)', () => {
+    const board = ['2s', '7s', '9h'].map(parseCard);
+    expect(strs(cellCards(cellByName('AKs')!, new Set(board), board)!)).toEqual(['Ad', 'Kd']);
+    expect(strs(cellCards(cellByName('QQ')!, new Set(board), board)!)).toEqual(['Qd', 'Qc']);
   });
 
   it('builds flops from ranks and a texture', () => {
@@ -49,79 +70,109 @@ describe('cards', () => {
     expect(new Set(flopCards([11, 11, 0], 'mono', used)!.map(suitOf)).size).toBe(2);
   });
 
-  it('turn and river: blank or flush card', () => {
+  it('turn and river: no flush card, flush card, a (second) flush draw', () => {
     const board = ['Kh', '7h', '2d'].map(parseCard);
     const used = new Set([...board, ...['As', 'Ks'].map(parseCard)]);
     expect(suitOf(streetCard(3, 'flush', board, used)!)).toBe(1);
     expect([0, 3]).toContain(suitOf(streetCard(3, 'blank', board, used)!));
+    expect(suitOf(streetCard(3, 'draw', board, used)!)).toBe(2); // the second draw: diamonds
+    // on a rainbow flop the draw stays off your suit
+    const rainbow = ['Kh', '7c', '2d'].map(parseCard);
+    expect(suitOf(streetCard(3, 'draw', rainbow, new Set(rainbow), [1])!)).not.toBe(1);
     expect(cardToString(nextSuit(parseCard('Kh'), used))).toBe('Kd');
+  });
+
+  it('offers only the kinds that mean something on the board', () => {
+    const kinds = (b: string[]) => streetKinds(b.map(parseCard)).map((k) => k.label);
+    expect(kinds(['Kh', '7c', '2d'])).toEqual(['No flush card', 'Flush draw']);
+    expect(kinds(['Kh', '7h', '2d'])).toEqual(['No flush card', 'Flush card', 'Second flush draw']);
+    expect(kinds(['Kh', '7h', '2h'])).toEqual(['No flush card', 'Flush card']);
+    expect(kinds(['Kh', '7c', '2d', '3s'])).toEqual(['No flush card']);
+    expect(kinds(['Kh', '7h', '2d', '3d'])).toEqual(['No flush card', 'Flush card']);
   });
 });
 
-describe('lines', () => {
-  it('preflop: you open, the fish calls; then flop lines to the river', () => {
-    let st = initialState(hand());
-    const pre = preflopLines(st, [2, 4], 3, n);
-    const open = pre.find((l) => l.id === 'open-2')!;
-    expect(open.label).toBe('You open 3 BB · Fish calls');
-    st = apply(st, open.events);
+describe('guessed suits', () => {
+  const grid = (): HandRecord => {
+    const h = { ...hand(), players: hand().players.map(({ cards: _c, ...p }) => (void _c, p)) };
+    return withHoleCards(h, 2, ['As', 'Ks'], true);
+  };
+
+  it('remembers which seats were picked on the grid', () => {
+    const h = grid();
+    expect(guessedSeats(h)).toEqual([2]);
+    expect(h.players.find((p) => p.seat === 2)!.cards).toEqual(['As', 'Ks']);
+    expect(guessedSeats(withHoleCards(h, 2, ['Ah', 'Kd'], false))).toEqual([]);
+    expect(softCards(h)).toEqual(new Set(['As', 'Ks'].map(parseCard)));
+    expect(softCards(h, 2).size).toBe(0);
+  });
+
+  it('a board card a guessed hand holds moves that hand, same class, off the board’s suits', () => {
+    const h = grid();
+    const room = makeRoom(h, ['Ks', '7h', '2c'].map(parseCard))!;
+    expect(room.players.find((p) => p.seat === 2)!.cards).toEqual(['Ad', 'Kd']);
+    // nothing to move: the same record
+    expect(makeRoom(h, ['Qd', '7h', '2c'].map(parseCard))).toBe(h);
+    // real cards don't move
+    const exact = withHoleCards(h, 2, ['As', 'Ks'], false);
+    expect(makeRoom(exact, ['Ks', '7h', '2c'].map(parseCard))).toBeNull();
+    // the moved hand replays with the board
+    let st = initialState(room);
+    st = apply(st, actAs(st, 2, 'call')!);
+    st = apply(st, restPass(st));
     expect(st.phase).toBe('dealing');
-    expect(st.seats.filter((s) => !s.folded && s.dealtIn).map((s) => s.seat)).toEqual([2, 4]);
-    // 3-bet lines exist heads-up
-    expect(pre.map((l) => l.id)).toContain('3b-2-4-fold');
+    expect(() => apply(st, [{ type: 'board', cards: ['Ks', '7h', '2c'] }])).not.toThrow();
+  });
 
-    st = apply(st, [{ type: 'board', cards: flopCards([11, 5, 0], 'rainbow', usedCards(st))!.map(cardToString) }]);
-    const flop = postflopLines(st, 0.5, n);
-    const labels = flop.map((l) => l.label);
-    expect(labels).toContain('Checked through');
-    expect(labels).toContain('Fish bets ½ · you call');
-    expect(labels).toContain('You bet ½ · Fish calls');
-    expect(labels).toContain('You bet ½ · Fish raises · you fold');
-    const cbet = flop.find((l) => l.label === 'You bet ½ · Fish calls')!;
-    st = apply(st, cbet.events);
-    // open 75, SB calls, BB folds: 175; the c-bet is half of it, 87.5 → 90 (5-cent chips)
-    expect(st.potInMiddle).toBe(175 + 90 * 2);
+  it('real hole cards for one seat move a guessed hand of another', () => {
+    const h = withHoleCards(grid(), 4, ['Qh', 'Qd'], true);
+    const room = makeRoom(h, ['Qh', 'Js'].map(parseCard), 3)!;
+    const fish = room.players.find((p) => p.seat === 4)!.cards!;
+    expect(fish).not.toContain('Qh');
+    expect(fish.every((c) => c[0] === 'Q')).toBe(true);
+  });
+});
 
-    st = apply(st, [{ type: 'board', cards: [cardToString(streetCard(3, 'blank', st.board, usedCards(st))!)] }]);
-    st = apply(st, postflopLines(st, 0.5, n).find((l) => l.id === 'check')!.events);
-    st = apply(st, [{ type: 'board', cards: [cardToString(streetCard(8, 'blank', st.board, usedCards(st))!)] }]);
-    st = apply(st, postflopLines(st, 0.66, n).find((l) => l.label === 'You bet ⅔ · Fish calls')!.events);
+describe('where the hand is', () => {
+  it('showdown: who still has to show, then the result; the summary per street', () => {
+    let st = initialState(hand());
+    const tap = (seat: number, move: Parameters<typeof actAs>[2]) => (st = apply(st, actAs(st, seat, move)!));
+    tap(2, { to: 75 });
+    tap(4, 'call');
+    tap(5, 'fold');
+    st = apply(st, [{ type: 'board', cards: ['Kd', '7c', '2h'] }]);
+    tap(2, { to: 90 });
+    tap(4, 'call');
+    st = apply(st, [{ type: 'board', cards: ['3d'] }]);
+    tap(4, 'check');
+    tap(2, 'check');
+    st = apply(st, [{ type: 'board', cards: ['9s'] }]);
+    tap(4, 'check');
+    tap(2, 'check');
     expect(st.phase).toBe('showdown');
     expect(handOver(st)).toBe(false);
     expect(showdownUnknown(st).map((s) => s.seat)).toEqual([4]);
-    const used = usedCards(st);
-    const kq = cellCards(cellByName('KQo')!, used)!.map(cardToString) as [string, string];
+    const kq = cellCards(cellByName('KQo')!, usedCards(st))!.map(cardToString) as [string, string];
     st = apply(st, [{ type: 'show', seat: 4, cards: kq }]);
     expect(handOver(st)).toBe(true);
     expect(st.result!.net[2]).toBeGreaterThan(0);
     expect(handSummary(st)[0]).toBe('CO open 3 BB · SB call');
+    expect(handSummary(st)[1]).toBe('K♦7♣2♥  SB x · CO bet ½ · SB call');
   });
 
-  it('a limped pot, and folding round to the open', () => {
-    const st = initialState(hand());
-    const limp = preflopLines(st, [2, 4, 5], 3, n).find((l) => l.id === 'limp')!;
-    const end = apply(st, limp.events);
-    expect(end.phase).toBe('dealing');
-    expect(end.potInMiddle).toBe(75);
-    const alone = preflopLines(st, [2], 3, n);
-    expect(alone.map((l) => l.label)).toEqual(['You open 3 BB · all fold']);
-    expect(apply(st, alone[0]!.events).phase).toBe('complete');
-  });
-
-  it('three-way flop: bet, one calls, one folds', () => {
-    let st = initialState(hand());
-    st = apply(st, preflopLines(st, [2, 4, 5], 3, n).find((l) => l.id === 'open-2')!.events);
-    st = apply(st, [{ type: 'board', cards: ['Qd', '8c', '3h'] }]);
-    const lines = postflopLines(st, 0.33, n);
-    const l = lines.find((x) => x.label === 'You bet ⅓ · BB calls, Fish folds')!;
-    expect(l).toBeDefined();
-    const end = apply(st, l.events);
-    expect(end.seats.filter((s) => s.dealtIn && !s.folded).map((s) => s.seat)).toEqual([2, 5]);
-  });
-
-  it('every line replays from the record', () => {
-    const h = hand();
-    const st = initialState(h);
-    for (const l of preflopLines(st, [2, 5], 2.5, n)) expect(() => replay({ ...h, events: l.events })).not.toThrow();
+  it('cards seen before the end are kept in the setup and decide the showdown by themselves', () => {
+    const h = withHoleCards(hand(), 4, ['Qh', 'Qd'], true);
+    let st = initialState(h);
+    const tap = (seat: number, move: Parameters<typeof actAs>[2]) => (st = apply(st, actAs(st, seat, move)!));
+    tap(2, { to: 75 });
+    tap(4, 'call');
+    tap(5, 'fold');
+    for (const cards of [['Kd', '7c', '2h'], ['3d'], ['9s']]) {
+      st = apply(st, [{ type: 'board', cards }]);
+      tap(2, 'check');
+    }
+    expect(handOver(st)).toBe(true);
+    expect(st.result!.pots[0]!.winners).toEqual([2]);
+    expect(() => replay({ ...h, events: [] })).not.toThrow();
   });
 });
