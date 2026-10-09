@@ -9,3 +9,6 @@ Thumbs.db
 .env
 .env.*
 *.tsbuildinfo
+
+# bot stats runs (core/sim/run.test.ts)
+stats*.jsonl
