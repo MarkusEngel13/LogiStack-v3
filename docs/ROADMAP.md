@@ -116,7 +116,14 @@ engine, saved-hand format and Django backend are replaced. v3 lives on GitHub as
        "Action by action". Undo, "Later" (finish it at the end of the night, listed under "To finish"),
        "I fold · next hand" (not saved), table changes between hands (stacks, seats, sitting out).
        Measured on a phone: fold 1 tap, a won c-bet 7, a river showdown 12.
-       Next: entering showdowns between other players as reads for a saved player.
+21. [x] **Showdowns seen as reads** (2026-10-09, `core/players/reads.ts`, `ui/live/SeenShowdown.tsx`): on the live
+       screen 👀 = "Showdown I saw": tap who showed, his hand on the grid, what he did with it (16 tags:
+       limped, called down light, bluffed, slowplayed, led into the raiser, ...), optionally the board's
+       ranks and a note. 5 taps for one read. It's kept on the saved player (a seat that isn't one
+       becomes one, named on the spot, and the seat is linked to him). On the Players page: "Showdowns
+       seen" with the list and suggestions - each tag leans one slider; two net votes (or a lone one)
+       suggest one step ("Sticky 4 → 5"), two reads of a line suggest its switch. Nothing changes until
+       you tap the suggestion.
 
 ## Direction (agreed 2026-10-06): HHP made visible, fear and greed as the engine
 

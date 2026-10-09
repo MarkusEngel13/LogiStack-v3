@@ -17,6 +17,7 @@ import {
   type Sizing,
   type StyleSettings,
 } from '../../core/players/style';
+import type { ShowdownRead } from '../../core/players/reads';
 
 export interface SavedProfile {
   id: string;
@@ -44,6 +45,8 @@ export interface SavedPlayer {
   notes?: string;
   /** The question wizard's last answers (question id → option id), to re-check later. */
   answers?: Record<string, string>;
+  /** Hands you saw him show down, with what he did (the live screen's "Showdown I saw"). */
+  reads?: ShowdownRead[];
   updatedAt?: string;
 }
 
@@ -103,6 +106,13 @@ export function deleteProfile(id: string): boolean {
 export function savePlayer(p: SavedPlayer): boolean {
   const list = loadPlayers().filter((x) => x.id !== p.id);
   return write(PLAYERS_KEY, [...list, { ...p, updatedAt: new Date().toISOString() }]);
+}
+
+/** Adds showdown reads to a saved player. */
+export function addReads(playerId: string, reads: ShowdownRead[]): boolean {
+  const pl = loadPlayers().find((p) => p.id === playerId);
+  if (!pl) return false;
+  return savePlayer({ ...pl, reads: [...(pl.reads ?? []), ...reads] });
 }
 
 export const deletePlayer = (id: string) => write(PLAYERS_KEY, loadPlayers().filter((p) => p.id !== id));

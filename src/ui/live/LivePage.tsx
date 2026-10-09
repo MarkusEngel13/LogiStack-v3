@@ -7,6 +7,7 @@ import { formatAmount } from '../format';
 import { deleteHand, saveHand } from '../library';
 import { LiveHand } from './LiveHand';
 import { LiveSetup } from './LiveSetup';
+import { SeenShowdown, type Relink } from './SeenShowdown';
 import { defaultTable, followingHand, handAt, loadLive, saveLive, sessionHands, tableOf, worthKeeping, type LiveTable } from './liveStore';
 
 type Mode = 'setup' | 'hand' | 'edit';
@@ -61,6 +62,20 @@ export function LivePage({ onOpenHand }: { onOpenHand: (h: HandRecord) => void }
   const [mode, setMode] = useState<Mode>(saved?.hand ? 'hand' : 'setup');
   /** The newest hand, while an older one is being finished. */
   const [parked, setParked] = useState<HandRecord | null>(null);
+  const [seeing, setSeeing] = useState(false);
+  const [flash, setFlash] = useState<string | null>(null);
+
+  /** Seats that became saved players (a showdown read): on this hand and the table. */
+  const relink = (links: Relink[]) => {
+    if (!hand || links.length === 0) return;
+    const fix = <T extends { name: string; playerType?: string; style?: unknown }>(p: T, l: Relink): T => ({ ...p, name: l.name, playerType: l.style.settings.base, style: l.style });
+    const h: HandRecord = { ...hand, players: hand.players.map((p) => { const l = links.find((x) => x.seat === p.seat); return l ? fix(p, l) : p; }) };
+    const t: LiveTable = { ...table, players: table.players.map((p, seat) => { const l = links.find((x) => x.seat === seat); return p && l ? fix(p, l) : p; }) };
+    setTable(t);
+    setHand(h);
+    if (worthKeeping(h)) saveHand(h);
+    saveLive({ table: t, hand: parked ?? h });
+  };
 
   const persist = (t: LiveTable, h: HandRecord | null) => saveLive({ table: t, ...(h ? { hand: parked ?? h } : {}) });
 
@@ -118,6 +133,22 @@ export function LivePage({ onOpenHand }: { onOpenHand: (h: HandRecord) => void }
     );
   }
 
+  if (seeing) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-4">
+        <SeenShowdown
+          hand={hand}
+          onClose={() => setSeeing(false)}
+          onSaved={(links, n) => {
+            relink(links);
+            setSeeing(false);
+            setFlash(`✓ Saved ${n === 1 ? 'the read' : `${n} reads`} (Players page)`);
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <>
       <LiveHand
@@ -127,11 +158,16 @@ export function LivePage({ onOpenHand }: { onOpenHand: (h: HandRecord) => void }
         onChange={change}
         onNext={next}
         onEditTable={() => setMode('edit')}
+        onSeenShowdown={() => {
+          setFlash(null);
+          setSeeing(true);
+        }}
         onOpenLab={(h) => {
           saveHand(h);
           onOpenHand(h);
         }}
       />
+      {flash && <p className="mx-auto max-w-lg px-4 pb-4 text-sm text-ok">{flash}</p>}
       {parked && (
         <div className="mx-auto max-w-lg px-4 pb-4">
           <Button variant="ghost" onClick={() => next(true)}>

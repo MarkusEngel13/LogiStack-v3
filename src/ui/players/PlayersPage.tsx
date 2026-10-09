@@ -24,6 +24,7 @@ import { playerTypeColor } from '../playerTypes';
 import { allCharts } from '../ranges/charts';
 import { QuestionWizard } from './QuestionWizard';
 import { PlayerCheck } from '../sim/PlayerCheck';
+import { readSuggestions, tagById } from '../../core/players/reads';
 import { ExploitCheck } from '../sim/ExploitCheck';
 import { styleSummary } from './SavedPlayerPicker';
 import { testTable, type TestMode } from './seating';
@@ -327,6 +328,13 @@ function PlayerEditor({
             placeholder="Snap-calls with draws, tanks with the nuts. Gets stuck after 11pm."
           />
         </Field>
+        <PlayerReads
+          player={player}
+          settings={settings}
+          onChange={onChange}
+          onSlider={setSlider}
+          onFlag={(f) => setFlag(f, true)}
+        />
         <div className="flex flex-wrap gap-2 border-t border-line pt-4">
           <Button variant="primary" onClick={() => onTest('play')} title="A 6-max table: you, him and your other saved players; bots play everyone but you">
             ▶ Play against {player.name}
@@ -345,6 +353,65 @@ function PlayerEditor({
       </section>
       <Readout settings={settings} name={player.name} reference={profile.settings} referenceName={profile.name} playerId={player.id} />
     </>
+  );
+}
+
+/** Showdowns you saw him play (from the live screen), and what they suggest for his sliders. */
+function PlayerReads({
+  player,
+  settings,
+  onChange,
+  onSlider,
+  onFlag,
+}: {
+  player: SavedPlayer;
+  settings: StyleSettings;
+  onChange: (p: SavedPlayer) => void;
+  onSlider: (id: SliderId, v: number) => void;
+  onFlag: (f: 'limpTrap' | 'leads') => void;
+}) {
+  const reads = player.reads ?? [];
+  if (reads.length === 0) return null;
+  const { sliders, flags } = readSuggestions(reads, settings);
+  const flagText = { limpTrap: 'Limp-reraises', leads: 'Leads into the raiser' };
+  return (
+    <Field label={`Showdowns seen (${reads.length})`} hint="From the live screen's “Showdown I saw”. Suggestions move a slider one step; you decide.">
+      {(sliders.length > 0 || flags.length > 0) && (
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {sliders.map((x) => (
+            <Button key={x.slider} variant="secondary" onClick={() => onSlider(x.slider, x.to)} title={`${Math.abs(x.votes)} of ${x.of} tagged reads lean ${x.votes > 0 ? 'up' : 'down'}`}>
+              {SLIDER_INFO[x.slider].label} {x.from} → {x.to}
+            </Button>
+          ))}
+          {flags.map((f) => (
+            <Button key={f} variant="secondary" onClick={() => onFlag(f)}>
+              Turn on: {flagText[f]}
+            </Button>
+          ))}
+        </div>
+      )}
+      <ul className="space-y-1">
+        {[...reads].reverse().map((r) => (
+          <li key={r.id} className="flex items-start gap-2 rounded-md border border-line bg-surface-2 px-3 py-2 text-sm">
+            <span className="w-12 shrink-0 font-mono font-semibold">{r.hand}</span>
+            <span className="min-w-0 flex-1">
+              {r.board && <span className="mr-2 font-mono text-xs text-muted">{r.board}</span>}
+              {r.tags.map((t) => tagById(t)?.label ?? t).join(' · ') || <span className="text-faint">no tags</span>}
+              {r.note && <span className="block text-xs text-muted">{r.note}</span>}
+              <span className="block text-[11px] text-faint">{new Date(r.at).toLocaleDateString()}</span>
+            </span>
+            <button
+              type="button"
+              className="text-xs text-faint hover:text-danger"
+              title="Delete this read"
+              onClick={() => onChange({ ...player, reads: reads.filter((x) => x.id !== r.id) })}
+            >
+              ✕
+            </button>
+          </li>
+        ))}
+      </ul>
+    </Field>
   );
 }
 

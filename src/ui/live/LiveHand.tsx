@@ -225,6 +225,8 @@ export interface LiveHandProps {
   onNext: (keep: boolean) => void;
   onEditTable: () => void;
   onOpenLab: (h: HandRecord) => void;
+  /** "Showdown I saw": a hand between other players, as a read. */
+  onSeenShowdown: () => void;
 }
 
 /**
@@ -232,7 +234,7 @@ export interface LiveHandProps {
  * grid), who saw the flop and a preflop line, then per street the board's ranks and one line,
  * and the cards shown at showdown. Anything unusual goes in action by action.
  */
-export function LiveHand({ hand, openBB, onChange, onNext, onEditTable, onOpenLab }: LiveHandProps) {
+export function LiveHand({ hand, openBB, onChange, onNext, onEditTable, onOpenLab, onSeenShowdown }: LiveHandProps) {
   const [history, setHistory] = useState<HandRecord[]>([]);
   const [inPot, setInPot] = useState<SeatNo[]>(hand.hero !== undefined ? [hand.hero] : []);
   const [frac, setFrac] = useState(0.5);
@@ -334,6 +336,9 @@ export function LiveHand({ hand, openBB, onChange, onNext, onEditTable, onOpenLa
           <span className="text-muted"> · pot {money(potTotal(st))}</span>
         </div>
         <div className="flex shrink-0 gap-1">
+          <Button variant="ghost" onClick={onSeenShowdown} className="!px-2.5" title="Showdown I saw: what another player showed, kept as a read on him">
+            👀
+          </Button>
           <Button variant="ghost" onClick={undo} disabled={!history.length} className="!px-2.5">
             ↶ Undo
           </Button>
