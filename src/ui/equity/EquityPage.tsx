@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { cardsFromComboIndex, cardToString, parseCard, type Card } from '../../core/cards';
 import { DRAW_ROWS, MADE_CLASSES, MADE_LABELS, rangeClasses, type ClassRow } from '../../core/handClass';
 import { CELLS, CELL_NAMES, comboLabel, combosOfCell } from '../../core/ranges/hands';
@@ -11,11 +11,12 @@ import { Button, Segmented } from '../controls';
 import { useEquity } from '../lab/useEquity';
 import { VillainRangeModal } from '../lab/VillainRangeModal';
 import { allCharts } from '../ranges/charts';
+import { dealNext, nextBoardLabel } from './board';
 import { FearPanel } from './FearPanel';
+import { ANY, QuickRangeButtons } from './QuickRanges';
 
 const COLORS = ['#f26b1d', '#2f6fd6', '#1f8a4c', '#a855f7', '#d4a017', '#0ea5a4'];
 const KEY = 'logistack.eq.v1';
-const ANY = '22+, A2+, K2+, Q2+, J2+, T2+, 92+, 82+, 72+, 62+, 52+, 42+, 32';
 
 interface Setup {
   players: string[];
@@ -126,17 +127,15 @@ export function EquityPage() {
   const setPlayer = (i: number, text: string) => setSetup({ ...setup, players: setup.players.map((t, j) => (j === i ? text : t)) });
   const removePlayer = (i: number) => setSetup({ ...setup, players: setup.players.filter((_, j) => j !== i) });
   const addPlayer = () => setSetup({ ...setup, players: [...setup.players, ANY] });
-
-  const randomFlop = () => {
-    const used = new Set(parsed.flatMap((p) => (p.weights ? (exactCards(p.weights) ?? []) : [])));
-    const deck = Array.from({ length: 52 }, (_, c) => c).filter((c) => !used.has(c));
-    const flop: Card[] = [];
-    while (flop.length < 3) {
-      const c = deck.splice(Math.floor(Math.random() * deck.length), 1)[0]!;
-      flop.push(c);
-    }
-    setSetup({ ...setup, board: flop.map(cardToString) });
+  const inputs = useRef<(HTMLInputElement | null)[]>([]);
+  const quickRange = (i: number, text: string) => {
+    setPlayer(i, text);
+    if (!text) inputs.current[i]?.focus(); // cleared: ready to type a hand
   };
+
+  // the cards of the players with an exact hand: never dealt to the board
+  const held = useMemo(() => parsed.flatMap((p) => (p.weights ? (exactCards(p.weights) ?? []) : [])), [parsed]);
+  const dealBoard = () => setSetup({ ...setup, board: dealNext(board, held).map(cardToString) });
 
   const street = ['Preflop', '', '', 'Flop', 'Turn', 'River'][board.length];
   const methodText = !field
@@ -196,7 +195,7 @@ export function EquityPage() {
   );
 
   return (
-    <div className="mx-auto grid max-w-[1500px] gap-5 px-6 py-5 xl:grid-cols-[560px_minmax(0,1fr)]">
+    <div className="mx-auto grid max-w-[1500px] grid-cols-[minmax(0,1fr)] gap-5 px-6 py-5 xl:grid-cols-[560px_minmax(0,1fr)]">
       <div className="space-y-4">
         <section className="rounded-lg border border-line bg-surface p-4">
           <div className="mb-3 flex items-center justify-between">
@@ -209,18 +208,23 @@ export function EquityPage() {
             {setup.players.map((text, i) => {
               const p = parsed[i]!;
               const live = p.weights ? comboTotal(withoutCards(p.weights, deadFor(i))) : 0;
+              // an empty field is waiting for a hand, not wrong
+              const wrong = p.error && text.trim() !== '';
               return (
                 <div key={i}>
                   <div className="flex items-center gap-2">
                     <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: COLORS[i] }} />
                     <span className="w-16 shrink-0 text-sm font-semibold">Player {i + 1}</span>
                     <input
+                      ref={(el) => {
+                        inputs.current[i] = el;
+                      }}
                       value={text}
                       onChange={(e) => setPlayer(i, e.target.value)}
                       placeholder="AsKs, or a range: TT+, AQs+, KQo"
                       aria-label={`Player ${i + 1} hand or range`}
                       className={`min-w-0 flex-1 rounded-md border bg-surface-2 px-3 py-2 font-mono text-sm text-ink placeholder:text-faint focus:outline-none ${
-                        p.error ? 'border-danger' : 'border-line focus:border-accent'
+                        wrong ? 'border-danger' : 'border-line focus:border-accent'
                       }`}
                     />
                     <Button variant="secondary" onClick={() => setEditing(i)}>
@@ -236,42 +240,25 @@ export function EquityPage() {
                       ×
                     </button>
                   </div>
-                  <div className={`mt-1 ml-[5.25rem] text-xs ${p.error ? 'text-danger' : 'text-faint'}`}>
+                  <div className={`mt-1 ml-[5.25rem] text-xs ${wrong ? 'text-danger' : 'text-faint'}`}>
                     {p.error ?? `${combosText(live)} combos (${((live / 1326) * 100).toFixed(1)}% of hands)`}
                   </div>
+                  <QuickRangeButtons current={text} onPick={(t) => quickRange(i, t)} className="mt-1.5 sm:ml-[5.25rem]" />
                 </div>
               );
             })}
           </div>
-          <div className="mt-3 flex flex-wrap gap-1.5 text-xs text-muted">
-            Quick:
-            {[
-              ['Any two', ANY],
-              ['Pairs', '22+'],
-              ['Top 10%', '77+, A9s+, KTs+, QTs+, AJo+, KQo'],
-            ].map(([label, value]) => (
-              <button
-                key={label}
-                type="button"
-                onClick={() => setPlayer(setup.players.length - 1, value!)}
-                className="rounded border border-line px-2 py-0.5 hover:text-ink"
-                title={`Give the last player: ${value}`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
         </section>
 
         <section className="rounded-lg border border-line bg-surface p-4">
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-xs font-bold tracking-wider text-muted uppercase">Board · {street}</h2>
-            <div className="flex gap-2">
+            <div className="flex gap-2 whitespace-nowrap">
               <Button variant="secondary" onClick={() => setBoardOpen(true)}>
                 Pick…
               </Button>
-              <Button variant="secondary" onClick={randomFlop}>
-                Random flop
+              <Button variant="secondary" onClick={dealBoard}>
+                {nextBoardLabel(board.length)}
               </Button>
               <Button variant="ghost" disabled={board.length === 0} onClick={() => setSetup({ ...setup, board: [] })}>
                 Clear
@@ -301,11 +288,11 @@ export function EquityPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-muted">
-                <th className="py-1 font-semibold">Player</th>
+                <th className="py-1 pr-3 font-semibold">Player</th>
                 <th className="py-1 font-semibold">Hand / range</th>
-                <th className="py-1 text-right font-semibold">Equity</th>
-                <th className="py-1 text-right font-semibold">Win</th>
-                <th className="py-1 text-right font-semibold">Tie</th>
+                <th className="py-1 pl-3 text-right font-semibold">Equity</th>
+                <th className="py-1 pl-3 text-right font-semibold">Win</th>
+                <th className="py-1 pl-3 text-right font-semibold">Tie</th>
               </tr>
             </thead>
             <tbody>
@@ -313,16 +300,17 @@ export function EquityPage() {
                 const r = field?.players[i];
                 return (
                   <tr key={i} className="border-t border-line">
-                    <td className="py-2 whitespace-nowrap">
+                    <td className="py-2 pr-3 whitespace-nowrap">
                       <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full" style={{ background: COLORS[i] }} />
                       Player {i + 1}
                     </td>
-                    <td className="max-w-[260px] truncate py-2 font-mono text-xs text-muted" title={text}>
+                    {/* takes the width that is left and cuts long ranges short (max-w-0 lets a cell shrink) */}
+                    <td className="w-full max-w-0 truncate py-2 font-mono text-xs text-muted" title={text}>
                       {normalise(text)}
                     </td>
-                    <td className="py-2 text-right text-lg font-bold tabular-nums">{pending && !r ? '…' : pct(r?.equity)}</td>
-                    <td className="py-2 text-right tabular-nums text-muted">{pct(r?.win)}</td>
-                    <td className="py-2 text-right tabular-nums text-muted">{pct(r?.tie)}</td>
+                    <td className="py-2 pl-3 text-right text-lg font-bold tabular-nums">{pending && !r ? '…' : pct(r?.equity)}</td>
+                    <td className="py-2 pl-3 text-right tabular-nums text-muted">{pct(r?.win)}</td>
+                    <td className="py-2 pl-3 text-right tabular-nums text-muted">{pct(r?.tie)}</td>
                   </tr>
                 );
               })}
@@ -461,7 +449,7 @@ export function EquityPage() {
           title="Board: none, a flop, a turn or a river"
           validCounts={[0, 3, 4, 5]}
           initial={setup.board}
-          taken={new Set(parsed.flatMap((p) => (p.weights ? (exactCards(p.weights) ?? []) : [])))}
+          taken={new Set(held)}
           allowUnknown={false}
           onClose={() => setBoardOpen(false)}
           onDone={(cards) => {
