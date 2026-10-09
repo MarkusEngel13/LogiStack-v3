@@ -1,13 +1,28 @@
-// Cloudflare Workers: the built app (dist/) served as static files - no server code.
+// Cloudflare Workers: the built app (dist/) as static files, plus the API under /api (worker/).
 // Workers Builds runs `npm run build`, then `npx wrangler deploy` with this file (docs/DEPLOY.md).
 {
   "name": "logistack",
+  "main": "worker/index.ts",
   "compatibility_date": "2026-09-01",
   // the one address: logistack.mariusdinu81.workers.dev (behind Cloudflare Access); no preview addresses
   "workers_dev": true,
   "preview_urls": false,
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
-  }
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    // only the API runs the Worker; everything else is served straight from the files
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "logistack",
+      // from `npx wrangler d1 create logistack` (docs/DEPLOY.md, step B)
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ]
+  // ADMIN_EMAILS, ACCESS_TEAM_DOMAIN and ACCESS_AUD are secrets set in the dashboard (Settings ->
+  // Variables and Secrets), not here: this repository is public. Deploys leave secrets alone.
 }

@@ -7,6 +7,6 @@ import { serviceWorker } from './src/pwa/vitePlugin';
 export default defineConfig({
   plugins: [react(), tailwindcss(), serviceWorker()],
   test: {
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'worker/**/*.test.ts'],
   },
 });

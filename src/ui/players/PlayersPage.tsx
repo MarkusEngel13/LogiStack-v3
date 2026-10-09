@@ -27,6 +27,7 @@ import { PlayerCheck } from '../sim/PlayerCheck';
 import { readSuggestions, tagById } from '../../core/players/reads';
 import { QUESTIONS } from '../../core/players/questions';
 import { ExploitCheck } from '../sim/ExploitCheck';
+import { useSyncStatus } from '../sync/useSyncStatus';
 import { styleSummary } from './SavedPlayerPicker';
 import { testTable, type TestMode } from './seating';
 import {
@@ -84,7 +85,7 @@ export function PlayersPage({ onOpenHand }: { onOpenHand: (hand: HandRecord, mod
   const newProfile = (from: SavedProfile) => {
     const p: SavedProfile = {
       id: crypto.randomUUID(),
-      name: from.builtIn ? `My ${from.name}` : `${from.name} (copy)`,
+      name: from.builtIn || from.sharedBy ? `My ${from.name}` : `${from.name} (copy)`,
       settings: structuredClone(from.settings),
       note: from.builtIn ? undefined : from.note,
     };
@@ -153,7 +154,7 @@ export function PlayersPage({ onOpenHand }: { onOpenHand: (hand: HandRecord, mod
                 active={sel?.kind === 'profile' && sel.id === p.id}
                 color={playerTypeColor(p.settings.base)}
                 label={p.name}
-                sub={p.builtIn ? 'built-in type' : `on ${p.settings.base}`}
+                sub={p.builtIn ? 'built-in type' : p.sharedBy ? `shared · ${p.sharedBy.split('@')[0]}` : `on ${p.settings.base}${p.shared ? ' · shared' : ''}`}
                 onClick={() => setSel({ kind: 'profile', id: p.id })}
               />
             ))}
@@ -473,8 +474,9 @@ function ProfileEditor({
   onTest: (mode: TestMode) => void;
 }) {
   const home = typeSettings(profile.settings.base);
-  const ro = !!profile.builtIn;
+  const ro = !!profile.builtIn || !!profile.sharedBy;
   const set = (settings: StyleSettings) => onChange({ ...profile, settings });
+  const account = useSyncStatus().account;
 
   return (
     <>
@@ -483,7 +485,11 @@ function ProfileEditor({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold">{profile.name}</h2>
-              <p className="text-sm text-muted">A built-in type. Duplicate it to make your own version, or build a player on it.</p>
+              <p className="text-sm text-muted">
+                {profile.sharedBy
+                  ? `Shared by ${profile.sharedBy}. Duplicate it to make your own version, or build a player on it.`
+                  : 'A built-in type. Duplicate it to make your own version, or build a player on it.'}
+              </p>
             </div>
             <div className="flex gap-2">
               <Button onClick={onDuplicate}>Duplicate to edit</Button>
@@ -523,6 +529,20 @@ function ProfileEditor({
           onLimpTrap={(limpTrap) => set({ ...profile.settings, limpTrap })}
           onLeads={(leads) => set({ ...profile.settings, leads })}
         />
+        {!ro && account && (
+          <Toggle
+            checked={!!profile.shared}
+            onChange={(shared) => {
+              if (shared && !account.limits.shareProfiles) {
+                window.alert('Sharing profiles is part of the Pro plan.');
+                return;
+              }
+              onChange({ ...profile, shared });
+            }}
+            label={<span className="text-sm">Share with everyone</span>}
+            hint="Everyone with a LogiStack account sees this profile (read-only) and can build players on it. Your players and their notes stay yours."
+          />
+        )}
         {!ro && (
           <Field label="Note">
             <textarea className={`${inputClass} min-h-16`} value={profile.note ?? ''} onChange={(e) => onChange({ ...profile, note: e.target.value })} />
@@ -554,9 +574,19 @@ function ProfileEditor({
 }
 
 function ProfileOptions({ profiles }: { profiles: SavedProfile[] }) {
-  const mine = profiles.filter((p) => !p.builtIn);
+  const mine = profiles.filter((p) => !p.builtIn && !p.sharedBy);
+  const shared = profiles.filter((p) => p.sharedBy);
   return (
     <>
+      {shared.length > 0 && (
+        <optgroup label="Shared with you">
+          {shared.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name} ({p.settings.base})
+            </option>
+          ))}
+        </optgroup>
+      )}
       {mine.length > 0 && (
         <optgroup label="Your profiles">
           {mine.map((p) => (

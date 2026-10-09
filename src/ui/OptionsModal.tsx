@@ -2,6 +2,8 @@ import { parseCard } from '../core/cards';
 import { CARD_FACES, PlayingCard } from './cards/PlayingCard';
 import { Button, Field, Modal, Segmented, Toggle } from './controls';
 import { useSettings } from './settings';
+import { makeBackup, restoreBackup } from './backup';
+import { downloadJson } from './library';
 
 const PREVIEW = [parseCard('As'), parseCard('Kd')];
 
@@ -68,6 +70,31 @@ export function OptionsModal({ onClose }: { onClose: () => void }) {
           label="Four-colour deck"
           hint="Diamonds blue, clubs green: flushes are easier to spot."
         />
+        <Field label="Backup" hint="Everything this browser keeps: hands, players, profiles, your charts, settings. Use it to move your data between VS Code (localhost) and the website, or to keep a copy. The playbook is not included.">
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => downloadJson(`logistack-backup-${new Date().toISOString().slice(0, 10)}.json`, makeBackup())}>Export everything</Button>
+            <label className="cursor-pointer rounded-md border border-line bg-surface-2 px-3.5 py-2 text-sm hover:bg-surface-3">
+              Import a backup…
+              <input
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (!f)
+                    return;
+                  f.text()
+                    .then((t) => {
+                      const n = restoreBackup(JSON.parse(t));
+                      window.alert(`Restored ${n} parts. The page reloads to show them.`);
+                      window.location.reload();
+                    })
+                    .catch((err: unknown) => window.alert(err instanceof Error ? err.message : String(err)));
+                }}
+              />
+            </label>
+          </div>
+        </Field>
       </div>
     </Modal>
   );

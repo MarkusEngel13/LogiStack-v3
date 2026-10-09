@@ -3,6 +3,7 @@ import type { HandRecord } from './core/hand/types';
 import { Button } from './ui/controls';
 import { nextHandNo, saveHand } from './ui/library';
 import { OptionsModal } from './ui/OptionsModal';
+import { AccountBadge } from './ui/sync/AccountBadge';
 import { SettingsProvider } from './ui/settings';
 import { HandWizard } from './ui/wizard/HandWizard';
 import { toHandRecord } from './ui/wizard/draft';
@@ -98,9 +99,12 @@ export default function App() {
                 ))}
               </nav>
             </div>
-            <Button variant="ghost" onClick={() => setOptionsOpen(true)} title="Options" className="shrink-0 !px-2.5 sm:!px-3.5">
-              ⚙<span className="hidden sm:inline"> Options</span>
-            </Button>
+            <div className="flex shrink-0 items-center gap-1">
+              <AccountBadge />
+              <Button variant="ghost" onClick={() => setOptionsOpen(true)} title="Options" className="shrink-0 !px-2.5 sm:!px-3.5">
+                ⚙<span className="hidden sm:inline"> Options</span>
+              </Button>
+            </div>
           </div>
         </header>
 

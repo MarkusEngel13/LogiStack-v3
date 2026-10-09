@@ -62,17 +62,73 @@ Notes:
   Export / import JSON moves them by hand.
 - The playbook: load it once per browser (Lab -> HHP says -> Load playbook).
 
-## Step B - accounts, shared profiles, sync (later)
+## Step B - accounts, plans, sync (built 2026-10-09 on branch `step-b`)
 
-- A Worker API next to the site, one D1 database (every row has an owner; one database per account
-  would be the same in effect and much more to manage).
-- Who is calling: Cloudflare Access already proves the email (the `Cf-Access-Jwt-Assertion` header,
-  checked in the Worker), so no passwords in the app.
-- Roles in a table: admin (Marius: everything, manages users), editor (edits shared profiles),
-  viewer (sees them). Everyone always edits their own hands and players.
-- Shared: player profiles. Own: hands, own players, ranges, settings - synced, so they follow the
-  account across devices and are backed up.
-- The playbook never goes to the server.
-- Open before building: who the testers are. Shared profiles are notes on real people (drinking,
-  tilt, reads); if testers are from the same home game they see what is written about them - use
-  nicknames, or keep notes and tells private to whoever wrote them.
+What it is:
+- **One D1 database** (`migrations/0001_init.sql`): `users` (email, plan, role) and `items` (owner,
+  kind, id, the item as JSON, shared, updated_at, deleted). Every row has an owner; the Worker only
+  hands out the caller's own rows, plus profiles their owners shared.
+- **The Worker** (`worker/index.ts`) serves the app and `/api` (me, items, admin). Who is calling comes
+  from Cloudflare Access's signed token, checked against Access's keys (`worker/auth.ts`, tested);
+  swapping Access for a sign-up service later touches that one file.
+- **Plans** (`src/shared/plans.ts`): Free (20 hands, 3 players, 2 profiles, 3 charts), Premium
+  (unlimited), Pro (+ share profiles, stats). Admins and editors get everything. The server
+  enforces the counts; items over a limit stay in that browser, and the account badge says so.
+- **Sync** (`src/ui/sync/`): the app still reads and writes the browser; logged in, it pulls and
+  merges at start and pushes every change a moment later. Watched bot hands stay local unless kept.
+  Without the server (`npm run dev`) the app runs local-only, as before.
+- **Shared: only profiles** (Marius, 2026-10-09). Players and their reads stay private.
+- **Backup** (Options -> Backup): export / import everything this browser keeps. Browser data
+  belongs to one address, so this is how the data made in VS Code (localhost) gets onto the website.
+
+### Tonight, in order
+
+**1. The login (Cloudflare dashboard, ~15 min).**
+- Zero Trust (first time): pick a team name, Free plan (asks for a card, charges nothing).
+- Workers & Pages -> `logistack` -> Settings -> Domains & Routes -> the workers.dev row -> enable
+  **Cloudflare Access** (or the Access tab). Policy: Allow, Include -> Emails = your address; login
+  by one-time PIN. Session length: a month.
+- Note two values: the **team domain** (`<team>.cloudflareaccess.com`, Zero Trust -> Settings) and
+  the app's **AUD tag** (Zero Trust -> Access -> Applications -> logistack -> Overview).
+- Test in a private window: Cloudflare's login page, the email code, the app.
+
+**2. The database (VS Code terminal, ~5 min).**
+```powershell
+git fetch; git checkout step-b; npm.cmd ci
+npx.cmd wrangler login                          # opens the browser once
+npx.cmd wrangler d1 create logistack            # prints a database_id
+```
+- Put that `database_id` into `wrangler.jsonc` (replacing the zeros).
+```powershell
+npx.cmd wrangler d1 migrations apply logistack --remote   # creates the tables
+```
+
+**3. The settings (dashboard, ~3 min).** Workers & Pages -> `logistack` -> Settings -> Variables
+and Secrets -> add three, type **Secret** (deploys keep secrets; plain variables would be wiped):
+`ADMIN_EMAILS` = your address, `ACCESS_TEAM_DOMAIN` = the team domain, `ACCESS_AUD` = the AUD tag.
+(Secrets because the repository is public.)
+
+**4. Go live.**
+```powershell
+git add wrangler.jsonc; git commit -m "D1 database id"; git checkout main; git merge step-b; git push
+```
+Workers Builds deploys in a minute or two.
+
+**5. Check.**
+- The site: top right shows your name and **Admin**, with a green dot.
+- Move your data: on `npm run dev` (localhost) Options -> Backup -> Export everything; on the
+  website Options -> Backup -> Import. It syncs up by itself; the account badge shows the counts.
+- A second device (the phone): log in, the same hands and players are there.
+- Friends: add their emails to the Access policy; after their first login they show up in
+  Account -> Users and plans, where you set Premium / Pro.
+
+Later schema changes: a new file in `migrations/`, then `wrangler d1 migrations apply logistack --remote`
+before pushing the code that needs it.
+
+### Before charging money (not now)
+- Access is for teams (free up to 50 users): paying customers need a sign-up service (Clerk, Auth0,
+  Supabase Auth ...) in `worker/auth.ts`.
+- Payments: a merchant of record (Paddle, Lemon Squeezy) handles EU VAT; its webhook sets
+  `users.plan`. Check the provider accepts poker training tools.
+- Players' notes on real people are personal data (GDPR): privacy policy, private by default.
+- The HHP / Carrel playbook stays out of anything sold.

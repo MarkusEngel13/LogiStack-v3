@@ -7,6 +7,7 @@
  * changes every player on it, except in what the player overrides.
  */
 
+import { SHARED_PROFILES_KEY } from '../sync/sync';
 import {
   BASE_TYPES,
   complete,
@@ -26,6 +27,10 @@ export interface SavedProfile {
   settings: StyleSettings;
   /** One of the built-in types: not saved, not editable. */
   builtIn?: boolean;
+  /** Shared with everyone by its owner (Pro): synced to every account. */
+  shared?: boolean;
+  /** Someone else's shared profile (their email): read-only here. */
+  sharedBy?: string;
   updatedAt?: string;
 }
 
@@ -85,12 +90,17 @@ function write<T>(key: string, list: T[]): boolean {
   }
 }
 
-// profiles saved before a slider existed get it at their type's position
-export const loadProfiles = (): SavedProfile[] => [...BUILT_IN_PROFILES, ...read<SavedProfile>(PROFILES_KEY).map((p) => ({ ...p, settings: complete(p.settings) }))];
+// profiles saved before a slider existed get it at their type's position; profiles others shared
+// (sync.ts keeps them under their own key) come last, read-only
+export const loadProfiles = (): SavedProfile[] => [
+  ...BUILT_IN_PROFILES,
+  ...read<SavedProfile>(PROFILES_KEY).map((p) => ({ ...p, settings: complete(p.settings) })),
+  ...read<SavedProfile>(SHARED_PROFILES_KEY).map((p) => ({ ...p, settings: complete(p.settings) })),
+];
 export const loadPlayers = (): SavedPlayer[] => read<SavedPlayer>(PLAYERS_KEY);
 
 export function saveProfile(p: SavedProfile): boolean {
-  if (p.builtIn) return false;
+  if (p.builtIn || p.sharedBy) return false;
   const list = read<SavedProfile>(PROFILES_KEY).filter((x) => x.id !== p.id);
   return write(PROFILES_KEY, [...list, { ...p, updatedAt: new Date().toISOString() }]);
 }

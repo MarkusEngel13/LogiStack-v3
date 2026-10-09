@@ -12,3 +12,7 @@ Thumbs.db
 
 # bot stats runs (core/sim/run.test.ts)
 stats*.jsonl
+
+# local Worker secrets (wrangler dev)
+.dev.vars
+.wrangler/
