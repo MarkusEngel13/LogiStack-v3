@@ -336,6 +336,17 @@ on J♠9♦2♠ and A♣7♦2♥, against a 1.5x pot lead (825) 57-65 %.
         it reaches ~60 %. Next: the readout as the calibration screen (Phase 5); a player's
         reads into the advice tags (playbook "opponent calls anything" etc.).
 
+10e. [ ] House games in the bots' heads (Marius, 2026-10-09; future step). The engine already plays
+        straddles, the 7-2 game and squid game (rules, payouts); the bots ignore them. To do:
+        - [ ] Straddles: who straddles (type, status: drinking, stuck, button-Mississippi), and the
+              deeper effective blinds in the preflop charts (a straddle = a bigger blind: wider defends,
+              bigger opens, the straddler's wider "free" range).
+        - [ ] 7-2 game: players play 7-2 more (some raise it blind), bluff with it to win the bounty and
+              call wider against it; the bounty as extra pot in the motive model when holding 7-2.
+        - [ ] Squid game: the player without a squid gets desperate near the end (wider, more
+              aggressive, more bluffs), the ones with a squid tighten; the squid value as a motive.
+        - [ ] Stats and readout: these spots in the stats report, so their effect can be checked.
+
 ### Phase 5: calibrate
 11. [ ] Fit to the Excel table (was step 4) for the magnitudes; Marius's DRY scoring as a
         cross-check of the computed fear numbers.
