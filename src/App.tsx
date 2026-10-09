@@ -1,18 +1,19 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import type { HandRecord } from './core/hand/types';
 import { Button } from './ui/controls';
-import { HandsList } from './ui/HandsList';
 import { nextHandNo, saveHand } from './ui/library';
 import { OptionsModal } from './ui/OptionsModal';
-import { RangesPage } from './ui/ranges/RangesPage';
-import { EquityPage } from './ui/equity/EquityPage';
-import { PlayersPage } from './ui/players/PlayersPage';
-import { HandScreen } from './ui/replay/HandScreen';
 import { SettingsProvider } from './ui/settings';
 import { HandWizard } from './ui/wizard/HandWizard';
 import { toHandRecord } from './ui/wizard/draft';
 import { watchDraft } from './ui/wizard/watchTable';
 
+// pages load when first opened (the first screen, the wizard, stays in the main file)
+const RangesPage = lazy(() => import('./ui/ranges/RangesPage').then((m) => ({ default: m.RangesPage })));
+const EquityPage = lazy(() => import('./ui/equity/EquityPage').then((m) => ({ default: m.EquityPage })));
+const PlayersPage = lazy(() => import('./ui/players/PlayersPage').then((m) => ({ default: m.PlayersPage })));
+const HandScreen = lazy(() => import('./ui/replay/HandScreen').then((m) => ({ default: m.HandScreen })));
+const HandsList = lazy(() => import('./ui/HandsList').then((m) => ({ default: m.HandsList })));
 type Page = 'new' | 'hands' | 'hand' | 'ranges' | 'equity' | 'players';
 
 export default function App() {
@@ -91,6 +92,7 @@ export default function App() {
           </div>
         </header>
 
+        <Suspense fallback={<div className="px-6 py-10 text-sm text-muted">Loading…</div>}>
         {page === 'new' && (
           <HandWizard
             key={wizardKey}
@@ -133,6 +135,8 @@ export default function App() {
             onEditCopy={editCopy}
           />
         )}
+
+        </Suspense>
 
         {optionsOpen && <OptionsModal onClose={() => setOptionsOpen(false)} />}
       </div>

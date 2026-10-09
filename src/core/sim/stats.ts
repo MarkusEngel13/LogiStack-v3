@@ -20,6 +20,8 @@ export const STAT_IDS = [
   'threeBet',
   'foldTo3Bet',
   'cbetFlop',
+  'cbetHU',
+  'cbetMW',
   'cbetTurn',
   'cbetRiver',
   'foldToCbet',
@@ -41,6 +43,8 @@ export const STAT_LABELS: Record<StatId, { short: string; long: string }> = {
   threeBet: { short: '3-bet', long: 're-raises a single raise' },
   foldTo3Bet: { short: 'F 3B', long: 'folds to a 3-bet after raising' },
   cbetFlop: { short: 'CB F', long: 'preflop raiser bets the flop when he can' },
+  cbetHU: { short: 'CB HU', long: 'flop c-bet, heads-up pots only' },
+  cbetMW: { short: 'CB MW', long: 'flop c-bet, pots of three or more players' },
   cbetTurn: { short: 'CB T', long: 'bets the turn again after a flop c-bet, when he can' },
   cbetRiver: { short: 'CB R', long: 'bets the river again after the turn, when he can' },
   foldToCbet: { short: 'F CB', long: 'folds to a flop c-bet' },
@@ -153,6 +157,7 @@ export function countHand(final: TableState, key: (seat: number) => string): Map
         // nobody has bet yet on this street
         if (barrel !== null && a.seat === barrel) {
           yes(a.seat, street === 'flop' ? 'cbetFlop' : street === 'turn' ? 'cbetTurn' : 'cbetRiver', a.action === 'bet');
+          if (street === 'flop') yes(a.seat, sawFlop.size === 2 ? 'cbetHU' : 'cbetMW', a.action === 'bet');
         } else if (street === 'flop' && pfrSeat !== null && !pfrActed && a.seat !== pfrSeat && sawFlop.has(pfrSeat)) {
           // acting before the preflop raiser: a bet is a lead into him
           yes(a.seat, 'lead', a.action === 'bet');

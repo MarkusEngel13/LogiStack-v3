@@ -162,7 +162,7 @@ Defaults unless Marius says otherwise: HHP's bucket names; heads-up first, multi
        winning = protect the win; tilt; drinking lively / tired; session losses = chasing).
        `rangeAfter()` = the narrowed range after an option (Phase 2's quantum villain).
        Fish preset on J♠9♦2♠ vs a ⅓-pot c-bet: sets raise 99 %, draws call 94 %, air hardly raises;
-       on A♣7♦2♥ sets call 92 % (slow-play). Still open: the old `villain/response.ts` (used nowhere
+       on A♣7♦2♥ sets call 92 % (slow-play). Still open: ~~the old `villain/response.ts`~~ (deleted 2026-10-09; used nowhere
        now but its own tests) can go; multi-street lines (Phase 3); calibration of the presets (Phase 5).
        Drinking (research, 2026-10-06): alcohol raises risky choices (lab tasks, e.g. BART at
        0.65 g/kg), heightens sensitivity to immediate reward rather than punishment (Iowa Gambling
