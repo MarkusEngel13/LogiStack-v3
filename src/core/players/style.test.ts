@@ -134,3 +134,32 @@ describe('a seat with a style', () => {
     expect(limp(trap)).toBeCloseTo(0.5);
   });
 });
+
+describe('the C-bets slider', () => {
+  const cb = (s: StyleSettings, spot: 'cbet' | 'barrel') => postflopRow(styleMotives(s, MOTIVE_PRESETS), spot).share;
+
+  test('up always means more c-bets and barrels, from any type', () => {
+    for (const t of ['Nit', 'Fish', 'Reg']) {
+      const s = typeSettings(t);
+      const home = s.sliders.cbet;
+      expect(cb(withSlider(s, 'cbet', home + 0.5), 'cbet'), t).toBeGreaterThan(cb(s, 'cbet'));
+      expect(cb(withSlider(s, 'cbet', 5), 'barrel'), t).toBeGreaterThan(cb(withSlider(s, 'cbet', 1), 'barrel') + 0.4);
+    }
+  });
+
+  test("a player who never raises after the flop but bets every street with the initiative", () => {
+    const s = withSlider(withSlider(typeSettings('Fish'), 'postAggr', 1), 'cbet', 5);
+    const p = styleMotives(s, MOTIVE_PRESETS);
+    expect(postflopRow(p, 'cbet').share).toBeGreaterThan(0.75);
+    expect(postflopRow(p, 'barrel').share).toBeGreaterThan(0.75);
+    const facing = postflopRow(p, 'cbet-faced').split!.find((x) => x.label === 'Raise')!.share;
+    expect(facing).toBeLessThan(0.12);
+  });
+
+  test('settings saved before the slider existed keep the type', () => {
+    const old = { ...fish, sliders: { ...fish.sliders } } as StyleSettings;
+    delete (old.sliders as Partial<StyleSettings['sliders']>).cbet;
+    expect(movedSliders(old)).toEqual([]);
+    expect(styleMotives(old, MOTIVE_PRESETS).cbetHabit).toBe(MOTIVE_PRESETS.Fish!.cbetHabit);
+  });
+});

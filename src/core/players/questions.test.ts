@@ -60,3 +60,9 @@ describe('answers', () => {
     expect(at('raises', s.sliders.pfAggr)).toBeGreaterThan(1);
   });
 });
+
+test('c-bets every street', () => {
+  const s = applyAnswers({ cbet: 'every', postflop: 'passive' }, unknown, charts, preflopOf);
+  expect(s.sliders.cbet).toBe(5);
+  expect(s.sliders.postAggr).toBe(1.5);
+});

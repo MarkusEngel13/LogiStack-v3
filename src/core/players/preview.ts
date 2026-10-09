@@ -96,7 +96,7 @@ function share(d: Decision, range: Float32Array, board: Situation['board'], kind
 let ranges: { btn: Float32Array; bb: Float32Array } | null = null;
 const rangesOnce = () => (ranges ??= { btn: parseRange(BTN), bb: parseRange(BB) });
 
-export const POSTFLOP_SPOTS = ['cbet-faced', 'cbet', 'lead', 'river-call', 'river-bluff'] as const;
+export const POSTFLOP_SPOTS = ['cbet-faced', 'cbet', 'barrel', 'lead', 'river-call', 'river-bluff'] as const;
 export type PostflopSpot = (typeof POSTFLOP_SPOTS)[number];
 
 /** One postflop spot through the motive model (0.1-1 s on the flop, fast on the river). */
@@ -121,6 +121,11 @@ export function postflopRow(p: MotiveProfile, which: PostflopSpot): PostflopRow 
       const s = spot('Ac 7d 2h', { inPosition: true, initiative: true });
       const d = decide(p, s, btn, bb);
       return { label: 'Button c-bets A♣7♦2♥ when checked to', what: 'bets', share: share(d, btn, s.board, ['bet']) };
+    }
+    case 'barrel': {
+      const s = spot('Ac 7d 2h 9s', { pot: 1100, stack: 9150, oppStack: 9150, inPosition: true, initiative: true });
+      const d = decide(p, s, btn, bb);
+      return { label: 'Button bets the turn again (A♣7♦2♥ 9♠) when checked to', what: 'barrels', share: share(d, btn, s.board, ['bet']) };
     }
     case 'lead': {
       const s = spot('8h 7h 3c', { oppInitiative: true });

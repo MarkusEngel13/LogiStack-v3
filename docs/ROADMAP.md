@@ -321,6 +321,12 @@ on J♠9♦2♠ and A♣7♦2♥, against a 1.5x pot lead (825) 57-65 %.
         Seats carry a `style` snapshot (the hand stays self-contained); the wizard's seat editor picks
         a saved player; "Play against" / "Watch" deal a 6-max test table from your last wizard game.
         Export / import as JSON.
+        C-bets (2026-10-09, 7th slider, Marius: "players that almost never raise postflop but almost
+        always c-bet on 3 streets"): the c-bet habit (`cbetHabit`, a liking for betting with the
+        initiative) relative to the type - each step adds the same habit from the type's position, so up
+        always means more; 1 ≈ only when he hits, 5 ≈ every street (outweighs checking back to trap).
+        A question in the wizard; readout row for turn barrels. Older saved settings without the slider
+        keep their type's c-bets.
         Question wizard (2026-10-08, `core/players/questions.ts`, "+ Ask me" / "Re-check with questions"):
         11 questions about what you have seen him do (table size first; top pair on a dry board for
         Sticky), "Don't know" keeps the profile's value; the closest profile is suggested and the

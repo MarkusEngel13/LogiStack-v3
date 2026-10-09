@@ -9,6 +9,7 @@
 
 import {
   BASE_TYPES,
+  complete,
   SLIDERS,
   typeSettings,
   type SeatStyle,
@@ -78,7 +79,8 @@ function write<T>(key: string, list: T[]): boolean {
   }
 }
 
-export const loadProfiles = (): SavedProfile[] => [...BUILT_IN_PROFILES, ...read<SavedProfile>(PROFILES_KEY)];
+// profiles saved before a slider existed get it at their type's position
+export const loadProfiles = (): SavedProfile[] => [...BUILT_IN_PROFILES, ...read<SavedProfile>(PROFILES_KEY).map((p) => ({ ...p, settings: complete(p.settings) }))];
 export const loadPlayers = (): SavedPlayer[] => read<SavedPlayer>(PLAYERS_KEY);
 
 export function saveProfile(p: SavedProfile): boolean {
