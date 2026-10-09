@@ -435,6 +435,7 @@ export function EquityPage() {
           dead={board}
           charts={charts}
           canReset={false}
+          quick
           onSave={(text) => {
             setPlayer(editing, text);
             setEditing(null);

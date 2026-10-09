@@ -7,6 +7,7 @@ import { formatRange, parseRange, RangeSyntaxError } from '../../core/ranges/not
 import { comboTotal, withoutCards, type Weights } from '../../core/ranges/range';
 import { weightsFor, type ChartChoice, type Took } from '../../core/ranges/spot';
 import { Button, Modal, Segmented, Toggle } from '../controls';
+import { QuickRangeButtons } from '../equity/QuickRanges';
 import { smartPaintCells } from '../ranges/brush';
 import { RangeGrid, type Segment } from '../ranges/RangeGrid';
 
@@ -39,6 +40,7 @@ export function VillainRangeModal({
   dead,
   charts,
   canReset,
+  quick = false,
   onSave,
   onReset,
   onClose,
@@ -51,6 +53,8 @@ export function VillainRangeModal({
   dead: Card[];
   charts: readonly ChartChoice[];
   canReset: boolean;
+  /** Show the quick ranges (Clear, Any two, Top X %), as on the Equity page. */
+  quick?: boolean;
   onSave: (rangeText: string) => void;
   onReset: () => void;
   onClose: () => void;
@@ -125,6 +129,12 @@ export function VillainRangeModal({
         </div>
 
         <div className="space-y-4">
+          {quick && (
+            <div>
+              <div className="mb-1.5 text-xs font-semibold tracking-wider text-muted uppercase">Quick</div>
+              <QuickRangeButtons current={shown} onPick={applyText} />
+            </div>
+          )}
           <div>
             <div className="mb-1.5 text-xs font-semibold tracking-wider text-muted uppercase">Brush</div>
             <label className="flex items-center gap-3">
