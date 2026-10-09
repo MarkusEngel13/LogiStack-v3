@@ -137,6 +137,13 @@ engine, saved-hand format and Django backend are replaced. v3 lives on GitHub as
          capped near 58 % nine-handed). Regs barely move (19 % → 20 %).
        - Fixed: bot raise sizes were rounded to half a big blind = 13 chips at 10/25, so 3 BB was
          78 cents; now 5-cent chips (3 BB = 75).
+23. [x] **Works offline, installable** (2026-10-09, `src/pwa/`, `public/manifest.webmanifest`): a service worker
+       keeps every file of the build on the device after one visit (written at build time with the
+       build's file list, so the lazy pages and the equity table work offline too); the page comes
+       from the network when there is one (new versions), else from the cache; /api is never cached.
+       "Add to Home Screen" opens it full screen with its own icon. The manifest is fetched with
+       credentials (Cloudflare Access). Tested: one visit, then offline: reload, set up a table,
+       enter a hand, open every page.
 
 ## Direction (agreed 2026-10-06): HHP made visible, fear and greed as the engine
 
