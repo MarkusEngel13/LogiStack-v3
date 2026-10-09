@@ -439,6 +439,11 @@ Build order:
 5. Lab: villain profile + sliders, S-curve preview per class, EV-by-size curve with the best size;
    the same model for Hero facing a bet → moved to Phase 3 (7).
 
+## Cloudflare (2026-10-09)
+Step by step, see [DEPLOY.md](DEPLOY.md): step A = the built app on Cloudflare Pages behind Cloudflare
+Access (login by email code), no database - prepared, the dashboard part is done with Marius; step B =
+Worker + D1 for accounts with roles (admin / editor / viewer), shared player profiles, synced hands.
+
 ## Decisions on record
 
 - **Position names** (Marius, 2026-10-05): SB, BB, BTN; back from the button CO, HJ, LJ; any seats
