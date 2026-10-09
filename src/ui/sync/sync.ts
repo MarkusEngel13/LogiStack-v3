@@ -205,7 +205,12 @@ async function flush() {
   set({ state: 'syncing' });
   running = pushChanges(kinds)
     .then(() => set({ state: 'synced' }))
-    .catch((e: unknown) => set({ state: 'error', message: e instanceof Error ? e.message : String(e) }))
+    .catch((e: unknown) => {
+      // offline (or the server failed): keep them for the next try - on the next change, or as
+      // soon as the phone is back online
+      for (const k of kinds) pending.add(k);
+      set({ state: 'error', message: navigator.onLine ? (e instanceof Error ? e.message : String(e)) : 'offline - saved on this device, syncs when you are back online' });
+    })
     .finally(() => (running = null));
   await running;
 }
@@ -220,6 +225,8 @@ export async function startSync(wait = 5000): Promise<void> {
     try {
       me = await call<Omit<Account, 'limits'> & { limits?: Limits }>('me');
     } catch {
+      // opened offline (at the table): local only for now; start syncing once the phone is online
+      if (!navigator.onLine) window.addEventListener('online', () => void startSync(0), { once: true });
       return; // no server: local only
     }
     // not logged in, or no API at all (`npm run dev` answers /api/me with the app's page): local only
@@ -241,6 +248,10 @@ export async function startSync(wait = 5000): Promise<void> {
       if (st) schedule(st.kind);
     };
     window.addEventListener('pagehide', () => void flush());
+    window.addEventListener('online', () => {
+      for (const st of STORES) pending.add(st.kind);
+      void flush();
+    });
   })();
   await Promise.race([work, new Promise((r) => setTimeout(r, wait))]);
 }
