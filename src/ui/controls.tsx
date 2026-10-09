@@ -247,12 +247,12 @@ export function Modal({
   // rendered into <body>: a modal opened from inside the header (blurred, so it would become the
   // modal's frame) still covers the screen, centred, with its × in view
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'var(--overlay)' }} onMouseDown={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4" style={{ background: 'var(--overlay)' }} onMouseDown={onClose}>
       <div
         className={`max-h-[90vh] w-full ${wide === 'xl' ? 'max-w-6xl' : wide ? 'max-w-4xl' : 'max-w-lg'} overflow-auto rounded-xl border border-line bg-surface shadow-2xl`}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-3">
+        <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-3 sm:px-5">
           <div className="min-w-0">
             <h2 className="text-base font-bold">{title}</h2>
             {subtitle && <div className="mt-0.5 text-xs text-muted">{subtitle}</div>}
@@ -261,7 +261,8 @@ export function Modal({
             ×
           </button>
         </div>
-        <div className="p-5">{children}</div>
+        {/* less padding on a phone: the 13x13 grids in Lab windows get ~25 px cells */}
+        <div className="p-3 sm:p-5">{children}</div>
         {footer && <div className="flex justify-end gap-2 border-t border-line px-5 py-3">{footer}</div>}
       </div>
     </div>,

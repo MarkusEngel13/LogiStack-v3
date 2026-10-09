@@ -4,6 +4,7 @@ import { Button } from './ui/controls';
 import { HomePage, MODULES, type ModuleId } from './ui/home/HomePage';
 import { nextHandNo, saveHand } from './ui/library';
 import { OptionsModal } from './ui/OptionsModal';
+import { leaveScreen } from './ui/ranges/unsavedGuard';
 import { AccountBadge } from './ui/sync/AccountBadge';
 import { SettingsProvider } from './ui/settings';
 import { HandWizard } from './ui/wizard/HandWizard';
@@ -30,7 +31,9 @@ function botsPlayTheOthers() {
 }
 
 export default function App() {
-  const [page, setPage] = useState<Page>('home');
+  const [page, setPageNow] = useState<Page>('home');
+  // every move to another screen asks first when the current one holds unsaved work (a range)
+  const setPage = (p: Page) => leaveScreen(() => setPageNow(p));
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [wizardKey, setWizardKey] = useState(0);
   const [open, setOpen] = useState<{ hand: HandRecord; editable: boolean; from: ModuleId } | null>(null);
