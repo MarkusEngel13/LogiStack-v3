@@ -19,17 +19,17 @@ until agreed. `[ ]` open · `[~]` agreed, to build · `[-]` parked · `[x]` buil
        the app opens there. (ROADMAP "Next")
 
 ## Players
-6. [~] Grades 1-5 colour-coded: bright green (1), cyan, yellow, orange, bright red (5). (ROADMAP "Next")
-7. [~] Profile questions: brainstorm the whole set again (8-13 are his examples). (ROADMAP "Next")
-8. [~] Raise size answers: 3-4 BB, 5-6 BB, 7 BB+ (some raise bigger than 7 BB). (ROADMAP "Next")
-9. [~] 3-bet: add "very rarely". (ROADMAP "Next")
-10. [~] Limp re-raise: add "often" / "rarely" (realistic? does it help?). (ROADMAP "Next")
-11. [~] Postflop aggression: add "c-bets with mixed frequency" (known to be average, not "don't know"). (ROADMAP "Next")
-12. [~] Q7 vs Q8: how are they different? Clarify or merge. (ROADMAP "Next")
-13. [~] Q9 donk bet: add "sometimes" / "rarely". (ROADMAP "Next")
-14. [~] When the profile questions change, a wizard helps adapt the existing players to them. (ROADMAP "Next")
-15. [~] Check: his typical fish come out as "unknown" - look at their stats. (ROADMAP "Next")
-16. [~] Check: Jansen comes out LAG and Michel TAG - feels reversed (Michel much looser, c-bets less). (ROADMAP "Next")
+6. [x] Grades 1-5 colour-coded: bright green (1), cyan, yellow, orange, bright red (5). (ROADMAP "Next")
+7. [x] Profile questions: brainstorm the whole set again (8-13 are his examples). (ROADMAP "Next")
+8. [x] Raise size answers: 3-4 BB, 5-6 BB, 7 BB+ (some raise bigger than 7 BB). (ROADMAP "Next")
+9. [x] 3-bet: add "very rarely". (ROADMAP "Next")
+10. [x] Limp re-raise: add "often" / "rarely" (realistic? does it help?). (ROADMAP "Next")
+11. [x] Postflop aggression: add "c-bets with mixed frequency" (known to be average, not "don't know"). (ROADMAP "Next")
+12. [x] Q7 vs Q8: how are they different? Clarify or merge. (ROADMAP "Next")
+13. [x] Q9 donk bet: add "sometimes" / "rarely". (ROADMAP "Next")
+14. [x] When the profile questions change, a wizard helps adapt the existing players to them. (ROADMAP "Next")
+15. [x] Check: his typical fish come out as "unknown" - look at their stats. (ROADMAP "Next")
+16. [x] Check: Jansen comes out LAG and Michel TAG - feels reversed (Michel much looser, c-bets less). (ROADMAP "Next")
 
 ## Range editor
 17. [~] An explicit Save button, no auto-save; warn when leaving with unsaved changes. (ROADMAP "Next")

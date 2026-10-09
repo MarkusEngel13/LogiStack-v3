@@ -572,6 +572,10 @@ wherever they show: seat tooltips, ✎ player info, the future player card) colo
 the trait is - bright green 1, cyan 2, yellow 3, orange 4, bright red 5, half steps in between -
 on the slider and its step text, with the number shown too. Red means "high", not "bad": a red
 Bluffs and a red Respect both jump out at once.
+- [x] Built 2026-10-10 (`ui/players/gradeColor.ts`): the slider, its step text (darkened on the
+  light theme via `light-dark()`) and the number as a coloured badge (outlined = moved off the
+  profile); the question wizard's result, the review, ✎ ("Loose 3 → 4"). Seat tooltips are text
+  (`styleSummary`) and stay so.
 
 **Player questions, preflop (review items 8-10, agreed 2026-10-10)** - `core/players/questions.ts`;
 existing players get their old answers mapped by the migration wizard (item 14, to agree):
@@ -582,6 +586,10 @@ existing players get their old answers mapped by the migration wizard (item 14, 
 - Q6 limp-reraise: Never seen it · Seen it, with a monster · Does it often (weaker hands too) - sets
   how many strong hands his limping range holds (never = capped: isolate wide and big; often =
   isolate tighter).
+- [x] Built 2026-10-10 (questions version 2): bands open at 2 / 3.5 / 5.5 / 8 BB, ✎ takes exact
+  sizes (2-10 BB); 3-bets for a raiser 2 / 2.5 / 3 / 4.5 on Preflop aggression (old "never" = new
+  "very rarely"); `limpTrap` is a level 0-2 (with a monster: half his premiums limp; often: 80 %
+  of them and half of the next strong hands, to about the top 6 %: TT-99, AQ, AJs, KQs).
 
 **Player questions, postflop (review items 11-13, agreed 2026-10-10):**
 - Q7 and Q8 stay separate (two sliders on purpose: a passive player may still c-bet every flop),
@@ -594,6 +602,9 @@ existing players get their old answers mapped by the migration wizard (item 14, 
 - Q9 donk bets: Never · Rarely (only monsters) · Sometimes (strong hands and draws) · Often (any
   piece) - `leads` becomes a frequency instead of on/off (rarely: a lead is a monster; often: raise
   his leads).
+- [x] Built 2026-10-10: `leads` is a level 0-3 setting the motive profile's `expectsBet` (0.4 /
+  0.25 = the old switch / 0.1); "often" also lifts Postflop aggression to 3.5 as before. Saved
+  on/off switches read as levels (on = "with a monster" / "sometimes").
 
 **Player types and the question updates (review items 14-16, agreed 2026-10-10):**
 - Checked on his saved players (sliders loose/pfAggr/postAggr/cbet/sticky/respect/bluffs):
@@ -616,6 +627,26 @@ existing players get their old answers mapped by the migration wizard (item 14, 
 - One more question (review item 7, which closes with this): "Does his raise size depend on his
   hand?" No · Bigger with strong hands · Bigger with weak hands - a live sizing tell. New
   questions he thinks of while playing become new review items.
+- [x] Built 2026-10-10:
+  - Types (`core/players/classify.ts`): the family = the built-in type nearest on Loose and
+    Preflop aggression (tight/loose × passive/aggressive, two types each), then the postflop
+    sliders pick within it; ties listed, Unknown skipped, the runner-up shown within 1 step. On his
+    answers: Jansen TAG (close: Reg), Michel LAG, Olivier / Tommy / Oleksander Weak-tight rec
+    (close: Nit), whatever the review answers. The Players page shows what a player's sliders fit,
+    with "Put him on X" (his sliders stay).
+  - Weak-tight rec: Fish's psychology at its own slider positions (`style.ts` DERIVED, no preset in
+    `profile.ts`), preflop style and open sizes in `preflop.ts`, playbook words rec + nit, in the
+    watch table's mix. Still to do in `profile.ts`: `MOTIVE_PRESETS['Weak-tight rec'] =
+    typePreset('Weak-tight rec', MOTIVE_PRESETS)`, so a seat with only the type (no saved style)
+    plays it after the flop too (today it plays Unknown there; the watch table gives its seats the
+    style).
+  - Versions (`core/players/versions.ts`): players carry `answersVersion`; old answers move as they
+    are read - clean ones by themselves, sliders by the change in meaning (hand-tuning stays), the
+    ambiguous ones wait in `review` with his settings untouched. Banner "N questions changed -
+    review M players", one tap per answer, each option showing what moves; Don't know drops the
+    answer. On his data: 3 questions, 4 players (Jansen moves cleanly: open 4 -> 3-4 BB).
+  - Raise size by hand: `openTell` on the player; the bots open 1.5× with strong hands (top 6 %),
+    or ⅔ (at least 2 BB) with them when "bigger with weak hands".
 
 **Range editor saves on purpose (review items 17-18, agreed 2026-10-10)** - `ui/ranges/RangesPage.tsx`
 saves on every stroke today and silently copies a library chart to "… (mine)" on the first change:
