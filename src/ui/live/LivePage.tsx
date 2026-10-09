@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { replay } from "../../core/engine/replay";
 import type { HandRecord } from "../../core/hand/types";
-import { handOver } from "../../core/live/quick";
+import { heroNet } from "../../core/live/tap";
 import { Button } from "../controls";
 import { formatAmount } from "../format";
 import { deleteHand, saveHand } from "../library";
@@ -32,14 +32,11 @@ function SessionBar({
   onResume: (h: HandRecord) => void;
 }) {
   const list = useMemo(() => sessionHands(hand), [hand]);
+  // a hand counts once your result is known: it's over, or you folded
   const rows = list.map((h) => {
     try {
-      const s = replay(h);
-      return {
-        h,
-        done: handOver(s),
-        net: h.hero !== undefined ? (s.result?.net[h.hero] ?? 0) : 0,
-      };
+      const net = heroNet(replay(h), h.hero);
+      return { h, done: net !== null, net: net ?? 0 };
     } catch {
       return { h, done: false, net: 0 };
     }
@@ -103,6 +100,11 @@ export function LivePage({
   const [sheet, setSheet] = useState<"seen" | "info" | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
 
+  // a new screen (the table, the next hand, a sheet) starts at the top, not where the last tap was
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [mode, hand?.id, sheet]);
+
   /** Seats that became saved players (a showdown read): on this hand and the table. */
   const relink = (links: Relink[]) => {
     if (!hand || links.length === 0) return;
@@ -124,10 +126,18 @@ export function LivePage({
         return l ? fix(p, l) : p;
       }),
     };
+    // the table's seat of a hand's player: the same seat, or found by name when the table was
+    // renumbered since (a hand finished later, after a change of the table)
+    const tableSeat = (seat: number) => {
+      const name = hand.players.find((p) => p.seat === seat)?.name;
+      return table.players[seat]?.name === name
+        ? seat
+        : table.players.findIndex((p) => p?.name === name);
+    };
     const t: LiveTable = {
       ...table,
       players: table.players.map((p, seat) => {
-        const l = links.find((x) => x.seat === seat);
+        const l = links.find((x) => tableSeat(x.seat) === seat);
         return p && l ? fix(p, l) : p;
       }),
     };

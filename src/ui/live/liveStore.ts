@@ -1,39 +1,16 @@
 /**
- * The live table: who sits where at tonight's game, and which hand is being entered. Set up once
- * per sitting; every hand after that is the next hand at the same table (button moves, stacks
- * carry over), so a hand starts with nothing to fill in but your cards.
+ * The live table in this browser: who sits where at tonight's game, and which hand is being
+ * entered. Set up once per sitting; every hand after that is the next hand at the same table
+ * (the button moves, stacks carry over), so a hand starts with a tap on the button and your cards.
  */
 
-import { initialState, replay } from '../../core/engine/replay';
-import { handOver } from '../../core/live/quick';
 import { nextHand } from '../../core/hand/nextHand';
-import type { Chips, Currency, HandRecord } from '../../core/hand/types';
-import type { SeatStyle } from '../../core/players/style';
+import type { HandRecord } from '../../core/hand/types';
+import { handAt as tableHand, stacksForNext, type LiveTable } from '../../core/live/table';
 import { CURRENCIES } from '../format';
 import { loadHands, nextHandNo } from '../library';
 
-export interface LiveSeat {
-  name: string;
-  stack: Chips;
-  playerType: string;
-  style?: SeatStyle;
-  sittingOut?: boolean;
-}
-
-export interface LiveTable {
-  name: string;
-  seats: number;
-  currency: Currency;
-  blinds: { sb: Chips; bb: Chips };
-  /** What a new player sits down with. */
-  startStack: Chips;
-  /** Your usual open, in big blinds (each limper adds one). */
-  openBB: number;
-  hero: number;
-  button: number;
-  /** Index = seat; null = empty. Hero's seat holds Hero. */
-  players: (LiveSeat | null)[];
-}
+export { seatsFromHero, tableFromList, tableOf, type LiveSeat, type LiveTable } from '../../core/live/table';
 
 interface LiveState {
   table: LiveTable;
@@ -60,8 +37,35 @@ export function saveLive(s: LiveState): void {
   }
 }
 
+/** How you like to enter cards on this device: hole cards from the 13x13 grid or exact; the board exact or as ranks. */
+export interface LivePrefs {
+  hole: 'grid' | 'cards';
+  board: 'cards' | 'ranks';
+}
+
+const PREFS_KEY = 'logistack.livePrefs.v1';
+const DEFAULT_PREFS: LivePrefs = { hole: 'grid', board: 'cards' };
+
+export function loadPrefs(): LivePrefs {
+  try {
+    const raw = localStorage.getItem(PREFS_KEY);
+    return raw ? { ...DEFAULT_PREFS, ...(JSON.parse(raw) as Partial<LivePrefs>) } : DEFAULT_PREFS;
+  } catch {
+    return DEFAULT_PREFS;
+  }
+}
+
+export function savePrefs(p: LivePrefs): void {
+  try {
+    localStorage.setItem(PREFS_KEY, JSON.stringify(p));
+  } catch {
+    // storage blocked: the choice lasts until the page reloads
+  }
+}
+
 export const HERO_NAME = 'Hero';
 
+/** A first table: you and eight unknown players, in seat order from you. */
 export function defaultTable(): LiveTable {
   const bb = 25;
   const seats = 9;
@@ -79,54 +83,12 @@ export function defaultTable(): LiveTable {
 }
 
 /** The first hand of a sitting at this table: no cards, no actions. */
-export function handAt(t: LiveTable, session?: string): HandRecord {
-  const id = crypto.randomUUID();
-  return {
-    format: 'logistack.hand/0',
-    id,
-    handNo: nextHandNo(),
-    createdAt: new Date().toISOString(),
-    table: { seats: t.seats, venue: 'home', name: t.name || undefined, currency: t.currency, blinds: t.blinds },
-    button: t.button,
-    hero: t.hero,
-    players: t.players.flatMap((p, seat) =>
-      p
-        ? [
-            {
-              seat,
-              name: p.name,
-              stack: p.stack,
-              ...(seat !== t.hero ? { playerType: p.playerType || 'Unknown' } : {}),
-              ...(p.style ? { style: p.style } : {}),
-              ...(p.sittingOut ? { sittingOut: true } : {}),
-            },
-          ]
-        : [],
-    ),
-    events: [],
-    quick: { guessedSuits: true },
-    ...(session ? { session } : {}),
-  };
-}
+export const handAt = (t: LiveTable, session?: string): HandRecord =>
+  tableHand(t, { id: crypto.randomUUID(), createdAt: new Date().toISOString(), handNo: nextHandNo(), session });
 
-/** The table as it stands at the start of a hand (for editing it between hands). */
-export function tableOf(h: HandRecord, prev: LiveTable): LiveTable {
-  const players: (LiveSeat | null)[] = Array.from({ length: h.table.seats }, () => null);
-  for (const p of h.players)
-    players[p.seat] = { name: p.name, stack: p.stack, playerType: p.playerType ?? '', ...(p.style ? { style: p.style } : {}), ...(p.sittingOut ? { sittingOut: true } : {}) };
-  return { ...prev, seats: h.table.seats, blinds: h.table.blinds, currency: h.table.currency, hero: h.hero ?? prev.hero, button: h.button, players };
-}
-
-/** The next hand: button moves, stacks carry over (from the start of the hand if it isn't finished). */
+/** The next hand: the button moves, stacks carry over (see stacksForNext for a hand left unfinished). */
 export function followingHand(h: HandRecord): HandRecord {
-  let final;
-  try {
-    const s = replay(h);
-    final = handOver(s) ? s : initialState(h);
-  } catch {
-    final = initialState(h);
-  }
-  const next = nextHand(h, final, { id: crypto.randomUUID(), createdAt: new Date().toISOString(), handNo: nextHandNo() });
+  const next = nextHand(h, stacksForNext(h), { id: crypto.randomUUID(), createdAt: new Date().toISOString(), handNo: nextHandNo() });
   // nextHand deals Hero two cards for the gym; at the live table you tap your real ones
   return { ...next, players: next.players.map(({ cards: _c, ...p }) => (void _c, p)), quick: { guessedSuits: true } };
 }
