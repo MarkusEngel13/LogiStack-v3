@@ -1,66 +1,5 @@
 # LogiStack v3 roadmap
 
-> ## ⚠ HANDOVER 2026-10-09 (from the claude.ai session) - DELETE THIS BLOCK once read and done
->
-> Written for VS Code / Claude Code on the laptop. Once the steps below are done and you've read
-> the rest, delete this whole block (down to the line of dashes) so it doesn't clutter the file.
-> Everything built today is also described properly in "Done" items 20-23 and in `docs/DEPLOY.md`.
->
-> **Built today (all on `main`, deployed, 431 tests green):**
-> - **Live tab** (`src/core/live/quick.ts`, `src/ui/live/`): tonight's table once, then each hand in
->   a few taps (fold 1, won c-bet 7, river showdown 12). Opens first on a phone. Done item 20.
-> - **👀 Showdown I saw** (`core/players/reads.ts`, `ui/live/SeenShowdown.tsx`): reads on saved
->   players + slider suggestions on the Players page. Done item 21.
-> - **✎ What I see him do** (`ui/live/PlayerInfo.tsx`): wizard answers told during the game, saved
->   straight into the player (hands played 15-80 %, calls/raises, raise size...). New per-player
->   `openBB` (min-raisers); hands-played estimate can now reach 70 %+; fixed bot raise rounding at
->   10/25 (3 BB was 78c). Done item 22.
-> - **Offline + installable** (`src/pwa/`, `public/manifest.webmanifest`, icons): service worker
->   generated at build with the build's file list. Done item 23.
->
-> **Tonight (Marius), in order - details in `docs/DEPLOY.md` "Tonight, in order":**
-> 1. [ ] Cloudflare Access on the worker (team domain + AUD tag noted).
-> 2. [ ] `git fetch; git checkout -B step-b origin/step-b` (**-B**: step-b was rebased onto today's
->        main and force-pushed; a stale local step-b must not be merged), `npm.cmd ci`.
-> 3. [ ] `wrangler d1 create logistack` -> database_id into `wrangler.jsonc`; migrations `--remote`.
-> 4. [ ] Three **Secrets** in the dashboard: ADMIN_EMAILS, ACCESS_TEAM_DOMAIN, ACCESS_AUD.
-> 5. [ ] Commit wrangler.jsonc on step-b, merge into main, push (auto-deploys).
-> 6. [ ] Export from localhost (Options -> Backup), import on the site; install on the phone
->        ("Add to Home Screen"); try one hand with the phone in airplane mode, then back online
->        (badge dot turns green = synced).
->
-> **Things to check on the laptop (not testable from the cloud session):**
-> - [ ] The service worker behind Cloudflare Access: the manifest is fetched with
->       `crossorigin="use-credentials"`; check "Install app" is offered and the app opens offline
->       after an Access login. If Access ever blocks `/sw.js` or the manifest, that's the place.
-> - [ ] step-b's sync on the phone: offline changes are kept and pushed on the `online` event
->       (`src/ui/sync/sync.ts`, commit "Sync: keep unsynced changes when offline").
-> - [ ] Free-plan limits vs live use (`src/shared/plans.ts` on step-b): Free syncs 20 hands and
->       3 players - one live night is ~30-60 hands, and ✎ / 👀 create saved players for unknown
->       seats. Admin is unlimited; decide what a friend on Free should get before inviting anyone.
->
-> **Still waiting on Marius:** WTSD estimate for his table; the Excel RangeDB
-> (`30 !!! New hand simulator REV3.xlsm`) for per-type preflop charts; the playbook JSON (link reads
-> to advice tags); the Carrel videos.
->
-> **Agreed next steps (pick up after tonight):**
-> - Count players while folding: optional "who played?" on "I fold" -> measured VPIP/PFR per saved
->   player next to what he was told ("you said 70 %, measured 64 % over 40 hands").
-> - Player card at the table: tap a seat -> type, notes, reads, one-line HHP exploit (playbook stays
->   in the app, never on the server).
-> - Morning review of the night: result, biggest pots, hands where the line differs from HHP's
->   advice, each opening in the Lab.
-> - Phone layout for Lab and Players (layers: glance -> tap for why -> tools; focus panes ~75 %;
->   bottom sheets; tall-oval table in portrait). Lab and Ranges are still desktop-first on a phone.
-> - House games in bot behaviour (10e: straddles, 7-2, squid).
->
-> **Rules that still hold:** calibrate bots on how the pool plays (HHP's "Read" lines, Marius's
-> table), never on HHP's advice (that's Hero's exploit). Repo is public: secrets only in the
-> dashboard; the HHP/Carrel playbook never ships or goes to the server; only profiles are shared.
-> Every push to main deploys - push only with tests and build green.
->
-> --------------------------------------------------------------------------------------------------
-
 Started 2026-10-04. Restart of v2 (`C:\Users\marius.dinu\Projects\LogiStack v2`, GitHub `LogiStack-v2`,
 last commit `92dab74` on `Before_Cleanup`). v2's UI pieces are good and get ported; its betting
 engine, saved-hand format and Django backend are replaced. v3 lives on GitHub as `LogiStack-v3` (private).
@@ -488,11 +427,12 @@ Findings from the stats runs (2026-10-09, `docs/stats/`, `core/sim/run.test.ts`)
 The bible (`OneDrive\Poker\165 - HungryHorse Plan\Strategy Bible`): HHP complete on 2026-10-08 -
 all 197 videos, 9058 claims (two age-restricted videos skipped).
 - [x] HHP: every video, the vlogs too.
-- [~] Charlie Carrel: all of `videos_CC.csv` (~399), the bankroll-challenge episodes too (he gives
+- [x] Charlie Carrel: all of `videos_CC.csv` (399), the bankroll-challenge episodes too (he gives
       advice while playing). Drama / reaction videos with under 4 poker terms per 1000 words are
-      skipped (they gave 0-6 claims; the transcript is kept). 214 videos / 3841 claims by 2026-10-09
-      (batches 7 and 8: 60 videos, mostly 2020-21 bankroll-challenge streams - thin, 2-44 claims each;
-      ~110 left, 3 transcripts ready). His
+      skipped (they gave 0-6 claims; the transcript is kept), and many 2018-19 uploads have no
+      captions at all. Complete on 2026-10-09: 275 videos / 4788 claims; the whole bible is 472
+      videos / 13846 claims, all quotes exact. The 2018 bankroll-challenge vlogs and streams are thin
+      (3-10 claims), his coaching sessions rich (28-47). His
       angle differs from HHP's: little fear/greed, much ego and embarrassment (reverse tells,
       "nobody wants to look stupid"), and he calls range-checking lazy - against HHP's "check your
       range out of position against recs".
@@ -502,8 +442,11 @@ all 197 videos, 9058 claims (two age-restricted videos skipped).
       sources (video at the moment, speaker, quote). 1334 entries (1186 tied to moments, 148
       general). Tools in `Tools\ytdlp\work\playbook`; output `Strategy Bible\playbook\HHP_playbook.json`
       and a readable `HHP_PLAYBOOK.md`.
-- [ ] Charlie Carrel's playbook when his videos are in (`group.py` is HHP-only so far), shown beside
-      HHP's, with "Charlie disagrees" where they clash.
+- [~] Charlie Carrel's playbook (started 2026-10-09): same passes, the tools now take a channel
+      (`group.py CC`, `check.py --ch CC`, `pass2_in.py --ch CC`, `build.py CC`; work folder
+      `work\playbook\CC`). Live tells (eyes, hands, chips, speech, timing at a live table) are kept
+      apart in their own section ("tell": true) - Marius's call. Output `CC_playbook.json`.
+- [ ] Show it beside HHP's, with "Charlie disagrees" where they clash; a tells view of its own.
 - [ ] vs_doc: check the playbook against the old 77-summary doc.
 
 ### Advice at the right moment ("HHP says", 2026-10-08)
@@ -585,9 +528,31 @@ Build order:
    the same model for Hero facing a bet → moved to Phase 3 (7).
 
 ## Cloudflare (2026-10-09)
-Step by step, see [DEPLOY.md](DEPLOY.md): step A = the built app on Cloudflare Pages behind Cloudflare
-Access (login by email code), no database - prepared, the dashboard part is done with Marius; step B =
-Worker + D1 for accounts with roles (admin / editor / viewer), shared player profiles, synced hands.
+Step by step, see [DEPLOY.md](DEPLOY.md): step A = the built app on Cloudflare behind Cloudflare
+Access (login by email code), no database; step B = Worker + D1 for accounts with roles (admin /
+editor / viewer), shared player profiles, synced hands. **Both live since 2026-10-09** (`fa81f40`):
+Marius logged in as Admin, his localhost data imported (11 hands, 6 players, 1 chart), the phone
+logs in and installs.
+- [ ] Offline test on the phone: one hand in airplane mode, back online, the badge dot turns green
+      (`src/ui/sync/sync.ts` pushes on the `online` event). Not done yet (phone was the laptop's hotspot).
+- [ ] Free-plan limits vs live use (`src/shared/plans.ts`): Free syncs 20 hands and 3 players - one
+      live night is ~30-60 hands, and ✎ / 👀 create saved players for unknown seats. Admin is
+      unlimited; decide what a friend on Free gets before inviting anyone.
+- [ ] Friends: a separate Access policy "LogiStack" with their emails (today the app uses the
+      author-page policy = Marius only, so adding friends there would open author-page too).
+
+## Next (agreed 2026-10-09)
+- Count players while folding: optional "who played?" on "I fold" -> measured VPIP/PFR per saved
+  player next to what he was told ("you said 70 %, measured 64 % over 40 hands").
+- Player card at the table: tap a seat -> type, notes, reads, one-line HHP exploit (playbook stays
+  in the app, never on the server).
+- Morning review of the night: result, biggest pots, hands where the line differs from HHP's advice,
+  each opening in the Lab.
+- Phone layout for Lab and Players (layers: glance -> tap for why -> tools; focus panes ~75 %;
+  bottom sheets; tall-oval table in portrait). Lab and Ranges are still desktop-first on a phone.
+- House games in bot behaviour (10e: straddles, 7-2, squid).
+- Waiting on Marius: WTSD estimate for his table; the Excel RangeDB (`30 !!! New hand simulator
+  REV3.xlsm`) for per-type preflop charts; link reads to playbook advice tags.
 
 ## Decisions on record
 

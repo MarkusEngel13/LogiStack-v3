@@ -12,13 +12,20 @@ Pages): `wrangler.jsonc` serves `dist/` as a single-page app; Workers Builds run
 https://logistack.mariusdinu81.workers.dev - headers checked (noindex, no framing, long cache on assets).
 Preview addresses switched off in `wrangler.jsonc` (`preview_urls: false`).
 
-**Still to do (next session, with Marius): the login.** The site is public until then (harmless: no
-data, no playbook, not indexed). Worker `logistack` -> the **Access** tab (or Domains -> workers.dev row)
--> Enable Cloudflare Access; Zero Trust first time: team name + Free plan (asks for a payment method,
-charges nothing); policy Include -> Emails = Marius's address only, login by One-time PIN. Test in a
-private window: Cloudflare's login page, email code, the app. Don't switch workers.dev off - Access
-goes in front of it. (Seen 2026-10-09: the Overview said "No URLs enabled" while the address still
-answered - a stale overview.)
+**Login and step B live (2026-10-09 evening, `fa81f40`).**
+- Cloudflare Access on the Worker: scope **All traffic** (not "Previews only"), policy
+  "author-page - Production" (Marius's email, one-time PIN). Team domain
+  `mariusdinu81.cloudflareaccess.com`; the site answers every visitor with a 302 to the login page.
+  Friends later get a policy of their own ("LogiStack"), so author-page stays Marius's alone.
+- D1 `logistack` (WEUR), id in `wrangler.jsonc`, `0001_init.sql` applied remote.
+- Secrets `ADMIN_EMAILS`, `ACCESS_TEAM_DOMAIN` (no `https://`: `worker/auth.ts` checks the token's
+  issuer against `https://<domain>`), `ACCESS_AUD` - set with `npx wrangler secret bulk <file>`.
+  Careful in the dashboard: Settings -> **Build** -> Variables and secrets is a different list (build
+  time only); the Worker's own one is Settings -> Variables and Secrets.
+- Checked: Admin badge with a green dot; localhost data imported (11 hands, 6 players, 1 chart); the
+  phone logs in and installs. Still open: the airplane-mode test on the phone.
+- On this PC npm downloads can hang (one large package, @cloudflare/workerd-windows-64): rerun
+  `npm ci` with `--prefer-offline --fetch-timeout=60000 --fetch-retries=5`.
 
 The Pages route below was the first plan; kept for reference.
 
@@ -82,6 +89,8 @@ What it is:
   belongs to one address, so this is how the data made in VS Code (localhost) gets onto the website.
 
 ### Tonight, in order
+
+Done 2026-10-09 (see State at the top); kept as the recipe for a fresh setup.
 
 **1. The login (Cloudflare dashboard, ~15 min).**
 - Zero Trust (first time): pick a team name, Free plan (asks for a card, charges nothing).
