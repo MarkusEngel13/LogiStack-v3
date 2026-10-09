@@ -329,7 +329,7 @@ export function HandScreen({ initial, editable, onBack, backLabel = 'Lab', onNew
     const street = preflop ? 'Preflop' : st.board.length === 3 ? 'Flop' : st.board.length === 4 ? 'Turn' : 'River';
     // the coach's voice beside the bot's move: the playbook's top advice for that moment
     const tip = playbook ? matchAdvice(playbook.entries, spotTags(st, seat), 1)[0]?.entry.title : undefined;
-    setBotLog((log) => [...log.filter((x) => x.step < cursor), { step: cursor, text: `${street} · ${full}${tip ? ` · HHP: ${tip}` : ''}` }]);
+    setBotLog((log) => [...log.filter((x) => x.step < cursor), { step: cursor, text: `${street} · ${full}${tip ? ` · Playbook: ${tip}` : ''}` }]);
     const events = [...h.events.slice(0, cursor), choice.event];
     commit(h.ranges ? { ...h, events, ranges: notesBefore(h.ranges, cursor) } : { ...h, events }, cursor + 1);
   };
@@ -421,7 +421,7 @@ export function HandScreen({ initial, editable, onBack, backLabel = 'Lab', onNew
   const otherLive = rangeSeat ? state.seats.filter((s) => s.dealtIn && !s.folded && s.seat !== rangeSeat.seat) : [];
   const rangeOpponent = otherLive.length === 1 ? (state.board.length >= 3 ? storyRanges?.get(otherLive[0]!.seat) : undefined) : undefined;
 
-  // HHP's advice for the player to act - not while the bots play on by themselves
+  // the playbook's advice for the player to act - not while the bots play on by themselves
   const adviceSeat =
     !error && state.phase === 'betting' && state.toAct !== null && !(watching && !halted) && !(autoBots && !watching && state.toAct !== hand.hero)
       ? state.toAct
