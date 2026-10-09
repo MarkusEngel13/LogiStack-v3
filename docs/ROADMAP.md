@@ -442,10 +442,12 @@ all 197 videos, 9058 claims (two age-restricted videos skipped).
       sources (video at the moment, speaker, quote). 1334 entries (1186 tied to moments, 148
       general). Tools in `Tools\ytdlp\work\playbook`; output `Strategy Bible\playbook\HHP_playbook.json`
       and a readable `HHP_PLAYBOOK.md`.
-- [~] Charlie Carrel's playbook (started 2026-10-09): same passes, the tools now take a channel
+- [x] Charlie Carrel's playbook (2026-10-09): same passes, the tools now take a channel
       (`group.py CC`, `check.py --ch CC`, `pass2_in.py --ch CC`, `build.py CC`; work folder
       `work\playbook\CC`). Live tells (eyes, hands, chips, speech, timing at a live table) are kept
-      apart in their own section ("tell": true) - Marius's call. Output `CC_playbook.json`.
+      apart in their own section ("tell": true) - Marius's call. 1344 entries (1058 tied to
+      moments, 286 general, 146 live tells) from 4788 claims: `CC_playbook.json` + `CC_PLAYBOOK.md`.
+      The app loads it, but in place of HHP's (one playbook at a time) and shows tells as general.
 - [ ] Show it beside HHP's, with "Charlie disagrees" where they clash; a tells view of its own.
 - [ ] vs_doc: check the playbook against the old 77-summary doc.
 
@@ -542,6 +544,154 @@ logs in and installs.
       author-page policy = Marius only, so adding friends there would open author-page too).
 
 ## Next (agreed 2026-10-09)
+Marius's review notes live in [TODO.md](TODO.md); what we agree there moves here.
+
+**Phone layout (review items 1-3, agreed 2026-10-09):**
+- Header on a phone in two rows: the LogiStack logo left with the account dot and ⚙ right, the
+  modules in the row below (today the logo is hidden below `sm`).
+- The modules wrap onto a second line instead of scrolling sideways (today `overflow-x-auto`).
+- Hands list on a phone: the title on its own full line, date and summary under it, then a compact
+  row of small buttons (Open, ⬇ JSON, 🗑); a click on the row opens the hand. The same for the
+  Sessions and "Smells fishy" rows. (Cause today: the title may shrink to nothing, so the three
+  full-size buttons never wrap.)
+
+**Modules and a start page (review items 4-5, agreed 2026-10-10):**
+- The parts of the app are "modules". Short names: **Live, Lab, Gym, Players, PF Ranges, Equity**.
+  - Lab = today's Hands + New hand + the hand screen in one module (the hand list is its entry).
+  - Gym = watch the bots, and later play against them live (watching may become its own module).
+- The app opens on a start page with one playing card per module, in v2's design
+  (`LogiStack v2\frontend\src\features\home\FeatureCard.tsx`, `HomeIcons.tsx`): card shape 2.5:3.5,
+  rank and suit in serif in two corners, a big faint suit watermark, a line icon in the middle,
+  the name in small caps. Animated: cards fly in one after another, then each icon draws itself
+  stroke by stroke; on hover the card lifts, the border turns gold and a shine sweeps across. v2
+  used framer-motion; v3 does it in CSS (stroke-dashoffset, keyframes), no new dependency.
+- The top menu stays as the quick switcher; the logo leads back to the start page.
+
+**Grade colours (review item 6, agreed 2026-10-10):** the 1-5 sliders on the Players page (and
+wherever they show: seat tooltips, ✎ player info, the future player card) coloured by how strong
+the trait is - bright green 1, cyan 2, yellow 3, orange 4, bright red 5, half steps in between -
+on the slider and its step text, with the number shown too. Red means "high", not "bad": a red
+Bluffs and a red Respect both jump out at once.
+
+**Player questions, preflop (review items 8-10, agreed 2026-10-10)** - `core/players/questions.ts`;
+existing players get their old answers mapped by the migration wizard (item 14, to agree):
+- Q4 raise size: Min-raise (2 BB) · 3-4 BB · 5-6 BB · 7 BB or more (bots open ~2 / 3.5 / 5.5 / 8 BB;
+  ✎ can still take an exact number). Later, in the rethink (item 7): "sizes by hand strength".
+- Q5 3-bets: Never · Very rarely (QQ+, AK) · Sometimes (also JJ-TT, AQ) · Often (also suited
+  connectors, weak aces) - a missing step on the Preflop aggression slider.
+- Q6 limp-reraise: Never seen it · Seen it, with a monster · Does it often (weaker hands too) - sets
+  how many strong hands his limping range holds (never = capped: isolate wide and big; often =
+  isolate tighter).
+
+**Player questions, postflop (review items 11-13, agreed 2026-10-10):**
+- Q7 and Q8 stay separate (two sliders on purpose: a passive player may still c-bet every flop),
+  but Q7 is reworded to leave the c-bet spot out: "When he did not raise before the flop, or you
+  bet into him: does he bet and raise, or check and call?"; its middle answer reads "Average: bets
+  when he has something, sometimes a bluff" (3).
+- Q8 c-bets gets the missing middle: Only when he hits (1) · Less than half (2) · Mixed, about
+  half, no clear pattern (3) · Almost every flop (4) · Every street (5). "Don't know" stays = no
+  answer (the slider keeps his type's value).
+- Q9 donk bets: Never · Rarely (only monsters) · Sometimes (strong hands and draws) · Often (any
+  piece) - `leads` becomes a frequency instead of on/off (rarely: a lead is a monster; often: raise
+  his leads).
+
+**Player types and the question updates (review items 14-16, agreed 2026-10-10):**
+- Checked on his saved players (sliders loose/pfAggr/postAggr/cbet/sticky/respect/bluffs):
+  Jansen 3/3/4/5/4/3/3.5 -> LAG (4.0) only through his c-bets and bluffs; Michel 4/4.5/4/4/4/3/2 ->
+  TAG 5.0 = LAG 5.0, a tie that went to TAG by list order; his three "fish" (Olivier, Tommy,
+  Oleksander) answered "1 in 5" or "1 in 8" hands and "folds to big river bets" -> tight-passive,
+  nearest Unknown/Reg (Fish = loose 4, limps everything, calls down).
+- Type from the preflop sliders first (loose -> tight/loose, pfAggr -> passive/aggressive: the family),
+  then the postflop sliders choose within the family; a tie is shown ("between TAG and LAG"),
+  never broken silently. (`nearest()` in `core/players/questions.ts` weighs all seven alike today.)
+- "Unknown" is never suggested (it equals Reg's sliders and means "no information"); the wizard
+  shows the second-best type when it is close.
+- New built-in type **Weak-tight rec** (~2.5/2/2/2/2.5/5/1.5): plays few hands, limps and calls,
+  rarely bets, folds to pressure - steal and isolate often, bluff him more, believe his bets.
+- Question versions: each saved player keeps the version of the questions his answers came from.
+  After a change, a banner ("3 questions changed - review 5 players") steps through only the
+  changed questions with the best guess preselected (one tap each), sliders showing what moves.
+  Clean mappings silently (3 BB / 4 BB -> 3-4 BB); asked only when ambiguous ("5 BB or more",
+  "never seen it or only AA/KK", donk "with strong hands", c-bet "about half"). Don't-know stays.
+- One more question (review item 7, which closes with this): "Does his raise size depend on his
+  hand?" No · Bigger with strong hands · Bigger with weak hands - a live sizing tell. New
+  questions he thinks of while playing become new review items.
+
+**Range editor saves on purpose (review items 17-18, agreed 2026-10-10)** - `ui/ranges/RangesPage.tsx`
+saves on every stroke today and silently copies a library chart to "… (mine)" on the first change:
+- Edits are a draft until **Save**; **Discard** goes back to the saved version; Undo stays.
+- A pill **Unsaved** next to the chart's name while the range differs from the saved one (gone again
+  when it matches, also after undoing back).
+- A library chart is never copied silently: Save asks for a name ("… (mine)" prefilled) and stores
+  it as yours; the library chart never changes.
+- Leaving with unsaved changes (another chart, another module, opening a hand) asks Save ·
+  Discard · Cancel; closing or reloading the tab gets the browser's "leave this page?" warning.
+- Only saved ranges sync, not every stroke.
+
+**Equity module and the phone matrix (review items 19, 20, 40, agreed 2026-10-10):**
+- Quick ranges: Clear · Any two · Pairs · Top 3 % (QQ+, AK) · Top 5 % · Top 10 % · Top 10 % capped
+  (top 10 % minus top 3 %: the flatting range), cut from one hand ranking (later a free "Top X %
+  minus top Y %"); per player row in the main window (today they always fill the last player) and
+  the same set in the player edit modal.
+- The board button follows the street: Random flop -> Random turn -> Random river (one card each,
+  never a held card) -> New flop (a fresh board); Clear stays.
+- Phone: the Ranges page is a fixed `290px | 1fr` grid, so on a ~390 px phone the whole matrix gets
+  ~30 px. On a phone the matrix comes first at full width (13 cells of ~27 px), the brush and chart
+  list below or in a slide-up panel; tap-and-drag paints. The same for every 13x13 grid (Lab range
+  windows, player popups).
+
+**Watching the bots (review items 21-24, agreed 2026-10-10):**
+- A ⤢ full-screen button on every table (Lab, watching, later the Gym); on the phone it turns
+  landscape; the controls overlay the bottom edge; ✕ / Esc leaves.
+- One control bar with a fixed place and size (⏸/▶, speed, next hand, stop): nothing above it
+  changes height when a bot acts; on the phone the pause button is big and always visible.
+- The bots' decision log at the bottom of the page, newest first, foldable.
+- Table size for watching: 6 or 9 seats (later 2-10; the engine and seat layouts already do 2-10).
+
+**Lab (review items 25-27, agreed 2026-10-10):**
+- The Decision panel's EV is Hero's known cards against the opponents' ranges as the model reads
+  them (with their fold / call / raise answers), this street only, checked down after. The panel
+  says so: "EV this street (checked down after)"; preflop adds "no implied odds". Two-street EV
+  stays the next model step.
+- Monsters raise more against ½ pot than ⅓ pot (hand "#4 Home game": SB 8♠6♠ vs BB, J♥9♥4♠ -
+  stack-off raise ▲52 / 81 / 99 / 100 % for ⅓ / ½ / ¾ / pot): test first (his rule: the raise share
+  of stack-off hands falls as the bet grows), then the model learns the pool's read "a small bet
+  looks weak - raise it; a big bet looks strong - call and let him keep betting".
+- Every range / Equity / size-explorer / what-if window shows the spot in its title, one shared
+  header: "You (BTN, A♠K♦) vs Jansen (BB) · K♣7♦2♠ · pot 12 BB".
+
+**"What happens if" and the naming (review items 28-30, agreed 2026-10-10):**
+- Each player has one colour, the same as his seat (Hero blue, villain orange); labels name the
+  player ("Jansen's range: reaches the turn", "Your equity (A♠K♦)").
+- Size chips ⅓ · ½ · ⅔ · ¾ · pot · 1.5× plus a custom size; the default set in Options.
+- "HHP says" becomes **Playbook** ("Playbook says"). A sold version ships no quotes, transcripts or
+  names (sources stay in the private copy, as the playbook already never reaches the server); a
+  lawyer's check before charging money; or a referral/partnership with the channels.
+
+**The Live module (review items 31-38, agreed 2026-10-10):**
+1. Setup: the players in seat order clockwise from Hero, with stacks; no button question.
+2. Each hand: one tap on the button seat (the dealer chip is what you see; blinds follow).
+3. Preflop: tap the first player who acts by choice (everyone before him folded); his action:
+   fold / call / raise with chips 2 / 3 / 4 / 5 BB and a number box with − / +; the next player to
+   act preselected; tapping a later player = everyone between folded.
+4. Flop, turn, river: the cards from a big touch card grid, then the actions the same way; bets as
+   ⅓ · ½ · ⅔ · pot chips plus the number box.
+5. A Showdown button at any moment: the seen cards as exact cards or from the 13x13 matrix.
+6. The long preset list goes, except one tap for "I fold preflop".
+7. Board by texture when the exact cards are skipped: no flush card / flush card / second flush
+   draw on the turn.
+
+**Account windows (review items 41-42, agreed 2026-10-10):** the account popup and "Users and
+plans" get a ✕, close on Esc and on a click outside; "Users and plans" opens centred, never
+taller than the screen, scrolling inside.
+
+**Later (review item 39, agreed 2026-10-10): solution stability.** A "stable?" badge in the EV
+table: rerun the EV with the ranges 5-10 % wider / narrower and each slider half a step up / down;
+show how often the best option stays best ("best in 18 of 20") and, better, the distance to the
+flip ("the check-raise stays best unless his range is 12 % wider"). Cheap heads-up, slow
+multiway.
+
+**Earlier agreed:**
 - Count players while folding: optional "who played?" on "I fold" -> measured VPIP/PFR per saved
   player next to what he was told ("you said 70 %, measured 64 % over 40 hands").
 - Player card at the table: tap a seat -> type, notes, reads, one-line HHP exploit (playbook stays
