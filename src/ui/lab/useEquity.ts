@@ -9,6 +9,8 @@ import type { TableState } from '../../core/engine/state';
 import type { WhatIfAnswer } from '../../core/motives/whatIf';
 import type { MotiveProfile } from '../../core/motives/profile';
 import type { PostflopRow } from '../../core/players/preview';
+import type { SimBatch, SimTable } from '../../core/sim/table';
+import type { ChartChoice } from '../../core/ranges/spot';
 import type { Weights } from '../../core/ranges/range';
 
 /**
@@ -23,7 +25,8 @@ export type Question =
   | { kind: 'sizes'; q: SizeQuestion }
   | { kind: 'whatif'; q: SizeQuestion }
   | { kind: 'bot'; input: StoryInput; state: TableState; step: number }
-  | { kind: 'preview'; profile: MotiveProfile };
+  | { kind: 'preview'; profile: MotiveProfile }
+  | { kind: 'sim'; table: SimTable; from: number; to: number; charts: ChartChoice[] };
 
 export type EquityQuestion = Question & { id: number };
 
@@ -49,6 +52,8 @@ export interface EquityAnswer {
   bot?: BotChoice;
   /** kind 'preview' */
   preview?: PostflopRow[];
+  /** kind 'sim' */
+  sim?: SimBatch;
   error?: string;
 }
 

@@ -23,6 +23,8 @@ import { downloadJson } from '../library';
 import { playerTypeColor } from '../playerTypes';
 import { allCharts } from '../ranges/charts';
 import { QuestionWizard } from './QuestionWizard';
+import { PlayerCheck } from '../sim/PlayerCheck';
+import { ExploitCheck } from '../sim/ExploitCheck';
 import { styleSummary } from './SavedPlayerPicker';
 import { testTable, type TestMode } from './seating';
 import {
@@ -61,6 +63,7 @@ export function PlayersPage({ onOpenHand }: { onOpenHand: (hand: HandRecord, mod
   const [error, setError] = useState<string | null>(null);
   /** The question wizard: for a new player ({}), or to re-check one. */
   const [asking, setAsking] = useState<{ player?: SavedPlayer } | null>(null);
+  const [exploit, setExploit] = useState(false);
 
   const reload = () => {
     setPlayers(loadPlayers());
@@ -153,6 +156,9 @@ export function PlayersPage({ onOpenHand }: { onOpenHand: (hand: HandRecord, mod
               />
             ))}
           </ListBlock>
+          <Button className="w-full" onClick={() => setExploit(true)} title="Does an adjustment win against your pool? Hero plays the same hands as A and as B">
+            ⚖ Exploit check…
+          </Button>
           <div className="flex flex-wrap gap-2 px-1">
             <Button variant="ghost" onClick={() => downloadJson('logistack-players.json', exportAll())}>
               Export
@@ -206,6 +212,7 @@ export function PlayersPage({ onOpenHand }: { onOpenHand: (hand: HandRecord, mod
             onTest={(mode) => test(seatStyleOfProfile(profile), mode)}
           />
         )}
+        {exploit && <ExploitCheck onClose={() => setExploit(false)} />}
         {asking && (
           <QuestionWizard
             player={asking.player}
@@ -336,7 +343,7 @@ function PlayerEditor({
           </Button>
         </div>
       </section>
-      <Readout settings={settings} name={player.name} reference={profile.settings} referenceName={profile.name} />
+      <Readout settings={settings} name={player.name} reference={profile.settings} referenceName={profile.name} playerId={player.id} />
     </>
   );
 }
@@ -592,7 +599,7 @@ function SliderRow({
 
 const pc = (x: number) => `${Math.round(x * 100)} %`;
 
-function Readout({ settings, name, reference, referenceName }: { settings: StyleSettings; name: string; reference: StyleSettings | null; referenceName: string }) {
+function Readout({ settings, name, reference, referenceName, playerId }: { settings: StyleSettings; name: string; reference: StyleSettings | null; referenceName: string; playerId?: string }) {
   const charts = useMemo(allCharts, []);
   const pre = useMemo(() => preflopPreview(stylePreflop(settings, STYLES), charts), [settings, charts]);
   const preRef = useMemo(() => (reference ? preflopPreview(stylePreflop(reference, STYLES), charts) : null), [reference, charts]);
@@ -629,6 +636,7 @@ function Readout({ settings, name, reference, referenceName }: { settings: Style
           ))}
         </div>
       </div>
+      <PlayerCheck style={{ label: name, settings }} exceptId={playerId} />
     </aside>
   );
 }

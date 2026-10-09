@@ -48,5 +48,5 @@ export function nextHand(
   void _ranges;
   void _title;
   void _notes;
-  return { ...table, id: o.id, createdAt: o.createdAt, handNo: o.handNo, button, players, events: [], ...(watch ? { watch: {} } : {}) };
+  return { ...table, id: o.id, createdAt: o.createdAt, handNo: o.handNo, button, players, events: [], session: prev.session ?? prev.id, ...(watch ? { watch: {} } : {}) };
 }

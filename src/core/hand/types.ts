@@ -164,4 +164,9 @@ export interface HandRecord {
    * switched to watching, or one you pinned).
    */
   watch?: { keep?: boolean };
+  /**
+   * The sitting this hand belongs to: the id of its first hand. Hands dealt with "Deal next hand"
+   * share it, so the Hands page can show a session's result.
+   */
+  session?: string;
 }

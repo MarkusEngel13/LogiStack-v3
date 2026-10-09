@@ -46,8 +46,19 @@ const STREETS = ['preflop', 'flop', 'turn', 'river'] as const;
 const MAX_EVENTS = 200;
 
 /** Plays `start` (a hand with no events) to the end. */
-export function playHand(start: HandRecord, charts: readonly ChartChoice[], o: { rand?: () => number; cache?: StoryCache; now?: () => number } = {}): Played {
+export function playHand(
+  start: HandRecord,
+  charts: readonly ChartChoice[],
+  o: {
+    rand?: () => number;
+    /** The cards' own stream (default `rand`): with it, two runs whose players decide differently still see the same cards. */
+    dealRand?: () => number;
+    cache?: StoryCache;
+    now?: () => number;
+  } = {},
+): Played {
   const rand = o.rand ?? Math.random;
+  const deal = o.dealRand ?? rand;
   const now = o.now ?? (() => performance.now());
   const cache: StoryCache = o.cache ?? new Map();
 
@@ -55,7 +66,7 @@ export function playHand(start: HandRecord, charts: readonly ChartChoice[], o: {
   let pool = unknownCards(initialState(start));
   const players = start.players.map((p) => {
     if (p.cards || p.sittingOut || p.stack <= 0) return p;
-    const cards = randomHand(pool, rand);
+    const cards = randomHand(pool, deal);
     pool = pool.filter((c) => cardToString(c) !== cards[0] && cardToString(c) !== cards[1]);
     return { ...p, cards };
   });
@@ -73,7 +84,7 @@ export function playHand(start: HandRecord, charts: readonly ChartChoice[], o: {
     if (st.phase === 'dealing') {
       const left = unknownCards(st);
       const cards: string[] = [];
-      for (let i = 0; i < st.needCards; i++) cards.push(cardToString(left.splice(Math.floor(rand() * left.length), 1)[0]!));
+      for (let i = 0; i < st.needCards; i++) cards.push(cardToString(left.splice(Math.floor(deal() * left.length), 1)[0]!));
       push({ type: 'board', cards });
       continue;
     }

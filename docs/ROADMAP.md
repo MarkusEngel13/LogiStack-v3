@@ -336,6 +336,16 @@ on J♠9♦2♠ and A♣7♦2♥, against a 1.5x pot lead (825) 57-65 %.
         it reaches ~60 %. Next: the readout as the calibration screen (Phase 5); a player's
         reads into the advice tags (playbook "opponent calls anything" etc.).
 
+10f. [x] Bot runs in the app (2026-10-09, `core/sim/table.ts`, `ui/sim/`): a table of bots plays seeded hands in
+        the background worker, batch by batch (progress, stop; the cards come from their own random
+        stream, so two runs that differ in one seat see the same cards).
+        - Players page -> "Over many hands": the player at a 7-handed table (built-in mix or your
+          players) for 200-1000 hands; tracker stats with how often each spot came up, win rate ± error.
+        - Players page -> "Exploit check": Hero plays the same hands as style A and as style B; the
+          difference in bb/100 is measured hand by hand (± two standard errors), with both stat sheets.
+          ~1.2 s per hand and version: 300 hands ≈ 12 min, error ~±90 bb/100; 1000 hands ≈ 40 min, ~±50.
+        - Hands page -> Sessions: hands dealt one after another share `session` (the first hand's id);
+          Hero's result in money, BB and bb/100, best and worst hand.
 10e. [ ] House games in the bots' heads (Marius, 2026-10-09; future step). The engine already plays
         straddles, the 7-2 game and squid game (rules, payouts); the bots ignore them. To do:
         - [ ] Straddles: who straddles (type, status: drinking, stuck, button-Mississippi), and the

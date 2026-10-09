@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { sessions, type Session } from '../core/hand/sessions';
 import { FIXTURES } from '../core/fixtures';
 import type { HandRecord } from '../core/hand/types';
 import { Button, Section } from './controls';
@@ -47,6 +48,7 @@ function Row({ hand, onOpen, onDelete }: { hand: HandRecord; onOpen: () => void;
 export function HandsList({ onOpen, onWatch }: { onOpen: (hand: HandRecord, editable: boolean) => void; onWatch?: () => void }) {
   const [hands, setHands] = useState(loadHands);
   const [fishy, setFishy] = useState(loadFishy);
+  const sessionList = useMemo(() => sessions(hands), [hands]);
   return (
     <div className="mx-auto max-w-4xl space-y-5 px-6 py-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -57,6 +59,16 @@ export function HandsList({ onOpen, onWatch }: { onOpen: (hand: HandRecord, edit
           </Button>
         )}
       </div>
+      {sessionList.length > 0 && (
+        <Section title="Sessions">
+          <p className="mb-3 text-xs text-muted">Hands you played one after another (“Deal next hand”), and how Hero did.</p>
+          <ul className="space-y-2">
+            {sessionList.map((s) => (
+              <SessionRow key={s.id} s={s} fishy={fishy.filter((m) => s.hands.some((x) => x.hand.id === m.handId)).length} onOpen={(h) => onOpen(h, true)} />
+            ))}
+          </ul>
+        </Section>
+      )}
       <Section title="Your hands">
         {hands.length === 0 ? (
           <p className="text-sm text-muted">No hands yet. Create one with “New hand”.</p>
@@ -122,5 +134,51 @@ export function HandsList({ onOpen, onWatch }: { onOpen: (hand: HandRecord, edit
         </ul>
       </Section>
     </div>
+  );
+}
+
+function SessionRow({ s, fishy, onOpen }: { s: Session; fishy: number; onOpen: (h: HandRecord) => void }) {
+  const first = s.hands[0]?.hand;
+  const money = (v: number) => (first ? formatAmount(v, first.table.currency, first.table.blinds.bb) : String(v));
+  const sign = (v: number) => (v > 0 ? '+' : '');
+  return (
+    <li className="rounded-md border border-line bg-surface-2 px-4 py-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <div>
+          <div className="font-semibold">{s.name}</div>
+          <div className="text-xs text-muted">
+            {new Date(s.at).toLocaleString()} · {s.hands.length} hands{s.unfinished ? ` (+${s.unfinished} unfinished)` : ''}
+            {fishy > 0 && ` · 🐟 ${fishy} flagged`}
+          </div>
+        </div>
+        <div className="text-right">
+          <div className={`text-lg font-bold tabular-nums ${s.net > 0 ? 'text-ok' : s.net < 0 ? 'text-danger' : ''}`}>
+            {sign(s.net)}
+            {money(s.net)}
+          </div>
+          <div className="text-xs text-muted tabular-nums">
+            {sign(s.netBB)}
+            {s.netBB.toFixed(1)} BB · {sign(s.bbPer100)}
+            {s.bbPer100.toFixed(0)} bb/100
+          </div>
+        </div>
+      </div>
+      {(s.best || s.worst) && (
+        <div className="mt-2 flex flex-wrap gap-2 text-xs">
+          {s.best && (
+            <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => onOpen(s.best!.hand)}>
+              Best: #{s.best.hand.handNo ?? '?'} ({sign(s.best.netBB)}
+              {s.best.netBB.toFixed(1)} BB)
+            </Button>
+          )}
+          {s.worst && (
+            <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => onOpen(s.worst!.hand)}>
+              Worst: #{s.worst.hand.handNo ?? '?'} ({s.worst.netBB.toFixed(1)} BB)
+            </Button>
+          )}
+        </div>
+      )}
+      <p className="mt-1 text-[11px] text-faint">Over few hands the result is mostly luck: a hundred hands swing by 50 BB or more.</p>
+    </li>
   );
 }

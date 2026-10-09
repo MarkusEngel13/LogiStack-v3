@@ -9,6 +9,7 @@
  * - 'whatif': each line of the player to act and what reaches the next street.
  * - 'bot': the action of a bot holding real cards (after the flop).
  * - 'preview': what a player style does in the Players page's fixed spots.
+ * - 'sim': a batch of bot hands at a table (the player check, the exploit check).
  * The preflop table is fetched once, on first need.
  */
 
@@ -22,6 +23,7 @@ import { exploreSizes, sizeKey, type SizeAnswer } from '../../core/motives/sizes
 import { runStory, type StoryCache } from '../../core/motives/story';
 import { whatIf } from '../../core/motives/whatIf';
 import { POSTFLOP_SPOTS, postflopRow, type PostflopRow } from '../../core/players/preview';
+import { playSimHands } from '../../core/sim/table';
 import type { EquityAnswer, EquityQuestion } from './useEquity';
 
 // The app compiles with the DOM types; inside the worker only these two are needed.
@@ -50,7 +52,10 @@ ctx.onmessage = async (e) => {
   const q = e.data;
   const answer = (a: Omit<EquityAnswer, 'id'>) => ctx.postMessage({ id: q.id, ...a });
   try {
-    if (q.kind === 'preview') {
+    if (q.kind === 'sim') {
+      if (storyCache.size > 400) storyCache.clear();
+      answer({ sim: playSimHands(q.table, q.from, q.to, q.charts, storyCache) });
+    } else if (q.kind === 'preview') {
       if (previewCache.size > 500) previewCache.clear();
       const key = JSON.stringify(q.profile);
       answer({
