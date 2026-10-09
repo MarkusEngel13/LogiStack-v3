@@ -2,8 +2,9 @@ import type { Scenario } from '../../core/ranges/library';
 import type { ChartCells } from '../../core/ranges/range';
 
 /**
- * Your own charts, kept in this browser. Library charts are never changed: painting on one makes
- * a copy here (basedOn = the library id), and the copy saves itself on every stroke.
+ * Your own charts, kept in this browser (and synced). Library charts are never changed: Save on
+ * one stores a copy here (basedOn = the library id). Only Save writes the cells, so only saved
+ * charts sync, never a stroke in progress.
  */
 export interface MyRange {
   id: string;

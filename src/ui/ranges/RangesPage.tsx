@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { LIBRARY, SCENARIOS, TEN_MAX_POSITIONS, type LibraryRange, type Scenario } from '../../core/ranges/library';
-import { chartFromCells, chartToCells, emptyChart, foldOf, type ActionMix, type Chart } from '../../core/ranges/range';
-import { Button, Segmented, Toggle } from '../controls';
+import { chartFromCells, emptyChart, foldOf, type ActionMix, type Chart } from '../../core/ranges/range';
+import { Button, Field, inputClass, Modal, Segmented, Toggle } from '../controls';
 import { setBrushAction, smartPaintCells } from './brush';
+import { copyLabel, copyOfLibrary, sameChart, savedMine } from './draft';
 import { deleteMyRange, loadMyRanges, saveMyRange, type MyRange } from './myRanges';
 import { ACTION_COLORS, ACTION_LABELS, chartSegments, RangeGrid } from './RangeGrid';
 import { ComboPopup, StatsBar } from './RangeParts';
 import { RangeTextModal } from './RangeTextModal';
+import { useUnsavedGuard } from './unsavedGuard';
 
 type Ref = { kind: 'library' | 'mine'; id: string };
 
@@ -41,10 +43,36 @@ const DEFAULT_REF: Ref = {
   id: LIBRARY.find((r) => r.env === 'Live' && r.scenario === 'RFI' && r.positions.includes('CO'))?.id ?? LIBRARY[0]!.id,
 };
 
+/** On a phone (below md) the chart comes first and the brush and the list sit under it. */
+const PHONE = '(max-width: 767px)';
+/** Smaller buttons on a phone, so the chart's tools take two rows, not four. */
+const TIGHT = 'max-md:!px-2.5 max-md:!py-1.5';
+
+const chipClass = (active: boolean, big = false) =>
+  `rounded border px-2 text-xs ${big ? 'py-1.5' : 'py-1'} ${active ? 'border-accent text-ink' : 'border-line text-muted hover:text-ink'}`;
+
+function BrushPresets({ brush, onPick, big }: { brush: ActionMix; onPick: (mix: ActionMix) => void; big?: boolean }) {
+  return (
+    <>
+      {BRUSH_PRESETS.map((p) => (
+        <button
+          key={p.label}
+          type="button"
+          onClick={() => onPick(p.mix)}
+          className={chipClass(p.mix.allin === brush.allin && p.mix.raise === brush.raise && p.mix.call === brush.call, big)}
+        >
+          {p.label}
+        </button>
+      ))}
+    </>
+  );
+}
+
 /**
  * Preflop ranges: v2's chart editor. Pick a chart in the library tree, paint with the brush
- * (click or drag; Smart Paint fills a hand and everything better in its line). Library charts
- * stay as they are: the first stroke makes your own copy, which then saves itself.
+ * (click or drag; Smart Paint fills a hand and everything better in its line). What you paint is
+ * a draft until Save: on your chart Save stores it; on a library chart Save asks for a name and
+ * keeps it as a chart of yours (the library never changes). Discard goes back to the saved chart.
  */
 export function RangesPage() {
   const [mine, setMine] = useState<MyRange[]>(loadMyRanges);
@@ -53,8 +81,11 @@ export function RangesPage() {
 
   const [selected, setSelected] = useState<Ref>(DEFAULT_REF);
   const current = find(selected) ?? entries[0]!;
+  const isLibrary = current.ref.kind === 'library';
   const [chart, setChart] = useState<Chart>(current.chart);
   const [history, setHistory] = useState<Chart[]>([]);
+  /** The draft differs from the saved chart (the pill; Save and Discard). */
+  const unsaved = !sameChart(chart, current.chart);
 
   const [brush, setBrush] = useState<ActionMix>({ allin: 0, raise: 100, call: 0 });
   const [smart, setSmart] = useState(false);
@@ -66,67 +97,102 @@ export function RangesPage() {
   const [compare, setCompare] = useState<string>('');
   const [textOpen, setTextOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  /** Save · Discard · Cancel before leaving the chart; `then` = where to go after Save or Discard. */
+  const [ask, setAsk] = useState<{ then: () => void } | null>(null);
+  /** The name of a library chart's copy, asked by Save; `then` as above. */
+  const [naming, setNaming] = useState<{ label: string; then?: () => void } | null>(null);
+  const [saveFailed, setSaveFailed] = useState(false);
 
-  // Latest values for handlers that run between renders (stroke end, undo).
+  // Latest values for handlers that run between renders (strokes, undo, the questions' answers).
   const chartRef = useRef(chart);
   chartRef.current = chart;
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
+  const mainRef = useRef<HTMLElement>(null);
 
-  const select = (ref: Ref) => {
+  // another module, or closing the tab, with unsaved changes: ask first
+  useUnsavedGuard(unsaved, (go) => setAsk({ then: go }));
+
+  const open = (ref: Ref) => {
     const e = find(ref);
     if (!e) return;
+    selectedRef.current = ref;
     setSelected(ref);
+    chartRef.current = e.chart;
     setChart(e.chart);
     setHistory([]);
     setConfirmDelete(false);
+    setSaveFailed(false);
+    // on a phone the list sits under the chart: bring the chart back into view
+    if (window.matchMedia(PHONE).matches) mainRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   };
 
-  const persist = (next: Chart) => {
-    const ref = selectedRef.current;
-    if (ref.kind !== 'mine') return;
-    const existing = loadMyRanges().find((m) => m.id === ref.id);
-    if (!existing) return;
-    saveMyRange({ ...existing, cells: chartToCells(next), updatedAt: new Date().toISOString() });
+  /** Another chart from the list: straight away, or after Save · Discard · Cancel. */
+  const pick = (ref: Ref) => {
+    if (sameRef(ref, selected)) return;
+    if (unsaved) setAsk({ then: () => open(ref) });
+    else open(ref);
+  };
+
+  /** Save onto your chart; a library chart first asks for the name of your copy. */
+  const save = (then?: () => void) => {
+    setAsk(null);
+    if (isLibrary) {
+      setNaming({ label: copyLabel(current.label), then });
+      return;
+    }
+    const existing = loadMyRanges().find((m) => m.id === current.ref.id);
+    if (!existing || !saveMyRange(savedMine(existing, chartRef.current, new Date().toISOString()))) {
+      setSaveFailed(true);
+      return;
+    }
     setMine(loadMyRanges());
+    setSaveFailed(false);
+    then?.();
   };
 
-  /** Before the first change to a library chart: make it yours. */
-  const ensureMine = () => {
-    if (selectedRef.current.kind === 'mine') return;
-    const lib = current;
-    const copy: MyRange = {
-      id: crypto.randomUUID(),
-      label: `${lib.label} (mine)`,
-      scenario: lib.scenario,
-      positions: lib.positions,
-      stack: lib.stack,
-      env: lib.env,
-      playerType: lib.playerType,
-      cells: chartToCells(chartRef.current),
-      basedOn: lib.ref.id,
-      updatedAt: new Date().toISOString(),
-    };
-    saveMyRange(copy);
+  /** A library chart's draft becomes a new chart of yours, which stays open. */
+  const saveCopy = (label: string, then?: () => void) => {
+    const copy = copyOfLibrary({ ...current, id: current.ref.id }, chartRef.current, label, crypto.randomUUID(), new Date().toISOString());
+    setNaming(null);
+    if (!saveMyRange(copy)) {
+      setSaveFailed(true);
+      return;
+    }
     setMine(loadMyRanges());
     const ref: Ref = { kind: 'mine', id: copy.id };
     selectedRef.current = ref;
     setSelected(ref);
+    setSaveFailed(false);
+    then?.();
+  };
+
+  /**
+   * Keep the chart as it is now for Undo. Read here, not inside the state update: that may run
+   * only at the next render, when the stroke has already moved chartRef on.
+   */
+  const remember = () => {
+    const before = chartRef.current;
+    setHistory((h) => [...h.slice(-99), before]);
+  };
+
+  /** Back to the saved chart; Undo brings the draft back. */
+  const discard = () => {
+    remember();
+    chartRef.current = current.chart;
+    setChart(current.chart);
+    setSaveFailed(false);
   };
 
   const change = (next: Chart) => {
-    ensureMine();
-    setHistory((h) => [...h.slice(-99), chartRef.current]);
+    remember();
     chartRef.current = next;
     setChart(next);
-    persist(next);
   };
 
   const paint = (cell: number, first: boolean) => {
-    if (first) {
-      ensureMine();
-      setHistory((h) => [...h.slice(-99), chartRef.current]);
-    } else if (smart) return; // Smart Paint fills from the clicked hand only
+    if (first) remember();
+    else if (smart) return; // Smart Paint fills from the clicked hand only
     const cells = smart ? smartPaintCells(cell) : [cell];
     const next = chartRef.current.slice();
     for (const c of cells) next[c] = { ...brush };
@@ -140,12 +206,17 @@ export function RangesPage() {
     setHistory((h) => h.slice(0, -1));
     chartRef.current = prev;
     setChart(prev);
-    persist(prev);
   };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !(e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement)) {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const dialog = ask || naming || textOpen;
+      const key = e.key.toLowerCase();
+      if (key === 's') {
+        e.preventDefault(); // never the browser's "save page" here
+        if (unsaved && !dialog) save();
+      } else if (key === 'z' && !dialog && !(e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement)) {
         e.preventDefault();
         undo();
       }
@@ -168,6 +239,7 @@ export function RangesPage() {
     change(next);
   };
 
+  /** The name of your chart is stored at once; the cells wait for Save. */
   const rename = (label: string) => {
     const existing = loadMyRanges().find((m) => m.id === selected.id);
     if (!existing) return;
@@ -176,14 +248,13 @@ export function RangesPage() {
   };
 
   const remove = () => {
-    const gone = selected;
     const back = current.basedOn ? find({ kind: 'library', id: current.basedOn }) : undefined;
-    deleteMyRange(gone.id);
-    const list = loadMyRanges();
-    setMine(list);
+    deleteMyRange(selected.id);
+    setMine(loadMyRanges());
     const target = back ?? fromLibrary(LIBRARY[0]!);
-    setSelected(target.ref);
     selectedRef.current = target.ref;
+    setSelected(target.ref);
+    chartRef.current = target.chart;
     setChart(target.chart);
     setHistory([]);
     setConfirmDelete(false);
@@ -201,12 +272,15 @@ export function RangesPage() {
       .sort((a, b) => firstPosition(a) - firstPosition(b) || (a.ref.kind === b.ref.kind ? 0 : a.ref.kind === 'library' ? -1 : 1)),
   })).filter((g) => g.items.length > 0);
 
-  const gridWidth = compareEntry ? 'min(calc(50% - 8px), calc(100vh - 300px))' : 'min(100%, calc(100vh - 300px))';
+  // a phone: the full width (13 cells of ~27 px); larger: as high as the window allows, never under 320 px
+  const gridWidth = compareEntry
+    ? 'w-full md:w-[min(calc(50%_-_8px),max(calc(100vh_-_300px),320px))]'
+    : 'w-full md:w-[min(100%,max(calc(100vh_-_300px),320px))]';
 
   return (
-    <div className="mx-auto grid max-w-[1500px] gap-5 px-6 py-5" style={{ gridTemplateColumns: '290px minmax(0, 1fr)' }}>
-      {/* Sidebar: brush, then the library */}
-      <aside className="space-y-4">
+    <div className="mx-auto grid max-w-[1500px] gap-5 px-3 py-3 sm:px-6 sm:py-5 md:grid-cols-[290px_minmax(0,1fr)]">
+      {/* Sidebar: brush, then the library (on a phone: under the chart) */}
+      <aside className="order-2 space-y-4 md:order-none">
         <div className="rounded-lg border border-line bg-surface p-4">
           <div className="mb-3 text-xs font-bold tracking-wider text-muted uppercase">Brush</div>
           <div className="space-y-2.5">
@@ -234,23 +308,14 @@ export function RangesPage() {
             </div>
           </div>
           <div className="mt-3 flex flex-wrap gap-1.5">
-            {BRUSH_PRESETS.map((p) => {
-              const active = p.mix.allin === brush.allin && p.mix.raise === brush.raise && p.mix.call === brush.call;
-              return (
-                <button
-                  key={p.label}
-                  type="button"
-                  onClick={() => setBrush(p.mix)}
-                  className={`rounded border px-2 py-1 text-xs ${active ? 'border-accent text-ink' : 'border-line text-muted hover:text-ink'}`}
-                >
-                  {p.label}
-                </button>
-              );
-            })}
+            <BrushPresets brush={brush} onPick={setBrush} />
           </div>
           <div className="mt-4 space-y-2.5 border-t border-line pt-3">
             <Toggle checked={smart} onChange={setSmart} label="Smart Paint" hint="A hand and every better one in its line." />
-            <Toggle checked={popupOn} onChange={setPopupOn} label="Combos on hover" />
+            {/* a finger has no hover */}
+            <div className="pointer-coarse:hidden">
+              <Toggle checked={popupOn} onChange={setPopupOn} label="Combos on hover" />
+            </div>
           </div>
         </div>
 
@@ -291,12 +356,13 @@ export function RangesPage() {
                             key={refKey(e.ref)}
                             type="button"
                             title={e.label}
-                            onClick={() => select(e.ref)}
+                            onClick={() => pick(e.ref)}
                             className={`flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm ${
                               active ? 'bg-surface-3 text-ink ring-1 ring-accent' : 'text-muted hover:bg-surface-2 hover:text-ink'
                             }`}
                           >
                             <span className="flex-1 truncate">{e.positions.join(' / ')}</span>
+                            {active && unsaved && <span className="text-xs text-warn" title="Unsaved">●</span>}
                             {e.ref.kind === 'mine' && <span className="rounded bg-accent px-1.5 text-[10px] font-bold text-accent-ink">MINE</span>}
                           </button>
                         );
@@ -310,25 +376,32 @@ export function RangesPage() {
         </div>
       </aside>
 
-      {/* The chart */}
-      <main className="min-w-0 space-y-3">
+      {/* The chart (on a phone: first) */}
+      <main ref={mainRef} className="order-1 min-w-0 scroll-mt-28 space-y-3 md:order-none">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            {/* Same box for both, so the page doesn't shift when a library chart becomes yours. */}
-            <input
-              key={refKey(current.ref)}
-              defaultValue={current.label}
-              readOnly={current.ref.kind === 'library'}
-              onBlur={(e) => e.target.value.trim() && e.target.value !== current.label && rename(e.target.value.trim())}
-              onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-              className={`w-[460px] max-w-full rounded-md border border-transparent bg-transparent px-1 text-xl font-bold focus:outline-none ${
-                current.ref.kind === 'mine' ? 'hover:border-line focus:border-accent' : 'cursor-default'
-              }`}
-              aria-label="Chart name"
-            />
+          <div className="min-w-0 max-md:w-full">
+            {/* A fixed row, so the tools beside it never jump; the box is as wide as the name where the browser can (the pill right after it). */}
+            <div className="flex w-[460px] max-w-full items-center gap-2">
+              <input
+                key={refKey(current.ref)}
+                defaultValue={current.label}
+                readOnly={isLibrary}
+                onBlur={(e) => e.target.value.trim() && e.target.value !== current.label && rename(e.target.value.trim())}
+                onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                className={`w-full min-w-0 rounded-md border border-transparent bg-transparent px-1 text-lg font-bold [field-sizing:content] focus:outline-none supports-[field-sizing:content]:w-auto md:text-xl ${
+                  isLibrary ? 'cursor-default' : 'hover:border-line focus:border-accent'
+                }`}
+                aria-label="Chart name"
+              />
+              {unsaved && (
+                <span className="shrink-0 rounded-full border border-warn px-2 py-0.5 text-xs font-semibold text-warn" title="The chart differs from the saved one">
+                  Unsaved
+                </span>
+              )}
+            </div>
             <div className="mt-1 flex flex-wrap items-center gap-1.5 px-1 text-xs text-muted">
-              <span className={`rounded px-1.5 py-0.5 font-bold ${current.ref.kind === 'mine' ? 'bg-accent text-accent-ink' : 'bg-surface-3 text-ink'}`}>
-                {current.ref.kind === 'mine' ? 'MINE' : 'LIBRARY'}
+              <span className={`rounded px-1.5 py-0.5 font-bold ${isLibrary ? 'bg-surface-3 text-ink' : 'bg-accent text-accent-ink'}`}>
+                {isLibrary ? 'LIBRARY' : 'MINE'}
               </span>
               <span>{current.scenario}</span>·<span>{current.positions.join(' / ')}</span>·<span>{current.stack.replace('BB', ' BB')}</span>·
               <span>
@@ -337,20 +410,26 @@ export function RangesPage() {
               {basedOn && <span className="text-faint">· copy of “{basedOn.label}”</span>}
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="secondary" onClick={undo} disabled={history.length === 0} title="Ctrl+Z">
+          <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
+            <Button variant="secondary" onClick={undo} disabled={history.length === 0} title="Ctrl+Z" className={TIGHT}>
               ↶ Undo
             </Button>
-            <Button variant="secondary" onClick={() => change(emptyChart())}>
+            <Button variant="secondary" onClick={discard} disabled={!unsaved} title="Back to the saved chart" className={TIGHT}>
+              Discard
+            </Button>
+            <Button variant="primary" onClick={() => save()} disabled={!unsaved} title={isLibrary ? 'Keep it as your own chart (Ctrl+S)' : 'Ctrl+S'} className={TIGHT}>
+              {isLibrary ? 'Save…' : 'Save'}
+            </Button>
+            <Button variant="secondary" onClick={() => change(emptyChart())} className={TIGHT}>
               Clear
             </Button>
-            <Button variant="secondary" onClick={() => setTextOpen(true)}>
+            <Button variant="secondary" onClick={() => setTextOpen(true)} className={TIGHT}>
               Text…
             </Button>
             <select
               value={compare}
               onChange={(e) => setCompare(e.target.value)}
-              className="rounded-md border border-line bg-surface-2 px-2.5 py-2 text-sm text-ink"
+              className="max-w-full rounded-md border border-line bg-surface-2 px-2.5 py-1.5 text-sm text-ink md:py-2"
               aria-label="Compare with"
             >
               <option value="">Compare with…</option>
@@ -367,39 +446,48 @@ export function RangesPage() {
                 ) : null;
               })}
             </select>
-            {current.ref.kind === 'mine' &&
+            {!isLibrary &&
               (confirmDelete ? (
-                <Button variant="danger" onClick={remove}>
+                <Button variant="danger" onClick={remove} className={TIGHT}>
                   Really delete?
                 </Button>
               ) : (
-                <Button variant="danger" onClick={() => setConfirmDelete(true)}>
+                <Button variant="danger" onClick={() => setConfirmDelete(true)} className={TIGHT}>
                   Delete
                 </Button>
               ))}
           </div>
         </div>
 
-        {/* Always one line, so the grid never moves (the first stroke on a library chart switches to the copy). */}
-        <div className="truncate rounded-md border border-line bg-surface-2 px-3 py-1.5 text-sm text-muted">
-          {current.ref.kind === 'library'
-            ? 'Library chart. Painting on it makes your own copy; the library stays as it is.'
-            : 'Your chart: every change is saved. Ctrl+Z undoes.'}
+        {/* One line, so the grid never moves; a phone keeps the room for the chart (unless saving failed). */}
+        <div className={`truncate rounded-md border border-line bg-surface-2 px-3 py-1.5 text-sm ${saveFailed ? 'text-danger' : 'text-muted max-md:hidden'}`}>
+          {saveFailed
+            ? 'Not saved: this browser would not store it (storage full or blocked).'
+            : isLibrary
+              ? 'Library chart. Paint on it; Save keeps it as your own chart, the library stays as it is.'
+              : 'Your chart. Changes are a draft until Save; Discard goes back. Ctrl+Z undoes.'}
         </div>
 
-        <div className="flex gap-4">
-          <div className="space-y-2" style={{ width: gridWidth }}>
+        {/* On a phone the brush card is under the chart: its presets and Smart Paint are here too. */}
+        <div className="flex flex-wrap items-center gap-1.5 md:hidden">
+          <BrushPresets brush={brush} onPick={setBrush} big />
+          <button type="button" aria-pressed={smart} onClick={() => setSmart(!smart)} className={chipClass(smart, true)}>
+            Smart Paint
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-4 md:flex-row">
+          <div className={`space-y-2 ${gridWidth}`}>
             <RangeGrid
               fills={fills}
               onPaint={paint}
-              onPaintEnd={() => persist(chartRef.current)}
               onHover={(cell, x, y) => setHover(cell === null ? null : { cell, x, y, compare: false })}
               cursor={smart ? 'crosshair' : 'pointer'}
             />
             <StatsBar chart={chart} />
           </div>
           {compareEntry && compareFills && (
-            <div className="space-y-2" style={{ width: gridWidth }}>
+            <div className={`space-y-2 ${gridWidth}`}>
               <RangeGrid fills={compareFills} dimmed onHover={(cell, x, y) => setHover(cell === null ? null : { cell, x, y, compare: true })} />
               <StatsBar chart={compareEntry.chart} />
               <div className="truncate text-center text-xs text-muted">{compareEntry.label}</div>
@@ -412,6 +500,69 @@ export function RangesPage() {
         <ComboPopup cell={hover.cell} mix={(hover.compare && compareEntry ? compareEntry.chart : chart)[hover.cell]!} x={hover.x} y={hover.y} />
       )}
       {textOpen && <RangeTextModal chart={chart} brush={brush} onPaint={paintShares} onClose={() => setTextOpen(false)} />}
+
+      {ask && (
+        <Modal
+          title="Unsaved changes"
+          onClose={() => setAsk(null)}
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setAsk(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => {
+                  setAsk(null);
+                  discard();
+                  ask.then();
+                }}
+              >
+                Discard
+              </Button>
+              <Button variant="primary" onClick={() => save(ask.then)}>
+                {isLibrary ? 'Save…' : 'Save'}
+              </Button>
+            </>
+          }
+        >
+          <p className="text-sm">
+            “{current.label}” has changes that are not saved.
+            {isLibrary && ' Save keeps them as your own chart; the library chart stays as it is.'}
+          </p>
+        </Modal>
+      )}
+
+      {naming && (
+        <Modal
+          title="Save as your own chart"
+          onClose={() => setNaming(null)}
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setNaming(null)}>
+                Cancel
+              </Button>
+              <Button variant="primary" onClick={() => saveCopy(naming.label, naming.then)}>
+                Save
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-3">
+            <Field label="Name">
+              <input
+                autoFocus
+                value={naming.label}
+                onChange={(e) => setNaming({ ...naming, label: e.target.value })}
+                onKeyDown={(e) => e.key === 'Enter' && saveCopy(naming.label, naming.then)}
+                className={inputClass}
+                aria-label="Name of your chart"
+              />
+            </Field>
+            <p className="text-xs text-faint">The library chart “{current.label}” stays as it is.</p>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
