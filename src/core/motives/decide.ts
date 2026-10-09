@@ -6,7 +6,10 @@
  *   greed          x what the option can win (the pot if they fold, the pot plus their call if called and ahead)
  *   loss aversion  x what it can lose (more for amounts past the player's comfort)
  *   fear           x the lead the next cards can take (scary cards; betting or raising "protects")
- *   trap           x the worse hands kept in for later streets (delayed gratification)
+ *   trap           x the worse hands kept in for later streets (delayed gratification); a strong hand
+ *                    facing a bet counts on the bettor's later bets as his size reads them (beliefs.ts:
+ *                    a small bet reads weak - raise it now; a big one strong - call, he keeps betting),
+ *                    on a safe board also on its own later bets, and on the turn it no longer waits
  *   tough decision x how likely the line leaves a medium hand in a hard spot (a jam ends it)
  *   embarrassment  x a bluff called and shown (river)
  *   + a liking for betting (aggression) or for calling (stickiness), and for the usual sizes (habit)
@@ -23,7 +26,7 @@ import { fromParts, partsByGroup, type GroupParts } from '../equity/field';
 import { fearNumbers } from '../fear';
 import type { Weights } from '../ranges/range';
 import { nutsChanged } from '../texture';
-import { believedContinue } from './beliefs';
+import { believedContinue, laterBets } from './beliefs';
 import type { MotiveProfile } from './profile';
 
 export interface Situation {
@@ -166,6 +169,20 @@ const IP_TRAP = 1.8;
  * comes first), may call or raise into the strong hand, and pay later streets.
  */
 const TRAP_BEHIND = 1;
+/**
+ * What a hand that feels like the nuts makes of each chip the bettor is believed to put in later
+ * (the size read, beliefs.ts) when it just calls: more than the chip - every bet it lets him make
+ * grows the pot for its own raise later ("let him bet, raise him later"). Calibrated: a half-pot
+ * bettor's later bets are worth half again the usual trap (TRAP), a third-pot stab's a fifth less.
+ */
+const BARRELS = 3;
+/**
+ * A trap is a street of waiting (Marius's pool: "they wait a street, then raise the turn"): a call
+ * on the flop keeps the turn raise and the river to come; on the turn it leaves only the river,
+ * where a raise gets called by better hands only (HHP-hb5V55q-tTU-41/42). So with one street left
+ * a strong hand's call counts this share of it, and it raises the turn instead.
+ */
+const WAIT_LAST = 0.25;
 export const DEFAULT_RAISES = [2.5, 3.5];
 
 /** The menu with the player's usual size on it (when it isn't there already). */
@@ -344,6 +361,11 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
 
   // ---- scores ----------------------------------------------------------------------------
   const c = C / P;
+  // What the bettor is believed to put in later if called (the size read, beliefs.ts), as a strong
+  // hand that waits counts it, in pots: little from a small bet (he gives up), much from a big one
+  // (he keeps betting) - never more than he has; on the turn only part of a street (WAIT_LAST).
+  const waiting = streetsLeft === 1 ? WAIT_LAST : streetsLeft;
+  const hisLater = facing ? Math.min(BARRELS * waiting * laterBets(c), s.oppStack / P) : 0;
   // Respect for a big bet: from ¾ pot up, growing with the size up to 2.25 pots (a shove is not
   // 20x scarier), more on the turn and most on the river - big late bets are underbluffed, and
   // players know it (HHP: they overfold to them).
@@ -401,13 +423,20 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
       case 'call': {
         const eP = weigh(e, p.longShot) ** read;
         const cc = o.amount / P;
+        // worse hands kept in for later streets. A hand that feels like the nuts waits for the
+        // bettor's later bets as his size reads them - it lets a big bettor keep betting and raises
+        // a small stab now - or, once he gives up, for its own: the usual half pot a street, as far
+        // as the board stays safe (so on a dry board it waits even against a small bet). Other
+        // hands count on the usual half pot a street.
+        const nuts = A ** 6;
+        const later = nuts * Math.max(hisLater, TRAP * waiting * keep) + (1 - nuts) * TRAP * streetsLeft;
         return {
           ...none,
           gain: eP * (1 + cc),
           loss: (1 - eP) * cc,
           fear: fearNow,
-          // worse hands kept in for later streets, and the players behind kept in now (no card first)
-          trap: TRAP * A * keep * streetsLeft * (s.inPosition ? IP_TRAP : 1) + TRAP_BEHIND * A ** 2 * (s.behind ?? 0),
+          // ...and the players behind kept in now (no card first)
+          trap: A * keep * later * (s.inPosition ? IP_TRAP : 1) + TRAP_BEHIND * A ** 2 * (s.behind ?? 0),
           tough: streetsLeft > 0 ? mid(eP) * pressure(P + 2 * o.amount, s.stack - o.amount) : 0,
           liking: 0,
         };

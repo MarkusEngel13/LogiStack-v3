@@ -184,8 +184,8 @@ describe('sizes', { timeout: 60_000 }, () => {
   });
 
   // HHP-wdLX7cybJvs-31: a small turn bet makes recs with strong hands fast-play: "They get greedy,
-  // they don't want to see a bad river". (Not tested: whether they raise a small bet *more* than
-  // a big one - that comparison was the extraction's suggestion, not Mark's claim.)
+  // they don't want to see a bad river". (That they raise a small bet *more* than a big one was the
+  // extraction's suggestion, not Mark's claim - it is Marius's pool read: sizeRead.test.ts.)
   test('strong hands raise a small turn bet', () => {
     const TURN = 'Js 9d 2s 4c';
     const d = decide(fish, { ...facingCbet(TURN, 1 / 3), pot: 900, toCall: 300 }, bb, hero);
