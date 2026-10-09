@@ -1,50 +1,49 @@
 import { lazy, Suspense, useState } from 'react';
 import type { HandRecord } from './core/hand/types';
 import { Button } from './ui/controls';
+import { HomePage, MODULES, type ModuleId } from './ui/home/HomePage';
 import { nextHandNo, saveHand } from './ui/library';
 import { OptionsModal } from './ui/OptionsModal';
 import { AccountBadge } from './ui/sync/AccountBadge';
 import { SettingsProvider } from './ui/settings';
 import { HandWizard } from './ui/wizard/HandWizard';
-import { toHandRecord } from './ui/wizard/draft';
-import { watchDraft } from './ui/wizard/watchTable';
 
-// pages load when first opened (the first screen, the wizard, stays in the main file)
+// modules load when first opened (the start page and the wizard stay in the main file)
 const RangesPage = lazy(() => import('./ui/ranges/RangesPage').then((m) => ({ default: m.RangesPage })));
 const EquityPage = lazy(() => import('./ui/equity/EquityPage').then((m) => ({ default: m.EquityPage })));
 const PlayersPage = lazy(() => import('./ui/players/PlayersPage').then((m) => ({ default: m.PlayersPage })));
 const HandScreen = lazy(() => import('./ui/replay/HandScreen').then((m) => ({ default: m.HandScreen })));
 const LivePage = lazy(() => import('./ui/live/LivePage').then((m) => ({ default: m.LivePage })));
 const HandsList = lazy(() => import('./ui/HandsList').then((m) => ({ default: m.HandsList })));
-type Page = 'live' | 'new' | 'hands' | 'hand' | 'ranges' | 'equity' | 'players';
+const GymPage = lazy(() => import('./ui/gym/GymPage').then((m) => ({ default: m.GymPage })));
 
-/** On a phone the app opens on the live table; on a computer on a new hand. */
-const firstPage = (): Page => (typeof window !== 'undefined' && window.innerWidth < 640 ? 'live' : 'new');
+/** The start page, a module, or two screens inside the Lab: a new hand and one open hand. */
+type Page = 'home' | ModuleId | 'new' | 'hand';
+
+/** Playing at a table: the bots play everyone but you (the Lab's switch, remembered there). */
+function botsPlayTheOthers() {
+  try {
+    localStorage.setItem('logistack.autoBots', '1');
+  } catch {
+    // storage blocked: switch "Bots play the others" on in the Lab
+  }
+}
 
 export default function App() {
-  const [page, setPage] = useState<Page>(firstPage);
+  const [page, setPage] = useState<Page>('home');
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [wizardKey, setWizardKey] = useState(0);
-  const [open, setOpen] = useState<{ hand: HandRecord; editable: boolean } | null>(null);
+  const [open, setOpen] = useState<{ hand: HandRecord; editable: boolean; from: ModuleId } | null>(null);
 
-  const openHand = (hand: HandRecord, editable: boolean) => {
-    setOpen({ hand, editable });
+  /** A hand opens in the Lab's hand screen; "back" returns to the module it came from. */
+  const openHand = (hand: HandRecord, editable: boolean, from: ModuleId = 'lab') => {
+    setOpen({ hand, editable, from });
     setPage('hand');
   };
 
   const newHand = () => {
     setWizardKey((k) => k + 1);
     setPage('new');
-  };
-
-  /** The gym's watch table: bots on every seat, dealing hand after hand. */
-  const watchBots = () => {
-    const hand: HandRecord = {
-      ...toHandRecord(watchDraft(), { id: crypto.randomUUID(), createdAt: new Date().toISOString(), handNo: nextHandNo() }),
-      watch: {},
-    };
-    saveHand(hand);
-    openHand(hand, true);
   };
 
   const editCopy = (hand: HandRecord) => {
@@ -56,103 +55,100 @@ export default function App() {
       title: `${hand.title ?? 'Hand'} (copy)`,
     };
     saveHand(copy);
-    openHand(copy, true);
+    openHand(copy, true, open?.from ?? 'lab');
   };
+
+  // the module a screen belongs to, for the menu's highlight
+  const current: ModuleId | null = page === 'home' ? null : page === 'new' ? 'lab' : page === 'hand' ? (open?.from ?? 'lab') : page;
+
+  const nav = (
+    <>
+      {MODULES.map((m) => (
+        <button
+          key={m.id}
+          type="button"
+          onClick={() => setPage(m.id)}
+          className={`shrink-0 rounded-md px-2.5 py-1.5 text-sm whitespace-nowrap sm:px-3 ${current === m.id ? 'bg-surface-2 text-ink' : 'text-muted hover:text-ink'}`}
+        >
+          {m.name}
+        </button>
+      ))}
+    </>
+  );
 
   return (
     <SettingsProvider>
       <div className="min-h-screen">
         <header className="sticky top-0 z-40 border-b border-line bg-bg/90 backdrop-blur">
-          <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-2 px-3 py-2 sm:gap-4 sm:px-6 sm:py-3">
-            <div className="flex min-w-0 items-center gap-3 sm:gap-8">
-              <span className="hidden text-lg font-black tracking-tight sm:inline">
-                Logi<span className="text-accent">Stack</span>
-              </span>
-              <nav className="-mx-1 flex min-w-0 gap-0.5 overflow-x-auto px-1 sm:gap-1">
-                {(
-                  [
-                    ['live', 'Live'],
-                    ['new', 'New hand'],
-                    ['hands', 'Hands'],
-                    ['players', 'Players'],
-                    ['ranges', 'Ranges'],
-                    ['equity', 'EQ'],
-                  ] as const
-                ).map(([id, label]) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => (id === 'new' ? newHand() : setPage(id))}
-                    className={`shrink-0 rounded-md px-2.5 py-1.5 text-sm whitespace-nowrap sm:px-3 ${
-                      page === id || (page === 'hand' && id === 'hands') ? 'bg-surface-2 text-ink' : 'text-muted hover:text-ink'
-                    }`}
-                  >
-                    {id === 'new' ? (
-                      <>
-                        <span className="sm:hidden">New</span>
-                        <span className="hidden sm:inline">New hand</span>
-                      </>
-                    ) : (
-                      label
-                    )}
-                  </button>
-                ))}
-              </nav>
+          {/* a computer: one row; a phone: the logo, account and options on top, the modules wrapping under them */}
+          <div className="mx-auto max-w-[1500px] px-3 py-2 sm:px-6 sm:py-3">
+            <div className="flex items-center justify-between gap-2 sm:gap-4">
+              <div className="flex min-w-0 items-center gap-3 sm:gap-8">
+                <button type="button" onClick={() => setPage('home')} className="shrink-0 text-lg font-black tracking-tight" title="Start page">
+                  Logi<span className="text-accent">Stack</span>
+                </button>
+                <nav className="hidden min-w-0 flex-wrap gap-1 sm:flex">{nav}</nav>
+              </div>
+              <div className="flex shrink-0 items-center gap-1">
+                <AccountBadge />
+                <Button variant="ghost" onClick={() => setOptionsOpen(true)} title="Options" className="shrink-0 !px-2.5 sm:!px-3.5">
+                  ⚙<span className="hidden sm:inline"> Options</span>
+                </Button>
+              </div>
             </div>
-            <div className="flex shrink-0 items-center gap-1">
-              <AccountBadge />
-              <Button variant="ghost" onClick={() => setOptionsOpen(true)} title="Options" className="shrink-0 !px-2.5 sm:!px-3.5">
-                ⚙<span className="hidden sm:inline"> Options</span>
-              </Button>
-            </div>
+            <nav className="-mx-1 mt-1 flex flex-wrap gap-0.5 sm:hidden">{nav}</nav>
           </div>
         </header>
 
         <Suspense fallback={<div className="px-6 py-10 text-sm text-muted">Loading…</div>}>
-        {page === 'new' && (
-          <HandWizard
-            key={wizardKey}
-            onCreated={(hand) => {
-              saveHand(hand);
-              openHand(hand, true); // straight into the Lab to enter the actions
-            }}
-          />
-        )}
-        {page === 'live' && <LivePage onOpenHand={(h) => openHand(h, true)} />}
-        {page === 'hands' && <HandsList onOpen={openHand} onWatch={watchBots} />}
-        {page === 'players' && (
-          <PlayersPage
-            onOpenHand={(hand, mode) => {
-              // playing: the bots play everyone but you (the Lab's switch, remembered there)
-              if (mode === 'play') {
-                try {
-                  localStorage.setItem('logistack.autoBots', '1');
-                } catch {
-                  // storage blocked: switch "Bots play the others" on in the Lab
-                }
-              }
-              saveHand(hand);
-              openHand(hand, true);
-            }}
-          />
-        )}
-        {page === 'ranges' && <RangesPage />}
-        {page === 'equity' && <EquityPage />}
-        {page === 'hand' && open && (
-          <HandScreen
-            key={`${open.hand.id}-${open.editable}`}
-            initial={open.hand}
-            editable={open.editable}
-            onBack={() => setPage('hands')}
-            onNewHand={newHand}
-            onNextHand={(next) => {
-              saveHand(next);
-              openHand(next, true);
-            }}
-            onEditCopy={editCopy}
-          />
-        )}
-
+          {page === 'home' && <HomePage onOpen={setPage} />}
+          {page === 'new' && (
+            <HandWizard
+              key={wizardKey}
+              onCreated={(hand) => {
+                saveHand(hand);
+                openHand(hand, true); // straight into the Lab to enter the actions
+              }}
+            />
+          )}
+          {page === 'live' && <LivePage onOpenHand={(h) => openHand(h, true, 'live')} />}
+          {page === 'lab' && <HandsList onOpen={(h, editable) => openHand(h, editable)} onNew={newHand} />}
+          {page === 'gym' && (
+            <GymPage
+              onStart={(hand, mode) => {
+                if (mode === 'play') botsPlayTheOthers();
+                saveHand(hand);
+                openHand(hand, true, 'gym');
+              }}
+              onOpen={(hand) => openHand(hand, true, 'gym')}
+            />
+          )}
+          {page === 'players' && (
+            <PlayersPage
+              onOpenHand={(hand, mode) => {
+                if (mode === 'play') botsPlayTheOthers();
+                saveHand(hand);
+                openHand(hand, true, 'players');
+              }}
+            />
+          )}
+          {page === 'ranges' && <RangesPage />}
+          {page === 'equity' && <EquityPage />}
+          {page === 'hand' && open && (
+            <HandScreen
+              key={`${open.hand.id}-${open.editable}`}
+              initial={open.hand}
+              editable={open.editable}
+              onBack={() => setPage(open.from)}
+              backLabel={MODULES.find((m) => m.id === open.from)?.name}
+              onNewHand={newHand}
+              onNextHand={(next) => {
+                saveHand(next);
+                openHand(next, true, open.from);
+              }}
+              onEditCopy={editCopy}
+            />
+          )}
         </Suspense>
 
         {optionsOpen && <OptionsModal onClose={() => setOptionsOpen(false)} />}

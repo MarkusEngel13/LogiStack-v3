@@ -49,6 +49,8 @@ interface Props {
   /** Your own hands: the Lab (enter, rewind, branch, undo; saved on every change). Samples: replay only. */
   editable: boolean;
   onBack: () => void;
+  /** The module "back" returns to: Lab, Gym, Live or Players. */
+  backLabel?: string;
   onNewHand: () => void;
   /** The gym: the next hand at the same table, ready to play (the caller saves and opens it). */
   onNextHand?: (next: HandRecord) => void;
@@ -57,7 +59,7 @@ interface Props {
 
 const errorText = (e: unknown) => (e instanceof HandError ? e.message.replace(/^(Event \d+|Setup): /, '') : String(e));
 
-export function HandScreen({ initial, editable, onBack, onNewHand, onNextHand, onEditCopy }: Props) {
+export function HandScreen({ initial, editable, onBack, backLabel = 'Lab', onNewHand, onNextHand, onEditCopy }: Props) {
   const { settings } = useSettings();
   const { playbook } = usePlaybook();
   const [hand, setHand] = useState(initial);
@@ -204,7 +206,7 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onNextHand, o
     addFishy({ id: crypto.randomUUID(), at: new Date().toISOString(), handId: hand.id, handNo: hand.handNo, step, move, note });
     if (hand.watch && !hand.watch.keep) keepHand();
     else saveHand(hand);
-    setFishyNote(`Noted 🐟 - it's in the "Smells fishy" list on the Hands page.`);
+    setFishyNote(`Noted 🐟 - it's in the "Smells fishy" list in the Gym.`);
   };
   const [fishyNote, setFishyNote] = useState<string | null>(null);
 
@@ -393,7 +395,7 @@ export function HandScreen({ initial, editable, onBack, onNewHand, onNextHand, o
       <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-start gap-4">
           <Button variant="ghost" onClick={onBack}>
-            ← Hands
+            ← {backLabel}
           </Button>
           <div>
             <h1 className="text-xl font-bold">

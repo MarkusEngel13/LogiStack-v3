@@ -122,6 +122,59 @@ body {
   font-family: "Inter", "Segoe UI", system-ui, sans-serif;
 }
 
+/*
+ * The start page's module cards (v2's design): they fly in one after another, then each icon draws
+ * itself stroke by stroke (paths with pathLength="1"); on hover the card lifts, the border lights up
+ * and a shine sweeps across. --i = the card's place, --s = the stroke's place within the icon.
+ */
+.module-card {
+  /* backwards, not both: a kept end state would pin the transform and block the hover lift */
+  animation: module-card-in 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.15) backwards;
+  animation-delay: calc(var(--i, 0) * 90ms);
+  transition: transform 0.25s cubic-bezier(0.3, 1.6, 0.5, 1), box-shadow 0.25s, border-color 0.25s;
+}
+.module-card:hover,
+.module-card:focus-visible {
+  transform: translateY(-8px) scale(1.04);
+  border-color: var(--accent);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+}
+.module-card .module-shine {
+  transform: translateX(-110%);
+}
+.module-card:hover .module-shine {
+  transform: translateX(110%);
+  transition: transform 0.6s ease-in-out;
+}
+.module-card .module-icon > * {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: module-stroke 1.2s ease-out forwards;
+  animation-delay: calc(var(--i, 0) * 90ms + 400ms + var(--s, 0) * 150ms);
+}
+@keyframes module-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(48px) rotateX(-15deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes module-stroke {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .module-card,
+  .module-card .module-icon > * {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
+
 /* Number inputs without the spinner arrows */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
