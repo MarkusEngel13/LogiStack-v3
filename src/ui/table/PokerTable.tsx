@@ -56,6 +56,13 @@ interface Props {
 const PLATE_W = 13.5;
 const PLATE_H = 5.4;
 const CARD_W = 4.4;
+// Room around the 2:1 felt for the seats and their cards.
+const PAD_TOP = 10.5;
+const PAD_SIDE = 8.5;
+const PAD_BOTTOM = 6;
+
+/** The whole table's height as a share of its width: what a box must allow to show all of it (full screen). */
+export const TABLE_HEIGHT = (PAD_TOP + (100 - 2 * PAD_SIDE) / 2 + PAD_BOTTOM) / 100;
 
 export function PokerTable({ size, anchorSeat, seats, buttonSeat, center, onSeatClick, onCardsClick, seatHover }: Props) {
   const slots = seatSlots(size);
@@ -63,7 +70,7 @@ export function PokerTable({ size, anchorSeat, seats, buttonSeat, center, onSeat
 
   return (
     <div className="w-full" style={{ containerType: 'inline-size' }}>
-      <div style={{ padding: '10.5cqw 8.5cqw 6cqw' }}>
+      <div style={{ padding: `${PAD_TOP}cqw ${PAD_SIDE}cqw ${PAD_BOTTOM}cqw` }}>
         <div className="relative" style={{ aspectRatio: '2 / 1' }}>
           {/* rail */}
           <div

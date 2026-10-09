@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { HandError, applyEvent, initialState, unknownCards } from '../../core/engine/replay';
 import { cardToString } from '../../core/cards';
 import type { CardStr, HandEvent, HandRecord } from '../../core/hand/types';
@@ -25,11 +25,14 @@ import { deleteHand, downloadJson, nextHandNo, saveHand } from '../library';
 import { nextHand } from '../../core/hand/nextHand';
 import { SQUID_ICON } from '../playerTypes';
 import { useSettings } from '../settings';
-import { PokerTable } from '../table/PokerTable';
+import { FullScreenButton, useFullScreen } from '../table/FullScreen';
+import { PokerTable, TABLE_HEIGHT } from '../table/PokerTable';
 import { ActionList } from './ActionList';
-import { PlaybackBar } from './PlaybackBar';
+import { BotLog } from './BotLog';
+import { ICONS, PlaybackBar } from './PlaybackBar';
 import { TableCenter } from './TableCenter';
-import { actionRows, anchorSeat, moneyFor, replaySeatViews, resultSummary, safeSteps, streetSteps, type ListRow } from './views';
+import { WatchBar } from './WatchBar';
+import { actionRows, anchorSeat, beforeHand, moneyFor, replaySeatViews, resultSummary, safeSteps, streetSteps, type ListRow } from './views';
 
 const STEP_MS = 1100;
 /** A bot's pause before it acts when bots play the others, so you can follow the hand. */
@@ -110,6 +113,7 @@ export function HandScreen({ initial, editable, onBack, backLabel = 'Lab', onNew
     watchSession.paused = on;
     setPausedState(on);
   };
+  const { full, setFull, toggleFull } = useFullScreen();
 
   const { steps, error } = useMemo(() => safeSteps(hand), [hand]);
   const last = steps.length - 1;
@@ -182,12 +186,16 @@ export function HandScreen({ initial, editable, onBack, backLabel = 'Lab', onNew
   /** The hand is over (pot settled): the next one can be dealt. */
   const finalState = steps[last]!;
   const handOver = finalState.phase === 'complete' || (finalState.phase === 'showdown' && !!finalState.result?.resolved);
-  const dealNext = () => {
-    if (!onNextHand || !handOver) return;
-    const next = nextHand(hand, finalState, { id: crypto.randomUUID(), createdAt: new Date().toISOString(), handNo: nextHandNo() });
+  /** The next hand, with the stacks as they are in `from`. */
+  const dealFrom = (from: TableState) => {
+    if (!onNextHand) return;
+    const next = nextHand(hand, from, { id: crypto.randomUUID(), createdAt: new Date().toISOString(), handNo: nextHandNo() });
     // a watched hand nobody pinned makes room for the next one
     if (hand.watch && !hand.watch.keep) deleteHand(hand.id);
     onNextHand(next);
+  };
+  const dealNext = () => {
+    if (handOver) dealFrom(finalState);
   };
 
   /** Watch mode on (this hand stays in your hands) or off (it becomes an ordinary Lab hand). */
@@ -197,6 +205,16 @@ export function HandScreen({ initial, editable, onBack, backLabel = 'Lab', onNew
     commit(on ? { ...hand, watch: { keep: true } } : rest, cursor);
   };
   const keepHand = () => commit({ ...hand, watch: { keep: true } }, cursor);
+
+  /** Watching: the bots wait while paused, and while you are back in the hand. */
+  const halted = paused || cursor < last;
+  const togglePause = () => {
+    if (!halted) return setPaused(true);
+    if (cursor < last) go(last);
+    setPaused(false);
+  };
+  /** Watching: the next hand now. A hand still running is dropped: the stacks stay as they were before it. */
+  const nextHandNow = () => dealFrom(handOver ? finalState : beforeHand(hand, steps[0]!));
 
   /** A bot move that smells fishy: noted for calibration, and the hand is kept to replay it. */
   const markFishy = (step: number, move: string) => {
@@ -224,17 +242,26 @@ export function HandScreen({ initial, editable, onBack, backLabel = 'Lab', onNew
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement | null)?.closest('input, textarea, select')) return;
-      if (editable && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+      const plain = !e.ctrlKey && !e.metaKey && !e.altKey;
+      const key = e.key.toLowerCase();
+      if (editable && (e.ctrlKey || e.metaKey) && key === 'z') {
         e.preventDefault();
         undo();
-      } else if (editable && e.key.toLowerCase() === 'n' && !e.ctrlKey && !e.metaKey && cursor === last && handOver) dealNext(); else if (e.key === 'ArrowRight') go(cursor + 1);
+      } else if (plain && key === 'f') toggleFull();
+      else if (watching && plain && key === 'n' && onNextHand) nextHandNow();
+      else if (editable && plain && key === 'n' && cursor === last && handOver) dealNext();
+      else if (e.key === 'ArrowRight') go(cursor + 1);
       else if (e.key === 'ArrowLeft') go(cursor - 1);
       else if (e.key === 'Home') go(0);
       else if (e.key === 'End') go(last);
       else if (e.key === ' ') {
         e.preventDefault();
-        if (cursor >= last) setStep(0);
-        setPlaying((p) => !p);
+        // watching, Space is the bots' pause; otherwise it plays the replay
+        if (watching) togglePause();
+        else {
+          if (cursor >= last) setStep(0);
+          setPlaying((p) => !p);
+        }
       }
     };
     window.addEventListener('keydown', onKey);
@@ -352,6 +379,20 @@ export function HandScreen({ initial, editable, onBack, backLabel = 'Lab', onNew
     return () => clearTimeout(t);
   }, [autoBots, watching, paused, watchSpeed, editable, botBusy, cursor, last, story.steps, hand]); // autoMove reads the same state
 
+  // Watching, the pause button follows you down the page once the control bar is out of sight.
+  const barRef = useRef<HTMLDivElement | null>(null);
+  const [barSeen, setBarSeen] = useState(true);
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el || !watching || full || typeof IntersectionObserver === 'undefined') return;
+    // the app's menu bar covers the top of the page
+    const io = new IntersectionObserver(([e]) => setBarSeen(!!e?.isIntersecting), { rootMargin: '-96px 0px 0px 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [watching, full]);
+  const canStep = cursor < last || (paused && !botBusy && !!autoMove());
+  const stepOnce = () => (cursor < last ? go(cursor + 1) : autoMove()?.());
+
   // In the Lab a click goes to just before that line, so the next entry replaces it.
   const jump = (row: ListRow) => {
     if (editable) go(row.event >= 0 && Number.isFinite(row.event) ? row.event : 0);
@@ -382,7 +423,7 @@ export function HandScreen({ initial, editable, onBack, backLabel = 'Lab', onNew
 
   // HHP's advice for the player to act - not while the bots play on by themselves
   const adviceSeat =
-    !error && state.phase === 'betting' && state.toAct !== null && !(watching && !paused) && !(autoBots && !watching && state.toAct !== hand.hero)
+    !error && state.phase === 'betting' && state.toAct !== null && !(watching && !halted) && !(autoBots && !watching && state.toAct !== hand.hero)
       ? state.toAct
       : null;
 
@@ -390,202 +431,86 @@ export function HandScreen({ initial, editable, onBack, backLabel = 'Lab', onNew
     new Set([...final.board, ...final.seats.filter((s) => s.seat !== seat && s.cards).flatMap((s) => s.cards!)]);
   const cardsPlayer = hand.players.find((p) => p.seat === cardsFor);
 
-  return (
-    <div className="mx-auto max-w-[1500px] px-6 py-5">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
-        <div className="flex items-start gap-4">
-          <Button variant="ghost" onClick={onBack}>
-            ← {backLabel}
-          </Button>
-          <div>
-            <h1 className="text-xl font-bold">
-              {hand.handNo !== undefined && <span className="mr-2 text-muted">#{hand.handNo}</span>}
-              {hand.title || t.name || 'Hand'}
-              {editable && <span className="ml-3 rounded bg-accent px-2 py-0.5 align-middle text-xs font-bold text-accent-ink">LAB</span>}
-            </h1>
-            <p className="text-sm text-muted">{details.join(' · ')}</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {badges.map((b) => (
-            <span key={b} className="rounded-full border border-line bg-surface-2 px-3 py-1 text-xs text-ink">
-              {b}
-            </span>
-          ))}
-          {editable ? (
-            <Button variant="secondary" disabled={undoStack.length === 0} onClick={undo} title="Undo (Ctrl+Z)">
-              ↶ Undo
-            </Button>
-          ) : (
-            onEditCopy && (
-              <Button variant="primary" onClick={() => onEditCopy(hand)}>
-                Edit a copy
-              </Button>
-            )
-          )}
-          <Button variant="secondary" onClick={() => downloadJson(`hand-${hand.handNo ?? hand.id}.json`, hand)}>
-            Export JSON
-          </Button>
-        </div>
-      </div>
+  const table = (
+    <PokerTable
+      size={t.seats}
+      anchorSeat={anchorSeat(hand)}
+      buttonSeat={hand.button}
+      seats={replaySeatViews(hand, state, {
+        money,
+        // while bots play the others, their cards stay hidden until the showdown, whatever Options say;
+        // watching, everything is face up
+        showAllCards: editable && autoBots && !watching ? false : settings.showAllCards || editable,
+        isLastStep: cursor === last,
+      })}
+      center={<TableCenter state={state} money={money} summary={cursor === last ? resultSummary(hand, state.result, money) : []} />}
+      onSeatClick={(seat) => seatRangeAt(seat) && setRangeFor(seat)}
+      onCardsClick={editable ? setCardsFor : undefined}
+      seatHover={(seat) => {
+        const r = seatRangeAt(seat);
+        return r ? <SeatRangeSummary r={r} board={state.board} editable={editable} /> : null;
+      }}
+    />
+  );
 
-      {error && (
-        <div className="mb-4 rounded-md border border-danger/50 bg-danger/10 px-4 py-2 text-sm text-danger">
-          The replay stops at entry {(error.eventIndex ?? 0) + 1}: {errorText(error)}
-        </div>
-      )}
-      {!editable && hand.events.length === 0 && (
-        <div className="mb-4 rounded-md border border-line bg-surface px-4 py-2 text-sm text-muted">No actions entered yet.</div>
-      )}
+  // The one control bar: the bots' pause, speed, next hand and stop while watching; the replay otherwise.
+  const controlBar = watching ? (
+    <WatchBar
+      halted={halted}
+      onTogglePause={togglePause}
+      onStep={stepOnce}
+      canStep={canStep}
+      speed={watchSpeed}
+      speeds={WATCH_SPEEDS}
+      onSpeed={setWatchSpeed}
+      onNextHand={onNextHand ? nextHandNow : undefined}
+      onStop={onBack}
+      stopTitle={`Stop watching: back to the ${backLabel}`}
+    />
+  ) : (
+    <PlaybackBar
+      step={cursor}
+      last={last}
+      playing={playing}
+      speed={speed}
+      streets={streets}
+      onStep={go}
+      onTogglePlay={() => {
+        if (cursor >= last) setStep(0);
+        setPlaying((p) => !p);
+      }}
+      onSpeed={setSpeed}
+      onNextHand={editable && onNextHand ? dealNext : undefined}
+      nextReady={handOver}
+      onStop={full ? onBack : undefined}
+      stopTitle={`Back to the ${backLabel}`}
+      compact={full}
+    />
+  );
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="space-y-3">
-          <div className="rounded-lg border border-line bg-surface/60 p-2">
-            <PokerTable
-              size={t.seats}
-              anchorSeat={anchorSeat(hand)}
-              buttonSeat={hand.button}
-              seats={replaySeatViews(hand, state, {
-                money,
-                // while bots play the others, their cards stay hidden until the showdown, whatever Options say;
-                // watching, everything is face up
-                showAllCards: editable && autoBots && !watching ? false : settings.showAllCards || editable,
-                isLastStep: cursor === last,
-              })}
-              center={<TableCenter state={state} money={money} summary={cursor === last ? resultSummary(hand, state.result, money) : []} />}
-              onSeatClick={(seat) => seatRangeAt(seat) && setRangeFor(seat)}
-              onCardsClick={editable ? setCardsFor : undefined}
-              seatHover={(seat) => {
-                const r = seatRangeAt(seat);
-                return r ? <SeatRangeSummary r={r} board={state.board} editable={editable} /> : null;
-              }}
-            />
-          </div>
-          {editable && !error && (
-            <ActionBar
-              hand={hand}
-              state={state}
-              money={money}
-              laterEvents={hand.events.length - cursor}
-              error={editError}
-              ranges={storyRanges}
-              onBot={botPlay}
-              botBusy={botBusy}
-              botNote={botNote}
-              onEvent={(ev) => {
-                setBotNote(null);
-                addEvent(ev);
-              }}
-              onNewHand={onNewHand}
-              onNextHand={onNextHand ? dealNext : undefined}
-            />
-          )}
-          {editable && botLog.some((x) => x.step < cursor) && (watching || (cursor === last && (state.phase === 'showdown' || state.phase === 'complete'))) && (
-            <div className="rounded-lg border border-line bg-surface px-4 py-3 text-sm">
-              <div className="mb-1 text-xs font-bold tracking-wider text-muted uppercase">How the bots decided</div>
-              <ul className="space-y-0.5 text-muted">
-                {botLog
-                  .filter((x) => x.step < cursor)
-                  .map((x) => (
-                    <li key={x.step} className="group flex items-start gap-2">
-                      <span className="flex-1">🤖 {x.text}</span>
-                      <button
-                        type="button"
-                        className="shrink-0 rounded px-1 text-xs opacity-40 group-hover:opacity-100 hover:bg-surface-2"
-                        title="Smells fishy: note what's wrong with this move (kept for calibrating the model)"
-                        onClick={() => markFishy(x.step, x.text)}
-                      >
-                        🐟
-                      </button>
-                    </li>
-                  ))}
-              </ul>
-              {fishyNote && <p className="mt-1 text-xs text-accent">{fishyNote}</p>}
-            </div>
-          )}
-          {watching && (
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm">
-              <Button variant="secondary" onClick={() => setPaused(!paused)}>
-                {paused ? '▶ Go on' : '⏸ Pause'}
-              </Button>
-              <Button variant="secondary" disabled={!paused || botBusy || !autoMove()} onClick={() => autoMove()?.()} title="One move: a deal, an action, or the next hand">
-                ⏭ Step
-              </Button>
-              <span className="ml-2 text-xs text-muted">Speed</span>
-              {WATCH_SPEEDS.map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => setWatchSpeed(v)}
-                  className={`rounded px-2 py-0.5 text-xs ${v === watchSpeed ? 'bg-accent font-bold text-accent-ink' : 'text-muted hover:text-ink'}`}
-                >
-                  {v === 0.5 ? '½×' : `${v}×`}
-                </button>
-              ))}
-              <span className="flex-1" />
-              {hand.watch?.keep ? (
-                <span className="text-xs text-muted">📌 Kept in your hands</span>
-              ) : (
-                <Button variant="ghost" onClick={keepHand} title="Watched hands make room for the next one; a kept hand stays in your hands">
-                  📌 Keep this hand
-                </Button>
-              )}
-              {paused && <span className="basis-full text-xs text-faint">Paused: the panel on the right shows the decision of the player to act.</span>}
-            </div>
-          )}
-          {editable && (
-            <div className="flex flex-col gap-1 px-1 text-sm text-muted">
-              {!watching && (
-                <label className="flex w-fit cursor-pointer items-center gap-2 select-none">
-                  <input type="checkbox" checked={autoBots} onChange={(e) => setAutoBots(e.target.checked)} className="h-4 w-4 accent-[var(--accent)]" />
-                  🤖 Bots play the others and deal the board (bots get cards when unknown - after the flop from their range - and keep them hidden)
-                </label>
-              )}
-              <label className="flex w-fit cursor-pointer items-center gap-2 select-none">
-                <input type="checkbox" checked={watching} onChange={(e) => setWatching(e.target.checked)} className="h-4 w-4 accent-[var(--accent)]" />
-                👀 Watch: bots play every seat with their cards face up, and the next hand comes by itself
-              </label>
-            </div>
-          )}
-          {editable && (
-            <p className="px-1 text-xs text-faint">
-              Point at a player for their range, click for the whole of it; click their cards to set them. Click a line in the action list
-              to go back to it. Undo: Ctrl+Z.
-            </p>
-          )}
-          <PlaybackBar
-            step={cursor}
-            last={last}
-            playing={playing}
-            speed={speed}
-            streets={streets}
-            onStep={go}
-            onTogglePlay={() => {
-              if (cursor >= last) setStep(0);
-              setPlaying((p) => !p);
-            }}
-            onSpeed={setSpeed}
-          />
-        </div>
-        <div className="flex flex-col gap-3 xl:h-[calc(100vh-170px)] xl:max-h-[820px]">
-          {!error && editable && state.phase === 'betting' && state.toAct !== null && ((autoBots && !watching && state.toAct !== hand.hero) || (watching && !paused)) ? (
-            <div className="rounded-lg border border-line bg-surface px-4 py-3 text-sm text-muted">
-              🤖 {state.seats.find((s) => s.seat === state.toAct)?.name} is thinking…
-            </div>
-          ) : !error && (
-            <DecisionPanel hand={hand} state={state} step={cursor} editable={editable} money={money} charts={charts} story={story} onSetRange={setRange} onAction={editable ? addEvent : undefined} />
-          )}
-          {adviceSeat !== null && (
-            <div className="max-h-[45vh] shrink-0 overflow-auto">
-              <AdvicePanel state={state} seat={adviceSeat} />
-            </div>
-          )}
-          <div className="min-h-[260px] flex-1">
-            <ActionList rows={rows} step={cursor} atEnd={cursor === last} onJump={jump} />
-          </div>
-        </div>
-      </div>
+  const actionBar = editable && !error && (
+    <ActionBar
+      hand={hand}
+      state={state}
+      money={money}
+      laterEvents={hand.events.length - cursor}
+      error={editError}
+      ranges={storyRanges}
+      onBot={botPlay}
+      botBusy={botBusy}
+      botNote={botNote}
+      onEvent={(ev) => {
+        setBotNote(null);
+        addEvent(ev);
+      }}
+      onNewHand={onNewHand}
+      onNextHand={onNextHand ? dealNext : undefined}
+      compact={full}
+    />
+  );
 
+  const modals = (
+    <>
       {rangeSeat && (
         <RangeModal
           title={`${rangeSeat.name} (${rangeSeat.position}${rangeSeat.playerType ? `, ${rangeSeat.playerType}` : ''}): range at this point`}
@@ -613,6 +538,177 @@ export function HandScreen({ initial, editable, onBack, backLabel = 'Lab', onNew
           }}
         />
       )}
+    </>
+  );
+
+  // Full screen: the table as big as the screen allows, the controls along the bottom edge.
+  if (full) {
+    return (
+      <>
+        <div className="fixed inset-0 z-50 flex flex-col bg-bg" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+          <div className="relative min-h-0 flex-1" style={{ containerType: 'size' }}>
+            <div className="absolute inset-0 flex items-center justify-center">
+              {/* as wide as the screen, unless its height runs out first */}
+              <div style={{ width: `min(100cqw, ${(100 / TABLE_HEIGHT).toFixed(1)}cqh)` }}>{table}</div>
+            </div>
+            <div className="pointer-events-none absolute top-2 left-3 max-w-[40%] truncate text-xs text-muted">
+              {hand.handNo !== undefined && `#${hand.handNo} `}
+              {hand.title || t.name || 'Hand'}
+            </div>
+            <FullScreenButton full onClick={() => setFull(false)} className="absolute top-2 right-2" />
+            <p className="pointer-events-none absolute inset-x-0 bottom-3 hidden text-center text-xs text-faint max-sm:portrait:block">
+              Turn the phone sideways for a bigger table.
+            </p>
+          </div>
+          {/* a played hand: your buttons, in a box of fixed height so the table never jumps (one row on a
+              wide screen, three on a phone held upright; it scrolls if a hand needs more) */}
+          {actionBar && !watching && <div className="h-44 shrink-0 overflow-y-auto px-2 pb-1 sm:h-[7.5rem] md:h-[4.5rem]">{actionBar}</div>}
+          <div className="shrink-0 px-2 pb-2">{controlBar}</div>
+        </div>
+        {modals}
+      </>
+    );
+  }
+
+  const logEntries = botLog.filter((x) => x.step < cursor);
+  // playing against them, the chances would give the bots' hands away: shown once the hand is over
+  const showLog = editable && logEntries.length > 0 && (watching || (cursor === last && (state.phase === 'showdown' || state.phase === 'complete')));
+
+  return (
+    <div className="mx-auto max-w-[1500px] px-2 py-3 sm:px-6 sm:py-5">
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-2 sm:mb-4">
+        <div className="flex items-start gap-2 sm:gap-4">
+          <Button variant="ghost" onClick={onBack}>
+            ← {backLabel}
+          </Button>
+          <div>
+            <h1 className="text-xl font-bold">
+              {hand.handNo !== undefined && <span className="mr-2 text-muted">#{hand.handNo}</span>}
+              {hand.title || t.name || 'Hand'}
+              {editable && <span className="ml-3 rounded bg-accent px-2 py-0.5 align-middle text-xs font-bold text-accent-ink">LAB</span>}
+            </h1>
+            <p className="text-sm text-muted">{details.join(' · ')}</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {badges.map((b) => (
+            <span key={b} className="rounded-full border border-line bg-surface-2 px-3 py-1 text-xs text-ink">
+              {b}
+            </span>
+          ))}
+          {watching &&
+            (hand.watch?.keep ? (
+              <span className="px-1 text-xs text-muted">📌 Kept in your hands</span>
+            ) : (
+              <Button variant="ghost" onClick={keepHand} title="Watched hands make room for the next one; a kept hand stays in your hands">
+                📌 Keep this hand
+              </Button>
+            ))}
+          {editable ? (
+            <Button variant="secondary" disabled={undoStack.length === 0} onClick={undo} title="Undo (Ctrl+Z)">
+              ↶ Undo
+            </Button>
+          ) : (
+            onEditCopy && (
+              <Button variant="primary" onClick={() => onEditCopy(hand)}>
+                Edit a copy
+              </Button>
+            )
+          )}
+          <Button variant="secondary" onClick={() => downloadJson(`hand-${hand.handNo ?? hand.id}.json`, hand)}>
+            Export JSON
+          </Button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="mb-4 rounded-md border border-danger/50 bg-danger/10 px-4 py-2 text-sm text-danger">
+          The replay stops at entry {(error.eventIndex ?? 0) + 1}: {errorText(error)}
+        </div>
+      )}
+      {!editable && hand.events.length === 0 && (
+        <div className="mb-4 rounded-md border border-line bg-surface px-4 py-2 text-sm text-muted">No actions entered yet.</div>
+      )}
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+        {/* The table, then the control bar right under it: nothing above the bar changes height when a
+            bot acts, so it never moves. Everything that grows or comes and goes is below it. */}
+        <div className="space-y-3">
+          <div className="relative rounded-lg border border-line bg-surface/60 p-1 sm:p-2">
+            {table}
+            <FullScreenButton full={false} onClick={() => setFull(true)} className="absolute top-1.5 right-1.5 sm:top-2.5 sm:right-2.5" />
+          </div>
+          <div ref={barRef}>{controlBar}</div>
+          {watching && paused && (
+            <p className="px-1 text-xs text-faint">Paused: the Decision panel shows how the player to act sees the spot.</p>
+          )}
+          {actionBar}
+          {editable && (
+            <div className="flex flex-col gap-1 px-1 text-sm text-muted">
+              {!watching && (
+                <label className="flex w-fit cursor-pointer items-center gap-2 select-none">
+                  <input type="checkbox" checked={autoBots} onChange={(e) => setAutoBots(e.target.checked)} className="h-4 w-4 accent-[var(--accent)]" />
+                  🤖 Bots play the others and deal the board (bots get cards when unknown - after the flop from their range - and keep them hidden)
+                </label>
+              )}
+              <label className="flex w-fit cursor-pointer items-center gap-2 select-none">
+                <input type="checkbox" checked={watching} onChange={(e) => setWatching(e.target.checked)} className="h-4 w-4 accent-[var(--accent)]" />
+                👀 Watch: bots play every seat with their cards face up, and the next hand comes by itself
+              </label>
+            </div>
+          )}
+          {editable && (
+            <p className="px-1 text-xs text-faint">
+              Point at a player for their range, click for the whole of it; click their cards to set them. Click a line in the action list
+              to go back to it. Undo: Ctrl+Z. Full screen: F.
+            </p>
+          )}
+        </div>
+        <div className="flex flex-col gap-3 xl:h-[calc(100vh-170px)] xl:max-h-[820px]">
+          {!error && editable && state.phase === 'betting' && state.toAct !== null && ((autoBots && !watching && state.toAct !== hand.hero) || (watching && !halted)) ? (
+            <div className="rounded-lg border border-line bg-surface px-4 py-3 text-sm text-muted">
+              🤖 {state.seats.find((s) => s.seat === state.toAct)?.name} is thinking…
+            </div>
+          ) : !error && (
+            <DecisionPanel hand={hand} state={state} step={cursor} editable={editable} money={money} charts={charts} story={story} onSetRange={setRange} onAction={editable ? addEvent : undefined} />
+          )}
+          {adviceSeat !== null && (
+            <div className="max-h-[45vh] shrink-0 overflow-auto">
+              <AdvicePanel state={state} seat={adviceSeat} />
+            </div>
+          )}
+          <div className="min-h-[260px] flex-1">
+            <ActionList rows={rows} step={cursor} atEnd={cursor === last} onJump={jump} />
+          </div>
+        </div>
+      </div>
+
+      {/* the bots' decisions at the bottom of the page, newest first */}
+      {showLog && (
+        <div className="mt-4">
+          <BotLog entries={logEntries} fishyNote={fishyNote} onFishy={markFishy} />
+        </div>
+      )}
+
+      {/* watching, with the control bar scrolled out of sight: the pause button stays at hand (and the
+          room under the page lets the last lines scroll clear of it) */}
+      {watching && <div className="h-20" aria-hidden />}
+      {watching && !barSeen && (
+        <button
+          type="button"
+          onClick={togglePause}
+          title={halted ? 'Go on (Space)' : 'Pause (Space)'}
+          aria-label={halted ? 'Go on' : 'Pause'}
+          className="fixed right-4 z-30 flex h-16 w-16 items-center justify-center rounded-full bg-accent text-accent-ink shadow-xl transition-colors hover:bg-accent-strong"
+          style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+        >
+          <svg viewBox="0 0 24 24" className="h-7 w-7" fill="currentColor">
+            <path d={halted ? ICONS.play : ICONS.pause} />
+          </svg>
+        </button>
+      )}
+
+      {modals}
     </div>
   );
 }
