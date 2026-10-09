@@ -113,7 +113,7 @@ export interface Decision {
 
 export const DEFAULT_BETS = [1 / 3, 0.5, 0.75, 1, 1.5];
 /** A next card "bites" when it takes this share of the hand's lead or more. */
-const BITE = 0.03;
+const BITE = 0.06;
 /** What worse hands kept in are expected to pay per street to come, in pots (delayed gratification). */
 const TRAP = 0.5;
 /** All-in is on the menu only when it is not absurd: at most this many pots (after a call). */

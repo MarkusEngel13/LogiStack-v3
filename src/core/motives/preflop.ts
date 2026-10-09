@@ -31,6 +31,13 @@ export interface PreflopStyle {
   limp: number;
   /** When first in: the share of premiums that limp to re-raise (limp-reraise trap). */
   limpTrap?: number;
+  /**
+   * Facing a raise: re-raising (3-bets, 4-bets) against the chart, for hands that aren't premium.
+   * Default `raises`. Passive players open-raise some hands but almost never 3-bet light.
+   */
+  threeBet?: number;
+  /** Facing a raise: the share of premiums (AA-QQ, AK) that just call. Passive players flat them. */
+  premiumCall?: number;
 }
 
 export const STYLES: Record<string, PreflopStyle> = {
@@ -38,8 +45,10 @@ export const STYLES: Record<string, PreflopStyle> = {
   TAG: { width: 0.95, raises: 1.1, limp: 0 },
   LAG: { width: 1.35, raises: 1.25, limp: 0 },
   Nit: { width: 0.7, raises: 0.9, limp: 0 },
-  Fish: { width: 1.7, raises: 0.4, limp: 0.7 },
-  Whale: { width: 2.6, raises: 0.5, limp: 0.6 },
+  // live recreational players 3-bet 1-3 %: mostly premiums, and flat some of those (2026-10-09:
+  // the stats run had them at 7 % with the Reg chart's 3-bets scaled by `raises`)
+  Fish: { width: 1.7, raises: 0.4, limp: 0.7, threeBet: 0.08, premiumCall: 0.25 },
+  Whale: { width: 2.6, raises: 0.5, limp: 0.6, threeBet: 0.1, premiumCall: 0.2 },
   Maniac: { width: 2, raises: 1.7, limp: 0 },
 };
 /**
@@ -215,7 +224,9 @@ export function bendMix(chart: ChartChoice | null, cell: number, style: PreflopS
   const added = Math.max(0, go - chartGo * scale);
   if (style.raises > 1) raise += added;
   const premium = q <= PREMIUM;
-  if (!premium) raise = style.raises < 1 ? raise * style.raises : Math.min(go - allin, raise * style.raises);
+  const r = !firstIn && style.threeBet !== undefined ? style.threeBet : style.raises;
+  if (!premium) raise = r < 1 ? raise * r : Math.min(go - allin, raise * r);
+  else if (!firstIn && (style.premiumCall ?? 0) > 0) raise *= 1 - style.premiumCall!;
   let call = Math.max(0, go - raise - allin);
   if (firstIn && !premium && style.limp > 0) {
     const limps = raise * style.limp;
