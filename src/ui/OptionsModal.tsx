@@ -3,6 +3,7 @@ import { CARD_FACES, PlayingCard } from './cards/PlayingCard';
 import { Button, Field, Modal, Segmented, Toggle } from './controls';
 import { useSettings } from './settings';
 import { makeBackup, restoreBackup } from './backup';
+import { SizeChips } from './lab/SizeChips';
 import { downloadJson } from './library';
 
 const PREVIEW = [parseCard('As'), parseCard('Kd')];
@@ -70,6 +71,9 @@ export function OptionsModal({ onClose }: { onClose: () => void }) {
           label="Four-colour deck"
           hint="Diamonds blue, clubs green: flushes are easier to spot."
         />
+        <Field label="“What happens if”: bet sizes" hint="The sizes the window starts with (you can change them there too).">
+          <SizeChips value={settings.whatIfSizes} onChange={(whatIfSizes) => update({ whatIfSizes })} />
+        </Field>
         <Field label="Backup" hint="Everything this browser keeps: hands, players, profiles, your charts, settings. Use it to move your data between VS Code (localhost) and the website, or to keep a copy. The playbook is not included.">
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => downloadJson(`logistack-backup-${new Date().toISOString().slice(0, 10)}.json`, makeBackup())}>Export everything</Button>

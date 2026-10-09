@@ -13,6 +13,7 @@ import type { Money } from '../replay/views';
 import { EvTable } from './EvTable';
 import { RangeModal } from './RangeModal';
 import { SizeExplorer } from './SizeExplorer';
+import { SpotLine } from './SpotLine';
 import { WhatIfModal } from './WhatIfModal';
 import { BucketBar, RangeStory } from './RangeStory';
 import { useEquity } from './useEquity';
@@ -128,6 +129,10 @@ export function DecisionPanel({
     };
   })();
   const names: Record<number, string> = Object.fromEntries(live.map((s) => [s.seat, s.name]));
+  /** The spot for a window's title: this player against everyone else still in. */
+  const spotOf = (seat: SeatNo) => (
+    <SpotLine state={state} me={seat} others={[me, ...live].map((s) => s.seat).filter((s) => s !== seat)} hero={hand.hero} money={money} />
+  );
   const villain = sizeQ?.others.length === 1 ? state.seats.find((s) => s.seat === sizeQ.others[0]!.seat) : undefined;
   const canExplore = !!sizeQ && !!(legal!.canBet || legal!.canRaise);
   const canWhatIf = !!villain && (state.board.length === 3 || state.board.length === 4);
@@ -332,7 +337,9 @@ export function DecisionPanel({
       {whatIfOpen && canWhatIf && villain && sizeQ && (
         <WhatIfModal
           title={`${me.name} (${me.position}) against ${villain.name} (${villain.position}${villain.playerType ? `, ${villain.playerType}` : ''}): what happens if…`}
+          spot={spotOf(me.seat)}
           otherName={villain.name}
+          actorName={me.seat === hand.hero ? 'You' : me.name}
           money={money}
           q={sizeQ}
           onClose={() => setWhatIfOpen(false)}
@@ -342,6 +349,7 @@ export function DecisionPanel({
       {exploring && canExplore && sizeQ && (
         <SizeExplorer
           title={`${me.name} (${me.position}): every option against ${whoText.join(', ')}`}
+          spot={spotOf(me.seat)}
           names={names}
           money={money}
           q={sizeQ}
@@ -360,6 +368,7 @@ export function DecisionPanel({
       {viewing !== null && narrowed?.get(viewing) && story.steps && (
         <RangeModal
           title={`${state.seats.find((s) => s.seat === viewing)?.name ?? 'Player'}: ${viewing === me.seat ? 'the range your line shows' : 'range at this point'}`}
+          spot={spotOf(viewing)}
           seat={viewing}
           steps={story.steps}
           step={step}
@@ -374,6 +383,7 @@ export function DecisionPanel({
       {editedRange && editedSeat && (
         <VillainRangeModal
           title={`${editedSeat.name} (${editedSeat.position}): range at this point`}
+          spot={spotOf(editedSeat.seat)}
           initial={editedRange.weights}
           dead={dead}
           charts={charts}

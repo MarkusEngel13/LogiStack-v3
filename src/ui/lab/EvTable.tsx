@@ -66,10 +66,16 @@ export function EvTable({
   const rows = [...a.passive, ...a.rows].filter((r) => r.ev !== undefined);
   const best = rows.length ? rows.reduce((x, r) => (r.ev! > x.ev! ? r : x)) : undefined;
   const evText = (ev: number) => `${ev >= 0 ? '+' : '−'}${money(Math.round(Math.abs(ev)))}`;
+  const preflop = q.situation.board.length === 0;
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-xs font-bold tracking-wider text-muted uppercase">EV this street</span>
+        <span
+          className="text-xs font-bold tracking-wider text-muted uppercase"
+          title="Your cards against their ranges as the model reads them now, with how often each folds, calls or raises"
+        >
+          EV this street <span className="font-normal tracking-normal normal-case">(checked down after{preflop ? ' · no implied odds' : ''})</span>
+        </span>
         {best && <span className="truncate text-xs font-semibold text-ok">best: {best.label}</span>}
       </div>
       <ul className="mt-1 space-y-0.5 text-sm">
@@ -101,8 +107,10 @@ export function EvTable({
         })}
       </ul>
       <p className="mt-1 text-[11px] leading-snug text-faint">
-        This street only, every option the same way: checked down once the street is over. No later streets, so trap value and
-        implied odds don't show.{multi ? ' Multiway the others answer in turn.' : ''} Point at a line for how they answer.
+        Your cards against their ranges as the model reads them now. This street only, every option the same way: checked
+        down once the street is over. No later streets, so trap value and implied odds don't show
+        {preflop ? ' - small pairs and suited connectors look worse than they are, dominated hands better' : ''}.
+        {multi ? ' Multiway the others answer in turn.' : ''} Point at a line for how they answer.
       </p>
     </div>
   );

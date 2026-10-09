@@ -64,6 +64,13 @@ describe('what happens if', { timeout: 120_000 }, () => {
     expect(facing.lines[1]!.answer!.passiveLabel).toBe('call');
   });
 
+  test('the sizes asked for become the lines (half pot was missing)', () => {
+    const half = whatIf(q(), [0.5, 1 / 3, 1, 0.5]);
+    expect(half.lines.map((l) => l.label)).toEqual(['Check behind', 'Bet ⅓ pot', 'Bet ½ pot', 'Bet pot']);
+    // a bigger bet still sends fewer hands on
+    expect(comboTotal(half.lines[3]!.next)).toBeLessThan(comboTotal(half.lines[2]!.next));
+  });
+
   test('checking out of position: they bet or check behind, and the check-behind range goes on', () => {
     const oop = whatIf(q(false));
     const check = oop.lines[0]!;

@@ -14,8 +14,8 @@ import type { Weights } from '../ranges/range';
 import { decide, type OptionKind } from './decide';
 import { theirAnswer, type SizeQuestion } from './sizes';
 
-/** The bet sizes shown: small, big, overbet (pots). Raises when facing a bet: the defaults. */
-const LINE_BETS = [1 / 3, 0.75, 1.5];
+/** The bet sizes shown unless others are asked for: small, big, overbet (pots). Raises when facing a bet: the defaults. */
+export const LINE_BETS: readonly number[] = [1 / 3, 0.75, 1.5];
 
 export interface WhatIfLine {
   label: string;
@@ -64,7 +64,8 @@ function blocked(combo: number, dead: Set<Card>): boolean {
   return dead.has(a) || dead.has(b);
 }
 
-export function whatIf(q: SizeQuestion): WhatIfAnswer {
+/** `sizes`: the bets to show as lines, in pots (when not facing a bet), smallest first. */
+export function whatIf(q: SizeQuestion, sizes: readonly number[] = LINE_BETS): WhatIfAnswer {
   const s = q.situation;
   const { board, pot: P } = s;
   if (board.length !== 3 && board.length !== 4) throw new Error('What happens if: on the flop or the turn');
@@ -73,7 +74,8 @@ export function whatIf(q: SizeQuestion): WhatIfAnswer {
   const C = s.toCall;
   const facing = C > 0;
   const hero = q.actor.cards;
-  const mine = decide(q.actor.profile, { ...s, betSizes: LINE_BETS }, q.actor.range, other.seen ?? other.range);
+  const betSizes = [...new Set(sizes.length ? sizes : LINE_BETS)].sort((a, b) => a - b);
+  const mine = decide(q.actor.profile, { ...s, betSizes }, q.actor.range, other.seen ?? other.range);
 
   const lines: Omit<WhatIfLine, 'cards' | 'equityNow' | 'stacksNow'>[] = [];
   mine.options.forEach((o, i) => {

@@ -1,11 +1,15 @@
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { prettyCard, RANK_CHARS, suitOf, type Card } from '../../core/cards';
 import { sizeKey, type SizeQuestion } from '../../core/motives/sizes';
 import type { WhatIfAnswer, WhatIfLine } from '../../core/motives/whatIf';
 import { comboTotal, withoutCards } from '../../core/ranges/range';
 import { Modal } from '../controls';
 import type { Money } from '../replay/views';
+import { useSettings } from '../settings';
 import { BucketBar, combosText, SharesBar } from './RangeStory';
+import { SizeChips } from './SizeChips';
+import { CardsText } from './SpotLine';
 import { useEquity } from './useEquity';
 
 const pct = (x: number | undefined) => (x === undefined || Number.isNaN(x) ? '–' : `${Math.round(x * 100)}%`);
@@ -45,28 +49,61 @@ function CardName({ card }: { card: Card }) {
  */
 export function WhatIfModal({
   title,
+  spot,
   q,
   money,
   otherName,
+  actorName = 'You',
   onClose,
 }: {
   title: string;
+  /** The spot, under the title (lab/SpotLine). */
+  spot?: ReactNode;
   q: SizeQuestion;
   money: Money;
   otherName: string;
+  /** The player to act: "You" when it's Hero, else his name. */
+  actorName?: string;
   onClose: () => void;
 }) {
-  const { answer, pending } = useEquity({ kind: 'whatif', q }, `whatif:${sizeKey(q)}`);
+  const { settings } = useSettings();
+  const [sizes, setSizes] = useState<number[]>(settings.whatIfSizes);
+  const facing = q.situation.toCall > 0;
+  const { answer, pending } = useEquity({ kind: 'whatif', q, sizes: facing ? undefined : sizes }, `whatif:${sizeKey(q)}:${facing ? '' : sizes.join(',')}`);
   const a = answer?.whatIf;
   const [picked, setPicked] = useState<number | null>(null);
   const card = picked ?? a?.blank ?? null;
   const board = q.situation.board;
   const dead = q.actor.cards ?? [];
   const street = a?.street ?? (board.length === 3 ? 'turn' : 'river');
+  const who: Who = { actor: actorName, other: otherName, cards: q.actor.cards ?? [] };
 
   return (
-    <Modal title={title} wide="xl" onClose={onClose}>
-      {pending && !a && <p className="text-sm text-muted">Playing out every line and every {street} card (a few seconds)…</p>}
+    <Modal title={title} subtitle={spot} wide="xl" onClose={onClose}>
+      {/* who is who: one colour per player, the same in every line below */}
+      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+        <span>
+          <Dot color={ACTOR} /> {actorName}
+          {who.cards.length === 2 && (
+            <>
+              {' '}
+              (<CardsText cards={who.cards} />)
+            </>
+          )}
+          <span className="text-xs text-muted"> - your equity</span>
+        </span>
+        <span>
+          <Dot color={OTHER} /> {otherName}
+          <span className="text-xs text-muted"> - the range that reaches the {street}</span>
+        </span>
+      </div>
+      {!facing && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-muted">Bet sizes:</span>
+          <SizeChips value={sizes} onChange={setSizes} />
+        </div>
+      )}
+      {pending && <p className="text-sm text-muted">Playing out every line and every {street} card (a few seconds)…</p>}
       {answer?.error && <p className="text-sm text-danger">{answer.error}</p>}
       {a && card !== null && (
         <div className="space-y-4">
@@ -118,9 +155,10 @@ export function WhatIfModal({
             Card colour = how the {street} card changes your equity against what reaches it, on average over the lines (green better, red worse).
           </p>
 
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {/* as many lines as sizes picked: the cards flow, four or five across on a wide screen */}
+          <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 220px), 1fr))' }}>
             {a.lines.map((l) => (
-              <LineCard key={l.label} l={l} card={card} board={board} dead={dead} money={money} street={street} otherName={otherName} />
+              <LineCard key={l.label} l={l} card={card} board={board} dead={dead} money={money} street={street} who={who} />
             ))}
           </div>
 
@@ -135,6 +173,22 @@ export function WhatIfModal({
   );
 }
 
+/** Who the window is about: the player to act (blue) and the other one (orange). */
+interface Who {
+  actor: string;
+  other: string;
+  cards: readonly Card[];
+}
+
+const ACTOR = '#3b82f6';
+const OTHER = 'var(--accent)';
+
+function Dot({ color }: { color: string }) {
+  return <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full align-middle" style={{ background: color }} />;
+}
+
+const possessive = (name: string) => (name === 'You' ? 'Your' : `${name}’s`);
+
 function LineCard({
   l,
   card,
@@ -142,7 +196,7 @@ function LineCard({
   dead,
   money,
   street,
-  otherName,
+  who,
 }: {
   l: WhatIfLine;
   card: number;
@@ -150,7 +204,7 @@ function LineCard({
   dead: readonly Card[];
   money: Money;
   street: string;
-  otherName: string;
+  who: Who;
 }) {
   const at = l.cards[card];
   const combos = comboTotal(withoutCards(l.next, [...board, ...dead]));
@@ -164,7 +218,7 @@ function LineCard({
       <div className="text-xs text-muted">
         {l.answer ? (
           <>
-            {otherName}:{' '}
+            <Dot color={OTHER} /> {who.other}:{' '}
             {[
               l.answer.fold > 0.005 ? `folds ${pct(l.answer.fold)}` : null,
               `${l.answer.passiveLabel} ${pct(l.answer.passive)}`,
@@ -178,14 +232,20 @@ function LineCard({
         )}
       </div>
       <div>
-        <div className="mb-1 flex justify-between text-xs">
-          <span className="text-muted">Reaches the {street}</span>
-          <span className="tabular-nums">
+        <div className="mb-1 flex justify-between gap-2 text-xs">
+          <span style={{ color: OTHER }}>
+            {possessive(who.other)} range that reaches the {street}
+          </span>
+          <span className="shrink-0 tabular-nums">
             {combosText(combos)} combos · pot {money(l.pot)}
           </span>
         </div>
         <BucketBar weights={withoutCards(l.next, [...board, ...dead])} board={board} />
-        {l.equityNow !== undefined && <div className="mt-1 text-xs text-muted">Your equity against it now: {pct(l.equityNow)}</div>}
+        {l.equityNow !== undefined && (
+          <div className="mt-1 text-xs" style={{ color: ACTOR }}>
+            {possessive(who.actor)} equity{who.cards.length === 2 && <> (<CardsText cards={who.cards} />)</>} against it now: {pct(l.equityNow)}
+          </div>
+        )}
       </div>
       {at && (
         <div className="border-t border-line pt-2">
@@ -194,8 +254,8 @@ function LineCard({
               On the <CardName card={card} />
             </span>
             {at.equity !== undefined && (
-              <span className="tabular-nums">
-                your equity {pct(at.equity)}
+              <span className="tabular-nums" style={{ color: ACTOR }}>
+                {who.actor === 'You' ? 'your' : possessive(who.actor)} equity {pct(at.equity)}
                 {delta !== undefined && Math.abs(delta) >= 0.005 && (
                   <span className={delta < 0 ? 'text-danger' : 'text-ok'}>
                     {' '}

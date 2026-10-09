@@ -70,7 +70,7 @@ ctx.onmessage = async (e) => {
       if (storyCache.size > 400) storyCache.clear();
       answer({ bot: botChoice(q.input, q.state, q.step, Math.random, storyCache, true) });
     } else if (q.kind === 'whatif') {
-      answer({ whatIf: whatIf(q.q) });
+      answer({ whatIf: whatIf(q.q, q.sizes) });
     } else if (q.kind === 'sizes') {
       const key = sizeKey(q.q);
       let sizes = sizesCache.get(key);

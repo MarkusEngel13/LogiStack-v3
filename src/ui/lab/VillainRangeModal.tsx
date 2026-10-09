@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import type { Card } from '../../core/cards';
 import { CELLS, combosOfCell } from '../../core/ranges/hands';
 import { SCENARIOS } from '../../core/ranges/library';
@@ -33,6 +34,7 @@ const PARTS: { value: Took | 'continue'; label: string }[] = [
  */
 export function VillainRangeModal({
   title,
+  spot,
   initial,
   dead,
   charts,
@@ -42,6 +44,8 @@ export function VillainRangeModal({
   onClose,
 }: {
   title: string;
+  /** The spot, under the title (lab/SpotLine). */
+  spot?: ReactNode;
   initial: Weights;
   /** Cards Hero holds and the board shows: their combos can't be in the range. */
   dead: Card[];
@@ -92,6 +96,7 @@ export function VillainRangeModal({
   return (
     <Modal
       title={title}
+      subtitle={spot}
       wide
       onClose={onClose}
       footer={

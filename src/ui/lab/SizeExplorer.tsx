@@ -1,4 +1,5 @@
 import { BUCKETS, BUCKET_LABELS } from '../../core/buckets';
+import type { ReactNode } from 'react';
 import { sizeKey, type PlayerAnswer, type SizeQuestion, type SizeRow } from '../../core/motives/sizes';
 import { Button, Modal } from '../controls';
 import type { Money } from '../replay/views';
@@ -30,6 +31,7 @@ export const playLabel = (r: SizeRow) =>
  */
 export function SizeExplorer({
   title,
+  spot,
   q,
   money,
   names,
@@ -37,6 +39,8 @@ export function SizeExplorer({
   onClose,
 }: {
   title: string;
+  /** The spot, under the title (lab/SpotLine). */
+  spot?: ReactNode;
   q: SizeQuestion;
   money: Money;
   /** Seat → name, for everyone in `q.others`. */
@@ -103,7 +107,7 @@ export function SizeExplorer({
   };
 
   return (
-    <Modal title={title} wide="xl" onClose={onClose}>
+    <Modal title={title} subtitle={spot} wide="xl" onClose={onClose}>
       {pending && !a && (
         <p className="text-sm text-muted">
           Working out every option{multi ? ` against ${q.others.length} players (on the flop this takes several seconds)` : ' (a few seconds)'}…

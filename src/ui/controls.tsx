@@ -224,12 +224,15 @@ export function Stepper({ value, min, max, onChange }: { value: number; min: num
 
 export function Modal({
   title,
+  subtitle,
   onClose,
   children,
   footer,
   wide = false,
 }: {
   title: string;
+  /** A second line under the title: the spot a Lab window is about (lab/SpotLine). */
+  subtitle?: ReactNode;
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
@@ -249,8 +252,11 @@ export function Modal({
         className={`max-h-[90vh] w-full ${wide === 'xl' ? 'max-w-6xl' : wide ? 'max-w-4xl' : 'max-w-lg'} overflow-auto rounded-xl border border-line bg-surface shadow-2xl`}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-line px-5 py-3">
-          <h2 className="text-base font-bold">{title}</h2>
+        <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-3">
+          <div className="min-w-0">
+            <h2 className="text-base font-bold">{title}</h2>
+            {subtitle && <div className="mt-0.5 text-xs text-muted">{subtitle}</div>}
+          </div>
           <button type="button" onClick={onClose} className="text-xl leading-none text-muted hover:text-ink" aria-label="Close">
             ×
           </button>

@@ -14,9 +14,11 @@ export interface Settings {
   cardFace: CardFace;
   /** Diamonds blue and clubs green; off: the usual red and black. */
   fourColor: boolean;
+  /** The bet sizes (pots) "what happens if" starts with. */
+  whatIfSizes: number[];
 }
 
-const DEFAULTS: Settings = { theme: 'dark', amounts: 'currency', showAllCards: true, cardFace: 'standard', fourColor: true };
+const DEFAULTS: Settings = { theme: 'dark', amounts: 'currency', showAllCards: true, cardFace: 'standard', fourColor: true, whatIfSizes: [1 / 3, 3 / 4, 1.5] };
 const KEY = 'logistack.settings.v1';
 
 function load(): Settings {

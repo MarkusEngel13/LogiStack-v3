@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { BUCKETS, bucketAll, type Bucket } from '../../core/buckets';
 import type { Card } from '../../core/cards';
 import { fingerprint, type StoryStep } from '../../core/motives/story';
@@ -87,6 +88,7 @@ function cellFills(kept: Weights, removed: Weights, buckets: (Bucket | null)[] |
  */
 export function RangeModal({
   title,
+  spot,
   seat,
   steps,
   step,
@@ -98,6 +100,8 @@ export function RangeModal({
   onClose,
 }: {
   title: string;
+  /** The spot, under the title (lab/SpotLine). */
+  spot?: ReactNode;
   seat: number;
   steps: readonly StoryStep[];
   step: number;
@@ -161,7 +165,7 @@ export function RangeModal({
   const what = shown ? `${streetName(shown.street)}: ${shown.action}` : mine.length > 0 ? 'Now, after its actions since the flop' : 'Now';
 
   return (
-    <Modal title={title} wide="xl" onClose={onClose}>
+    <Modal title={title} subtitle={spot} wide="xl" onClose={onClose}>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,460px)_minmax(0,1fr)]">
         <div className="space-y-2">
           <div className="flex flex-wrap gap-1.5">

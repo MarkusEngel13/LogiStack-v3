@@ -23,7 +23,7 @@ export type Question =
   | { kind: 'fear'; a: Weights; b: Weights; board: Card[] }
   | { kind: 'story'; input: StoryInput }
   | { kind: 'sizes'; q: SizeQuestion }
-  | { kind: 'whatif'; q: SizeQuestion }
+  | { kind: 'whatif'; q: SizeQuestion; sizes?: number[] }
   | { kind: 'bot'; input: StoryInput; state: TableState; step: number }
   | { kind: 'preview'; profile: MotiveProfile }
   | { kind: 'sim'; table: SimTable; from: number; to: number; charts: ChartChoice[] };
