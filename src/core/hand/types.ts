@@ -169,4 +169,9 @@ export interface HandRecord {
    * share it, so the Hands page can show a session's result.
    */
   session?: string;
+  /**
+   * Entered with the live screen's quick taps: board suits (and the suits of hands from the grid)
+   * may be guessed from a texture, so flush questions need a second look.
+   */
+  quick?: { guessedSuits?: boolean };
 }

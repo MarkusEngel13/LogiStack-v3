@@ -104,6 +104,19 @@ engine, saved-hand format and Django backend are replaced. v3 lives on GitHub as
        Rewritten rather than ported (v2 had board-flush/straight and card-order bugs besides the draw
        bug). `rangeClasses()` = the Excel's made-hands and draws summaries, with average equity per
        class; shown on the EQ page for the heat-map player.
+20. [x] **Live hand entry** (2026-10-09, `core/live/quick.ts`, `ui/live/`, the "Live" tab; the app
+       opens on it on a phone). Set up the night's table once from saved players, profiles or types
+       (you, the button, blinds, buy-in, your usual open); each hand after that is the next hand at
+       the same table (button moves, stacks carry over). A hand: your cards = one tap on the 13x13 grid,
+       tap who saw the flop, one preflop line (limped / X opens, rest call / heads-up 3-bet lines),
+       per street the board as ranks (suits guessed from a texture: rainbow, two-tone, monotone,
+       "draw for you", turn/river "flush card"; tap a card to fix its suit) and one line ("Fish bets ½
+       · you call", raise lines heads-up, bet-call-fold three-way), showdown cards from the grid or
+       "mucks". Lines are policies played through the engine, so they're always legal. Anything else:
+       "Action by action". Undo, "Later" (finish it at the end of the night, listed under "To finish"),
+       "I fold · next hand" (not saved), table changes between hands (stacks, seats, sitting out).
+       Measured on a phone: fold 1 tap, a won c-bet 7, a river showdown 12.
+       Next: entering showdowns between other players as reads for a saved player.
 
 ## Direction (agreed 2026-10-06): HHP made visible, fear and greed as the engine
 

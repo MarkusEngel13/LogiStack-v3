@@ -13,11 +13,15 @@ const RangesPage = lazy(() => import('./ui/ranges/RangesPage').then((m) => ({ de
 const EquityPage = lazy(() => import('./ui/equity/EquityPage').then((m) => ({ default: m.EquityPage })));
 const PlayersPage = lazy(() => import('./ui/players/PlayersPage').then((m) => ({ default: m.PlayersPage })));
 const HandScreen = lazy(() => import('./ui/replay/HandScreen').then((m) => ({ default: m.HandScreen })));
+const LivePage = lazy(() => import('./ui/live/LivePage').then((m) => ({ default: m.LivePage })));
 const HandsList = lazy(() => import('./ui/HandsList').then((m) => ({ default: m.HandsList })));
-type Page = 'new' | 'hands' | 'hand' | 'ranges' | 'equity' | 'players';
+type Page = 'live' | 'new' | 'hands' | 'hand' | 'ranges' | 'equity' | 'players';
+
+/** On a phone the app opens on the live table; on a computer on a new hand. */
+const firstPage = (): Page => (typeof window !== 'undefined' && window.innerWidth < 640 ? 'live' : 'new');
 
 export default function App() {
-  const [page, setPage] = useState<Page>('new');
+  const [page, setPage] = useState<Page>(firstPage);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [wizardKey, setWizardKey] = useState(0);
   const [open, setOpen] = useState<{ hand: HandRecord; editable: boolean } | null>(null);
@@ -58,14 +62,15 @@ export default function App() {
     <SettingsProvider>
       <div className="min-h-screen">
         <header className="sticky top-0 z-40 border-b border-line bg-bg/90 backdrop-blur">
-          <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-4 px-6 py-3">
-            <div className="flex items-center gap-8">
-              <span className="text-lg font-black tracking-tight">
+          <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-2 px-3 py-2 sm:gap-4 sm:px-6 sm:py-3">
+            <div className="flex min-w-0 items-center gap-3 sm:gap-8">
+              <span className="hidden text-lg font-black tracking-tight sm:inline">
                 Logi<span className="text-accent">Stack</span>
               </span>
-              <nav className="flex gap-1">
+              <nav className="-mx-1 flex min-w-0 gap-0.5 overflow-x-auto px-1 sm:gap-1">
                 {(
                   [
+                    ['live', 'Live'],
                     ['new', 'New hand'],
                     ['hands', 'Hands'],
                     ['players', 'Players'],
@@ -77,17 +82,24 @@ export default function App() {
                     key={id}
                     type="button"
                     onClick={() => (id === 'new' ? newHand() : setPage(id))}
-                    className={`rounded-md px-3 py-1.5 text-sm ${
+                    className={`shrink-0 rounded-md px-2.5 py-1.5 text-sm whitespace-nowrap sm:px-3 ${
                       page === id || (page === 'hand' && id === 'hands') ? 'bg-surface-2 text-ink' : 'text-muted hover:text-ink'
                     }`}
                   >
-                    {label}
+                    {id === 'new' ? (
+                      <>
+                        <span className="sm:hidden">New</span>
+                        <span className="hidden sm:inline">New hand</span>
+                      </>
+                    ) : (
+                      label
+                    )}
                   </button>
                 ))}
               </nav>
             </div>
-            <Button variant="ghost" onClick={() => setOptionsOpen(true)} title="Options">
-              ⚙ Options
+            <Button variant="ghost" onClick={() => setOptionsOpen(true)} title="Options" className="shrink-0 !px-2.5 sm:!px-3.5">
+              ⚙<span className="hidden sm:inline"> Options</span>
             </Button>
           </div>
         </header>
@@ -102,6 +114,7 @@ export default function App() {
             }}
           />
         )}
+        {page === 'live' && <LivePage onOpenHand={(h) => openHand(h, true)} />}
         {page === 'hands' && <HandsList onOpen={openHand} onWatch={watchBots} />}
         {page === 'players' && (
           <PlayersPage
