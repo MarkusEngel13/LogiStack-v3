@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { Fragment, useMemo, type ReactNode } from 'react';
 import { leadsLevel, limpTrapLevel, movedSliders, SLIDER_INFO, type SeatStyle, type StyleSettings } from '../../core/players/style';
 import { Field, inputClass } from '../controls';
+import { gradeBadge, gradeLabel } from './gradeColor';
 import { loadPlayers, loadProfiles, seatStyleOfPlayer, seatStyleOfProfile } from './store';
 
 export interface Pick {
@@ -26,6 +27,35 @@ export function specials(s: StyleSettings): string[] {
 export function styleSummary(style: SeatStyle): string {
   const moved = movedSliders(style.settings).map((id) => `${SLIDER_INFO[id].label} ${style.settings.sliders[id]}`);
   return [style.settings.base, ...moved, ...specials(style.settings)].join(' · ');
+}
+
+/** styleSummary with the moved sliders' grades in their colours (seat tooltips). */
+export function StyleSummary({ style }: { style: SeatStyle }) {
+  const parts: ReactNode[] = [
+    style.settings.base,
+    ...movedSliders(style.settings).map((id) => {
+      const v = style.settings.sliders[id];
+      return (
+        <span key={id} className="whitespace-nowrap">
+          {SLIDER_INFO[id].label}{' '}
+          <span className="rounded px-1 font-semibold tabular-nums" style={gradeBadge(v)}>
+            {gradeLabel(v)}
+          </span>
+        </span>
+      );
+    }),
+    ...specials(style.settings),
+  ];
+  return (
+    <>
+      {parts.map((p, i) => (
+        <Fragment key={i}>
+          {i > 0 && ' · '}
+          {p}
+        </Fragment>
+      ))}
+    </>
+  );
 }
 
 /** The wizard's "saved player" choice for a seat: a player from the Players page, or a profile. */

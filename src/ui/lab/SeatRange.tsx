@@ -7,7 +7,7 @@ import { playerRange } from '../../core/ranges/handRanges';
 import { comboTotal, withoutCards, type Weights } from '../../core/ranges/range';
 import type { ChartChoice } from '../../core/ranges/spot';
 import { statusIcon } from '../playerTypes';
-import { styleSummary } from '../players/SavedPlayerPicker';
+import { StyleSummary } from '../players/SavedPlayerPicker';
 import type { SeatStyle } from '../../core/players/style';
 import { streetName } from '../replay/views';
 import { BucketBar, combosText } from './RangeStory';
@@ -95,7 +95,7 @@ export function SeatRangeSummary({ r, board, editable }: { r: SeatRange; board: 
       {r.style && (
         <div className="text-muted" title="Saved player or profile from the Players page">
           {r.style.label !== r.name && <span className="text-ink">{r.style.label}: </span>}
-          {styleSummary(r.style)}
+          <StyleSummary style={r.style} />
         </div>
       )}
       {r.folded ? (
