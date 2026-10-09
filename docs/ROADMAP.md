@@ -346,8 +346,9 @@ all 197 videos, 9058 claims (two age-restricted videos skipped).
 - [x] HHP: every video, the vlogs too.
 - [~] Charlie Carrel: all of `videos_CC.csv` (~399), the bankroll-challenge episodes too (he gives
       advice while playing). Drama / reaction videos with under 4 poker terms per 1000 words are
-      skipped (they gave 0-6 claims; the transcript is kept). 184 videos / 3512 claims by 2026-10-09
-      (batch 7: 30 videos, mostly 2021 bankroll-challenge streams - thin, 5-44 claims each). His
+      skipped (they gave 0-6 claims; the transcript is kept). 214 videos / 3841 claims by 2026-10-09
+      (batches 7 and 8: 60 videos, mostly 2020-21 bankroll-challenge streams - thin, 2-44 claims each;
+      ~110 left, 3 transcripts ready). His
       angle differs from HHP's: little fear/greed, much ego and embarrassment (reverse tells,
       "nobody wants to look stupid"), and he calls range-checking lazy - against HHP's "check your
       range out of position against recs".
