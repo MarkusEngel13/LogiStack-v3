@@ -94,7 +94,7 @@ What it is:
 
 **2. The database (VS Code terminal, ~5 min).**
 ```powershell
-git fetch; git checkout step-b; npm.cmd ci
+git fetch; git checkout -B step-b origin/step-b; npm.cmd ci   # -B: the branch was rebased today
 npx.cmd wrangler login                          # opens the browser once
 npx.cmd wrangler d1 create logistack            # prints a database_id
 ```
@@ -119,6 +119,9 @@ Workers Builds deploys in a minute or two.
 - Move your data: on `npm run dev` (localhost) Options -> Backup -> Export everything; on the
   website Options -> Backup -> Import. It syncs up by itself; the account badge shows the counts.
 - A second device (the phone): log in, the same hands and players are there.
+- Install it on the phone: open the site once online, then Share -> **Add to Home Screen** (iPhone)
+  or menu -> **Install app** (Android). From then on it opens without a connection too; hands
+  entered offline sync when the phone is back online (the badge dot turns green).
 - Friends: add their emails to the Access policy; after their first login they show up in
   Account -> Users and plans, where you set Premium / Pro.
 
