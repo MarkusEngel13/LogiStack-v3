@@ -8,6 +8,9 @@
  * pairs and draws that keep calling (bet, get paid), on a static board it is mostly air that
  * folds to any bet (check, let them catch up or bluff) - HHP's "will they call with their weak
  * stuff?".
+ *
+ * The other way round, the size read: what a bet's size says to the player facing it about the
+ * bettor's later bets (a small bet reads weak, a big one strong) - the trap of a strong hand's call.
  */
 
 import { BUCKETS, type Bucket } from '../buckets';
@@ -41,6 +44,28 @@ export function believedContinue(bucket: Bucket, size: number, foldBelief = 1, r
   let c = Math.max(Math.min(base, floor), base * Math.exp(-decay * size));
   if (raise) c = 1 - (1 - c) * RAISE_FOLDS;
   return c ** foldBelief;
+}
+
+/**
+ * The size read (Marius's pool, 2026-10-10): what a bet's size says about the bettor to the player
+ * facing it - how often he bets again on the next street when called. A small bet reads weak, a
+ * stab that gives up when called: a monster raises it now to get paid. A big bet reads strong, he
+ * will keep betting: a monster just calls and lets him. (HHP-4VqO8f5PKuY-10/-11 point the same
+ * way for another reason: a small bet lets the strong hands raise, a big one makes them flat.)
+ * A third of the pot: 40 %, half: 50 %, pot: 80 %, never above 90 %.
+ */
+const BARREL = { base: 0.2, perPot: 0.6, max: 0.9 };
+
+export function believedBarrel(size: number): number {
+  return Math.min(BARREL.max, BARREL.base + BARREL.perPot * Math.max(0, size));
+}
+
+/**
+ * What a bettor of `size` pots is believed to put in on each later street when called, in pots: he
+ * bets again as often as his size reads strong, about as much as now.
+ */
+export function laterBets(size: number): number {
+  return believedBarrel(size) * Math.max(0, size);
 }
 
 /** The whole table, for the screen. */
