@@ -4,7 +4,7 @@ import { applyAnswers, handsPlayed, nearest, QUESTIONS, tableSizeOf, type Answer
 import { SIZING_INFO, SLIDER_INFO, SLIDERS, stepLabel, stylePreflop, type StyleSettings } from '../../core/players/style';
 import { Button, Field, inputClass, Modal, TextInput } from '../controls';
 import { allCharts } from '../ranges/charts';
-import { builtInId, playerSettings, profileById, type SavedPlayer, type SavedProfile } from './store';
+import { builtInId, overridesFrom, playerSettings, profileById, type SavedPlayer, type SavedProfile } from './store';
 
 /**
  * "Ask me questions": what you have seen a player do, one question at a time, turned into
@@ -53,13 +53,7 @@ export function QuestionWizard({
   };
 
   const save = () => {
-    const overrides: SavedPlayer['overrides'] = {};
-    const sliders: Partial<StyleSettings['sliders']> = {};
-    for (const id of SLIDERS) if (result.sliders[id] !== profile.settings.sliders[id]) sliders[id] = result.sliders[id];
-    if (Object.keys(sliders).length) overrides.sliders = sliders;
-    if (result.sizing !== profile.settings.sizing) overrides.sizing = result.sizing;
-    if (result.limpTrap !== profile.settings.limpTrap) overrides.limpTrap = result.limpTrap;
-    if (result.leads !== profile.settings.leads) overrides.leads = result.leads;
+    const overrides = overridesFrom(result, profile.settings);
     onSave({
       ...(player ?? { id: crypto.randomUUID(), notes: '' }),
       name: name.trim() || 'New player',

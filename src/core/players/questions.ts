@@ -44,7 +44,10 @@ export function handsPlayed(style: PreflopStyle, charts: readonly ChartChoice[],
     for (let c = 0; c < CELLS; c++) go += (comboCount(c) / 1326) * bendMix(chart, c, style, firstIn).go;
     sum += go;
   }
-  return (sum / seats.length) * NOT_ALWAYS_FIRST;
+  // the looser he is, the less it matters whether someone raised first: a player in nearly every
+  // hand calls raises with them too (without this, nobody could be estimated above ~60 %)
+  const go = sum / seats.length;
+  return go * (NOT_ALWAYS_FIRST + (1 - NOT_ALWAYS_FIRST) * go * go);
 }
 
 /** The Loose position (1..5, half steps) that plays `share` of hands at an n-handed table. */
@@ -117,6 +120,18 @@ export const QUESTIONS: Question[] = [
       { id: 'limp', label: 'Limps almost always', hint: 'raises only the very best hands' },
       { id: 'mix', label: 'A mix', hint: 'limps the weaker ones, raises the good ones' },
       { id: 'raise', label: 'Raises', hint: 'rarely or never limps' },
+    ],
+  },
+  {
+    id: 'open',
+    sets: 'Raise size',
+    text: 'When he raises first in, how big?',
+    help: 'A min-raise is cheap to call - and often tells you something about his hand.',
+    options: [
+      { id: '2', label: 'Min-raise', hint: '2 BB' },
+      { id: '3', label: '3 BB' },
+      { id: '4', label: '4 BB' },
+      { id: '5', label: '5 BB or more' },
     ],
   },
   {
@@ -244,6 +259,9 @@ const SET: Record<string, Partial<Record<SliderId, number>>> = {
 };
 const SIZING: Record<string, Sizing> = { same: 'half', small: 'small', strength: 'payoff', big: 'big' };
 
+/** The table-size answer for n players. */
+export const tableSizeId = (n: number) => (n <= 6 ? '6' : n <= 8 ? '8' : '9');
+
 export const tableSizeOf = (a: Answers) => TABLE_SIZES.find((t) => t.id === a.table)?.n ?? 9;
 
 /**
@@ -270,9 +288,11 @@ export function applyAnswers(
   if (a.leads) s.leads = a.leads !== 'never';
   if (a.leads === 'often') s.sliders.postAggr = Math.min(5, Math.max(s.sliders.postAggr, 3.5));
   if (a.sizing && SIZING[a.sizing]) s.sizing = SIZING[a.sizing]!;
+  if (a.open && Number(a.open) >= 2) s.openBB = Number(a.open);
 
   // how many hands, at his table size (only the width matters: limping or raising, he plays them)
-  const share = a.hands ? HANDS[a.hands] : undefined;
+  // "pct70" = a number you saw (70 % of hands); the named bands otherwise
+  const share = a.hands?.startsWith('pct') ? Number(a.hands.slice(3)) / 100 : a.hands ? HANDS[a.hands] : undefined;
   if (share !== undefined) s.sliders.loose = looseFor(share, preflopOf(s), charts, tableSizeOf(a));
   return s;
 }

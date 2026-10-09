@@ -227,6 +227,8 @@ export interface LiveHandProps {
   onOpenLab: (h: HandRecord) => void;
   /** "Showdown I saw": a hand between other players, as a read. */
   onSeenShowdown: () => void;
+  /** ✎: what you see a player do, into his profile. */
+  onPlayerInfo: () => void;
 }
 
 /**
@@ -234,7 +236,7 @@ export interface LiveHandProps {
  * grid), who saw the flop and a preflop line, then per street the board's ranks and one line,
  * and the cards shown at showdown. Anything unusual goes in action by action.
  */
-export function LiveHand({ hand, openBB, onChange, onNext, onEditTable, onOpenLab, onSeenShowdown }: LiveHandProps) {
+export function LiveHand({ hand, openBB, onChange, onNext, onEditTable, onOpenLab, onSeenShowdown, onPlayerInfo }: LiveHandProps) {
   const [history, setHistory] = useState<HandRecord[]>([]);
   const [inPot, setInPot] = useState<SeatNo[]>(hand.hero !== undefined ? [hand.hero] : []);
   const [frac, setFrac] = useState(0.5);
@@ -332,10 +334,13 @@ export function LiveHand({ hand, openBB, onChange, onNext, onEditTable, onOpenLa
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0 text-sm">
           <span className="font-semibold">#{hand.handNo}</span>
-          {heroState && <span className="text-muted"> · you {heroState.position}</span>}
-          <span className="text-muted"> · pot {money(potTotal(st))}</span>
+          {heroState && <span className="text-muted"> · {heroState.position}</span>}
+          <span className="whitespace-nowrap text-muted"> · {money(potTotal(st))}</span>
         </div>
         <div className="flex shrink-0 gap-1">
+          <Button variant="ghost" onClick={onPlayerInfo} className="!px-2.5" title="What I see him do: plays 70 %, min-raises... into his profile">
+            ✎
+          </Button>
           <Button variant="ghost" onClick={onSeenShowdown} className="!px-2.5" title="Showdown I saw: what another player showed, kept as a read on him">
             👀
           </Button>

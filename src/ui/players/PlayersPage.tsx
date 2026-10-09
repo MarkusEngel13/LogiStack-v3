@@ -25,6 +25,7 @@ import { allCharts } from '../ranges/charts';
 import { QuestionWizard } from './QuestionWizard';
 import { PlayerCheck } from '../sim/PlayerCheck';
 import { readSuggestions, tagById } from '../../core/players/reads';
+import { QUESTIONS } from '../../core/players/questions';
 import { ExploitCheck } from '../sim/ExploitCheck';
 import { styleSummary } from './SavedPlayerPicker';
 import { testTable, type TestMode } from './seating';
@@ -291,9 +292,9 @@ function PlayerEditor({
     else sliders[id] = v;
     set({ ...o, sliders });
   };
-  const setFlag = <K extends 'sizing' | 'limpTrap' | 'leads'>(k: K, v: StyleSettings[K]) => {
+  const setFlag = <K extends 'sizing' | 'limpTrap' | 'leads' | 'openBB'>(k: K, v: StyleSettings[K]) => {
     const next = { ...o };
-    if (v === profile.settings[k]) delete next[k];
+    if (v === profile.settings[k] || v === undefined) delete next[k];
     else next[k] = v as never;
     set(next);
   };
@@ -320,6 +321,20 @@ function PlayerEditor({
           onLimpTrap={(v) => setFlag('limpTrap', v)}
           onLeads={(v) => setFlag('leads', v)}
         />
+        <Field label="Opens to" hint="His first-in raise size. A min-raise is cheap to call.">
+          <Segmented<number>
+            size="sm"
+            value={settings.openBB ?? 0}
+            onChange={(v) => setFlag('openBB', v || undefined)}
+            options={[
+              { value: 0, label: 'As his type' },
+              { value: 2, label: 'Min (2 BB)' },
+              { value: 3, label: '3 BB' },
+              { value: 4, label: '4 BB' },
+              { value: 5, label: '5 BB+' },
+            ]}
+          />
+        </Field>
         <Field label="Reads and tells" hint="What to look for at the table: his tells, his favourite lines, when he tilts.">
           <textarea
             className={`${inputClass} min-h-20`}
@@ -328,6 +343,7 @@ function PlayerEditor({
             placeholder="Snap-calls with draws, tanks with the nuts. Gets stuck after 11pm."
           />
         </Field>
+        <ToldAtTable player={player} />
         <PlayerReads
           player={player}
           settings={settings}
@@ -353,6 +369,30 @@ function PlayerEditor({
       </section>
       <Readout settings={settings} name={player.name} reference={profile.settings} referenceName={profile.name} playerId={player.id} />
     </>
+  );
+}
+
+/** What you told the app about him during games (✎ on the live screen), by day. */
+function ToldAtTable({ player }: { player: SavedPlayer }) {
+  const log = player.observed ?? [];
+  if (log.length === 0) return null;
+  const days = new Map<string, string[]>();
+  for (const o of log) {
+    const day = new Date(o.at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+    const q = QUESTIONS.find((x) => x.id === o.q);
+    const a = o.q === 'hands' && o.a.startsWith('pct') ? `${o.a.slice(3)} %` : (q?.options.find((x) => x.id === o.a)?.label ?? o.a);
+    days.set(day, [...(days.get(day) ?? []), `${q?.sets ?? o.q}: ${a}`]);
+  }
+  return (
+    <Field label="Told at the table" hint="From ✎ on the live screen; each answer moved his sliders when you saved it.">
+      <ul className="space-y-1 text-sm">
+        {[...days.entries()].reverse().map(([day, items]) => (
+          <li key={day}>
+            <span className="text-xs text-faint">{day}</span> · {items.join(' · ')}
+          </li>
+        ))}
+      </ul>
+    </Field>
   );
 }
 

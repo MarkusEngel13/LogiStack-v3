@@ -145,7 +145,8 @@ export function preflopChoice(state: TableState, charts: readonly ChartChoice[],
   const facing = state.currentBet;
   let to: number;
   if (f.scenario === 'RFI') {
-    const mix = OPEN_SIZES[me.playerType || 'Reg'] ?? OPEN_SIZES.Reg!;
+    const own = me.style?.settings.openBB;
+    const mix = own ? [[own, 1] as [number, number]] : (OPEN_SIZES[me.playerType || 'Reg'] ?? OPEN_SIZES.Reg!);
     let r = rand();
     let open = mix[mix.length - 1]![0];
     for (const [bbs, w] of mix) {
@@ -161,7 +162,8 @@ export function preflopChoice(state: TableState, charts: readonly ChartChoice[],
   else if (f.raises === 1) to = (f.inPosition ? 3 : 4) * facing + f.callers * facing;
   else if (f.raises === 2) to = (f.inPosition ? 2.5 : 3) * facing;
   else to = legal.maxTo;
-  const unit = Math.max(1, Math.round(state.rules.bb / 2));
+  // whole chips of a fifth of the big blind: 5 cents at 10/25 (half a blind, 13, made 3 BB 78)
+  const unit = Math.max(1, Math.round(state.rules.bb / 5));
   to = Math.round((f.scenario === 'RFI' ? to : to * sizing) / unit) * unit;
 
   const base = { type: 'action' as const, seat: me.seat };

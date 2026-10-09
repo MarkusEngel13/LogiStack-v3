@@ -34,6 +34,7 @@ export interface PlayerOverrides {
   sizing?: Sizing;
   limpTrap?: boolean;
   leads?: boolean;
+  openBB?: number;
 }
 
 export interface SavedPlayer {
@@ -47,6 +48,8 @@ export interface SavedPlayer {
   answers?: Record<string, string>;
   /** Hands you saw him show down, with what he did (the live screen's "Showdown I saw"). */
   reads?: ShowdownRead[];
+  /** What you told the app about him during a game (✎ on the live screen), newest last. */
+  observed?: { at: string; q: string; a: string }[];
   updatedAt?: string;
 }
 
@@ -135,7 +138,21 @@ export function playerSettings(pl: SavedPlayer, profiles = loadProfiles()): Styl
     sizing: pl.overrides.sizing ?? base.sizing,
     limpTrap: pl.overrides.limpTrap ?? base.limpTrap,
     leads: pl.overrides.leads ?? base.leads,
+    ...((pl.overrides.openBB ?? base.openBB) ? { openBB: pl.overrides.openBB ?? base.openBB } : {}),
   };
+}
+
+/** A player's overrides for a full style: what differs from his profile. */
+export function overridesFrom(s: StyleSettings, profile: StyleSettings): PlayerOverrides {
+  const o: PlayerOverrides = {};
+  const sliders: Partial<Record<SliderId, number>> = {};
+  for (const id of SLIDERS) if (s.sliders[id] !== profile.sliders[id]) sliders[id] = s.sliders[id];
+  if (Object.keys(sliders).length) o.sliders = sliders;
+  if (s.sizing !== profile.sizing) o.sizing = s.sizing;
+  if (s.limpTrap !== profile.limpTrap) o.limpTrap = s.limpTrap;
+  if (s.leads !== profile.leads) o.leads = s.leads;
+  if (s.openBB !== profile.openBB && s.openBB) o.openBB = s.openBB;
+  return o;
 }
 
 /** What a seat gets when a saved player sits down. */

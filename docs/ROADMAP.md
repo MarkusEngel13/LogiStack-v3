@@ -124,6 +124,19 @@ engine, saved-hand format and Django backend are replaced. v3 lives on GitHub as
        seen" with the list and suggestions - each tag leans one slider; two net votes (or a lone one)
        suggest one step ("Sticky 4 → 5"), two reads of a line suggest its switch. Nothing changes until
        you tap the suggestion.
+22. [x] **Telling the app what a player does, during the game** (2026-10-09, `ui/live/PlayerInfo.tsx`): ✎ on the
+       live screen, tap the player, then one tap per thing you've seen - hands he plays (15-80 %, turned
+       into Loose at the table's size), first in he calls / mixes / raises, his raise size (min-raise,
+       3, 4, 5+ BB), 3-bets, limp-reraises; "More" for after the flop (the wizard's questions).
+       Save moves his sliders at once, from where they are, and logs it ("Told at the table" on the
+       Players page); a seat that isn't a saved player becomes one. "Plays 70 %, calls or min-raises":
+       6 taps with naming him.
+       - New per-player **open size** (`StyleSettings.openBB`, Players page "Opens to"): the bots
+         min-raise when he does. The wizard asks it too.
+       - Hands-played estimate: very loose players now reach 60-80 % (they call raises too; it was
+         capped near 58 % nine-handed). Regs barely move (19 % → 20 %).
+       - Fixed: bot raise sizes were rounded to half a big blind = 13 chips at 10/25, so 3 BB was
+         78 cents; now 5-cent chips (3 BB = 75).
 
 ## Direction (agreed 2026-10-06): HHP made visible, fear and greed as the engine
 

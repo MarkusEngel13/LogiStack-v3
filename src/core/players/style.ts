@@ -32,6 +32,8 @@ export interface StyleSettings {
   limpTrap: boolean;
   /** Leads into the preflop raiser with strong hands instead of checking to him. */
   leads: boolean;
+  /** His open-raise size in big blinds (2 = min-raise); unset = his type's usual mix. */
+  openBB?: number;
 }
 
 /** What a seat carries in a hand: the style as it was when the hand was set up. */
