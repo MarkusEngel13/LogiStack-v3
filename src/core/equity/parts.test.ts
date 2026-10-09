@@ -60,3 +60,21 @@ describe('a bot deciding from its one hand', () => {
     }
   }, 30_000);
 });
+
+describe('the few-hands shortcut', () => {
+  test('one or three hands give the same parts as inside a full range', () => {
+    for (const board of ['Js 9d 2s', 'Ac 7d 2h 5s', 'Kd 8c 4h 2s Ts']) {
+      const cards = parseCards(board.split(' '));
+      const group = bucketAll(cards).map((b) => (b ? BUCKETS.indexOf(b) : -1));
+      const full = partsByGroup(btn, bb, cards, group, BUCKETS.length, true);
+      const few = new Float32Array(1326);
+      const picks = [0, 1, 2].map((k) => btn.findIndex((w, i) => w > 0 && i > 400 * k && group[i]! >= 0));
+      for (const c of picks) few[c] = 1;
+      const part = partsByGroup(few, bb, cards, group, BUCKETS.length, true);
+      for (const c of picks) for (let g = 0; g < BUCKETS.length; g++) {
+        expect(part.share[c * BUCKETS.length + g]).toBeCloseTo(full.share[c * BUCKETS.length + g]!, 6);
+        expect(part.faced[c * BUCKETS.length + g]).toBeCloseTo(full.faced[c * BUCKETS.length + g]!, 6);
+      }
+    }
+  }, 60_000);
+});

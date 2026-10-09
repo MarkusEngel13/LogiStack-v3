@@ -366,6 +366,41 @@ export function partsByGroup(a: Weights, b: Weights, board: readonly Card[], gro
   const deck: Card[] = [];
   for (let c = 0; c < 52; c++) if (!board.includes(c)) deck.push(c);
   const need = runouts ? 5 - board.length : 0;
+  const forEachRunout = (f: (runLo: number, runHi: number) => void) => {
+    if (need === 0) f(0, 0);
+    else if (need === 1) for (const c of deck) f(CARD_LO[c]!, CARD_HI[c]!);
+    else
+      for (let i = 0; i < deck.length; i++)
+        for (let j = i + 1; j < deck.length; j++) f(CARD_LO[deck[i]!]! | CARD_LO[deck[j]!]!, CARD_HI[deck[i]!]! | CARD_HI[deck[j]!]!);
+  };
+
+  // A few hands (a bot deciding with its one real hand): comparing them with every combo is
+  // cheaper than sorting the other range for each runout
+  if (listA.length <= 4) {
+    const gB = listB.map((v) => group[v.combo]!);
+    const sA = new Int32Array(listA.length);
+    forEachRunout((runLo, runHi) => {
+      const lo = boardLo | runLo;
+      const hi = boardHi | runHi;
+      for (let i = 0; i < listA.length; i++) {
+        const h = listA[i]!;
+        sA[i] = (h.lo & runLo) | (h.hi & runHi) ? -1 : evalPacked(h.lo | lo, h.hi | hi);
+      }
+      for (let j = 0; j < listB.length; j++) {
+        const v = listB[j]!;
+        if ((v.lo & runLo) | (v.hi & runHi)) continue;
+        const sb = evalPacked(v.lo | lo, v.hi | hi);
+        for (let i = 0; i < listA.length; i++) {
+          const h = listA[i]!;
+          if (sA[i]! < 0 || (h.lo & v.lo) | (h.hi & v.hi)) continue;
+          const at = h.combo * G + gB[j]!;
+          share[at]! += v.weight * (sA[i]! > sb ? 1 : sA[i] === sb ? 0.5 : 0);
+          faced[at]! += v.weight;
+        }
+      }
+    });
+    return { groups: G, share, faced, total };
+  }
 
   const keys = new Float64Array(listB.length);
   const scores = new Int32Array(listB.length);
