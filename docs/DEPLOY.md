@@ -4,6 +4,24 @@ Plan agreed 2026-10-08: move to Cloudflare step by step so others can test the a
 tiers (Marius = admin, others edit or view), each account its own data, only the player profiles
 shared.
 
+## State (2026-10-09)
+
+Deployed as a **Worker with static assets** (Cloudflare now steers new projects to Workers, not
+Pages): `wrangler.jsonc` serves `dist/` as a single-page app; Workers Builds runs `npm run build`, then
+`npx wrangler deploy` on every push to `main` (build token "logistack build token"). Live at
+https://logistack.mariusdinu81.workers.dev - headers checked (noindex, no framing, long cache on assets).
+Preview addresses switched off in `wrangler.jsonc` (`preview_urls: false`).
+
+**Still to do (next session, with Marius): the login.** The site is public until then (harmless: no
+data, no playbook, not indexed). Worker `logistack` -> the **Access** tab (or Domains -> workers.dev row)
+-> Enable Cloudflare Access; Zero Trust first time: team name + Free plan (asks for a payment method,
+charges nothing); policy Include -> Emails = Marius's address only, login by One-time PIN. Test in a
+private window: Cloudflare's login page, email code, the app. Don't switch workers.dev off - Access
+goes in front of it. (Seen 2026-10-09: the Overview said "No URLs enabled" while the address still
+answered - a stale overview.)
+
+The Pages route below was the first plan; kept for reference.
+
 ## Step A - hosting behind a login (no database)
 
 The app stays as it is: everything runs in the browser, each tester's hands live in their own
