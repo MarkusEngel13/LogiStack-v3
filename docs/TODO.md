@@ -41,9 +41,9 @@ until agreed. `[ ]` open · `[~]` agreed, to build · `[-]` parked · `[x]` buil
 20. [x] After the flop, "Random flop" becomes "Random turn" and deals a turn (then river). (ROADMAP "Next")
 
 ## Watching the bots
-21. [~] A full-screen table (watching the bots and elsewhere; nice on the phone).
-22. [~] Controls stay put when an action happens; the pause button visible on the phone.
-23. [~] The bots' decision log at the bottom of the page.
+21. [x] A full-screen table (watching the bots and elsewhere; nice on the phone).
+22. [x] Controls stay put when an action happens; the pause button visible on the phone.
+23. [x] The bots' decision log at the bottom of the page.
 24. [x] Bots at 9-max tables, not only 6-max.
 
 ## Lab, Decision panel, modals
@@ -60,7 +60,7 @@ until agreed. `[ ]` open · `[~]` agreed, to build · `[-]` parked · `[x]` buil
 -  Keep: opening a hand in the Lab to watch the ranges change ("basically what I was asking for").
 
 ## Advice naming
-30. [~] Stop calling it "HHP" (HHP says, HHP tips): a neutral name, no copyright trouble if the app
+30. [x] Stop calling it "HHP" (HHP says, HHP tips): a neutral name, no copyright trouble if the app
         is ever sold. How?
 
 ## Live module

@@ -150,8 +150,9 @@ engine, saved-hand format and Django backend are replaced. v3 lives on GitHub as
        Live tap flow, player questions version 2 with types by family and the review of changed
        answers, grade colours, the range editor's Save / Unsaved, the phone matrix, Equity's quick
        ranges and street-by-street board, the Lab windows' spot line, "what happens if" colours and
-       sizes, "Playbook" instead of HHP, the model's size read, the account windows. Item 39
-       (solution stability) is in "Later".
+       sizes, "Playbook" instead of HHP, the model's size read, the account windows, watching the
+       bots (full screen, a control bar that stays put, the log at the bottom). Item 39 (solution
+       stability) is in "Later".
 
 ## Direction (agreed 2026-10-06): HHP made visible, fear and greed as the engine
 
@@ -696,6 +697,15 @@ saves on every stroke today and silently copies a library chart to "… (mine)" 
   changes height when a bot acts; on the phone the pause button is big and always visible.
 - The bots' decision log at the bottom of the page, newest first, foldable.
 - Table size for watching: 6 or 9 seats (later 2-10; the engine and seat layouts already do 2-10).
+- [x] Built 2026-10-10 (`ui/table/FullScreen.tsx`, `ui/replay/WatchBar.tsx`, `BotLog.tsx`): ⤢ on the
+  table's corner (key F), landscape lock tried on a phone, full screen carries from hand to hand;
+  one fixed bar right under the table (measured: the pause button no longer moves; it slid up to
+  340 px before), a round pause button appears when the bar is scrolled away, Space pauses; the log
+  at the bottom, folded state remembered. The 6/9 choice is in the Gym.
+  - Decided on the way, for Marius to judge: "Next hand" mid-hand drops the hand at once (stacks as
+    before it) rather than playing it out (4-20 s); the controls sit under the table, not over it
+    (over the edge they hid the bottom seats); in full screen the action buttons are compact (no
+    "who acts" line, bot note, Blind, "Bot plays"); "Keep this hand" moved up beside Undo.
 
 **Lab (review items 25-27, agreed 2026-10-10):**
 - The Decision panel's EV is Hero's known cards against the opponents' ranges as the model reads
