@@ -348,14 +348,19 @@ on J♠9♦2♠ and A♣7♦2♥, against a 1.5x pot lead (825) 57-65 %.
         - [ ] Stats and readout: these spots in the stats report, so their effect can be checked.
 
 ### Phase 5: calibrate
+**Calibration rule (Marius, 2026-10-09):** the bots are the pool, so they are calibrated on how the pool
+plays - HHP's *Read* lines ("players in position over-stab", "regs overfold the flop") and what Marius
+sees at his table - never on HHP's *advice*, which is Hero's exploit of those habits. The advice is for
+Hero (the playbook panel, the coach), and for checking that the exploit actually wins against the bots.
+
 Findings from the stats runs (2026-10-09, `docs/stats/`, `core/sim/run.test.ts`):
 - [x] Passive types raised and check-raised far too much (top pair felt 86 % of cards as scary at a 3 %
       bite threshold): BITE 6 %, Whale passive; Fish / Whale 3-bets 2-4 % (threeBet, premiumCall).
 - [x] Reg c-bets collapsed without the fake fear: c-bet habit (cbetHabit, C-bets slider).
-- [ ] The model c-bets MORE out of position than in position (Reg 61 % vs 52 % on five flops, raiser's
-      range vs the big blind); HHP's most-cited flop advice (43 videos) is the opposite: out of
-      position the raiser checks his range and lets them stab. Reg c-bets 40 % at the table, mostly
-      heads-up (CB HU 41 %), so multiway pots aren't the reason it is low.
+- [x] ~~The model c-bets more out of position than in position, against HHP~~ - not a fault (Marius,
+      2026-10-09): HHP's advice ("out of position, check your range") is Hero's exploit of the pool, not
+      how the pool plays. Out-of-position c-bets: Reg 61 % vs 52 % in position on five flops; c-bets
+      at the table 40 %, mostly heads-up.
 - [ ] WTSD 46-66 % for every type (live: ~25-35 %): too much calling down, or too much checking down -
       Marius to say what his table does.
 
