@@ -1,0 +1,10 @@
+// Cloudflare Workers: the built app (dist/) served as static files - no server code.
+// Workers Builds runs `npm run build`, then `npx wrangler deploy` with this file (docs/DEPLOY.md).
+{
+  "name": "logistack",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}
