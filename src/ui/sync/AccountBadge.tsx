@@ -54,7 +54,7 @@ export function AccountBadge() {
                 );
               })}
             </div>
-            <p className="text-xs text-faint">The HHP / Carrel playbook never leaves this browser.</p>
+            <p className="text-xs text-faint">Your playbook never leaves this browser.</p>
             {s.account.role === 'admin' && (
               <Button onClick={() => setAdmin(true)} className="mt-2">
                 Users and plans…

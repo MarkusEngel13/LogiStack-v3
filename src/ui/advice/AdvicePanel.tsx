@@ -91,8 +91,9 @@ function Entry({ e }: { e: PlaybookEntry }) {
 }
 
 /**
- * "HHP says": the playbook's advice for the player to act at this moment (the words of
- * core/advice/spot.ts, matched against each entry's `when`).
+ * "Playbook says": the loaded playbook's advice for the player to act at this moment (the words
+ * of core/advice/spot.ts, matched against each entry's `when`). Named after no channel: the app
+ * may be sold one day, and the sources' names and words stay in the private playbook file.
  */
 export function AdvicePanel({ state, seat }: { state: TableState; seat: SeatNo }) {
   const { playbook, load, clear } = usePlaybook();
@@ -125,7 +126,7 @@ export function AdvicePanel({ state, seat }: { state: TableState; seat: SeatNo }
   return (
     <div className="rounded-lg border border-line bg-surface px-4 py-3 text-sm">
       <div className="mb-1 flex items-center justify-between gap-2">
-        <div className="text-xs font-bold tracking-wider text-muted uppercase">HHP says{name ? ` to ${name}` : ''}</div>
+        <div className="text-xs font-bold tracking-wider text-muted uppercase">Playbook says{name ? ` to ${name}` : ''}</div>
         {playbook && (
           <span className="text-[11px] text-faint">
             {playbook.entries.length} entries ·{' '}
@@ -145,7 +146,7 @@ export function AdvicePanel({ state, seat }: { state: TableState; seat: SeatNo }
         <p className="text-muted">Loading the playbook…</p>
       ) : !playbook ? (
         <p className="text-muted">
-          Load your playbook (the Strategy Bible's <code>playbook</code> file) to see what Hungry Horse Poker says at this moment of the hand.{' '}
+          Load your playbook (a <code>playbook</code> JSON file) to see what it says at this moment of the hand.{' '}
           <button type="button" className="text-accent hover:underline" onClick={() => file.current?.click()}>
             Load playbook…
           </button>
