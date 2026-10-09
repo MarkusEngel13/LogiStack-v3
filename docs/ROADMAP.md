@@ -1,5 +1,66 @@
 # LogiStack v3 roadmap
 
+> ## ⚠ HANDOVER 2026-10-09 (from the claude.ai session) - DELETE THIS BLOCK once read and done
+>
+> Written for VS Code / Claude Code on the laptop. Once the steps below are done and you've read
+> the rest, delete this whole block (down to the line of dashes) so it doesn't clutter the file.
+> Everything built today is also described properly in "Done" items 20-23 and in `docs/DEPLOY.md`.
+>
+> **Built today (all on `main`, deployed, 431 tests green):**
+> - **Live tab** (`src/core/live/quick.ts`, `src/ui/live/`): tonight's table once, then each hand in
+>   a few taps (fold 1, won c-bet 7, river showdown 12). Opens first on a phone. Done item 20.
+> - **👀 Showdown I saw** (`core/players/reads.ts`, `ui/live/SeenShowdown.tsx`): reads on saved
+>   players + slider suggestions on the Players page. Done item 21.
+> - **✎ What I see him do** (`ui/live/PlayerInfo.tsx`): wizard answers told during the game, saved
+>   straight into the player (hands played 15-80 %, calls/raises, raise size...). New per-player
+>   `openBB` (min-raisers); hands-played estimate can now reach 70 %+; fixed bot raise rounding at
+>   10/25 (3 BB was 78c). Done item 22.
+> - **Offline + installable** (`src/pwa/`, `public/manifest.webmanifest`, icons): service worker
+>   generated at build with the build's file list. Done item 23.
+>
+> **Tonight (Marius), in order - details in `docs/DEPLOY.md` "Tonight, in order":**
+> 1. [ ] Cloudflare Access on the worker (team domain + AUD tag noted).
+> 2. [ ] `git fetch; git checkout -B step-b origin/step-b` (**-B**: step-b was rebased onto today's
+>        main and force-pushed; a stale local step-b must not be merged), `npm.cmd ci`.
+> 3. [ ] `wrangler d1 create logistack` -> database_id into `wrangler.jsonc`; migrations `--remote`.
+> 4. [ ] Three **Secrets** in the dashboard: ADMIN_EMAILS, ACCESS_TEAM_DOMAIN, ACCESS_AUD.
+> 5. [ ] Commit wrangler.jsonc on step-b, merge into main, push (auto-deploys).
+> 6. [ ] Export from localhost (Options -> Backup), import on the site; install on the phone
+>        ("Add to Home Screen"); try one hand with the phone in airplane mode, then back online
+>        (badge dot turns green = synced).
+>
+> **Things to check on the laptop (not testable from the cloud session):**
+> - [ ] The service worker behind Cloudflare Access: the manifest is fetched with
+>       `crossorigin="use-credentials"`; check "Install app" is offered and the app opens offline
+>       after an Access login. If Access ever blocks `/sw.js` or the manifest, that's the place.
+> - [ ] step-b's sync on the phone: offline changes are kept and pushed on the `online` event
+>       (`src/ui/sync/sync.ts`, commit "Sync: keep unsynced changes when offline").
+> - [ ] Free-plan limits vs live use (`src/shared/plans.ts` on step-b): Free syncs 20 hands and
+>       3 players - one live night is ~30-60 hands, and ✎ / 👀 create saved players for unknown
+>       seats. Admin is unlimited; decide what a friend on Free should get before inviting anyone.
+>
+> **Still waiting on Marius:** WTSD estimate for his table; the Excel RangeDB
+> (`30 !!! New hand simulator REV3.xlsm`) for per-type preflop charts; the playbook JSON (link reads
+> to advice tags); the Carrel videos.
+>
+> **Agreed next steps (pick up after tonight):**
+> - Count players while folding: optional "who played?" on "I fold" -> measured VPIP/PFR per saved
+>   player next to what he was told ("you said 70 %, measured 64 % over 40 hands").
+> - Player card at the table: tap a seat -> type, notes, reads, one-line HHP exploit (playbook stays
+>   in the app, never on the server).
+> - Morning review of the night: result, biggest pots, hands where the line differs from HHP's
+>   advice, each opening in the Lab.
+> - Phone layout for Lab and Players (layers: glance -> tap for why -> tools; focus panes ~75 %;
+>   bottom sheets; tall-oval table in portrait). Lab and Ranges are still desktop-first on a phone.
+> - House games in bot behaviour (10e: straddles, 7-2, squid).
+>
+> **Rules that still hold:** calibrate bots on how the pool plays (HHP's "Read" lines, Marius's
+> table), never on HHP's advice (that's Hero's exploit). Repo is public: secrets only in the
+> dashboard; the HHP/Carrel playbook never ships or goes to the server; only profiles are shared.
+> Every push to main deploys - push only with tests and build green.
+>
+> --------------------------------------------------------------------------------------------------
+
 Started 2026-10-04. Restart of v2 (`C:\Users\marius.dinu\Projects\LogiStack v2`, GitHub `LogiStack-v2`,
 last commit `92dab74` on `Before_Cleanup`). v2's UI pieces are good and get ported; its betting
 engine, saved-hand format and Django backend are replaced. v3 lives on GitHub as `LogiStack-v3` (private).
