@@ -144,6 +144,14 @@ engine, saved-hand format and Django backend are replaced. v3 lives on GitHub as
        "Add to Home Screen" opens it full screen with its own icon. The manifest is fetched with
        credentials (Cloudflare Access). Tested: one visit, then offline: reload, set up a table,
        enter a hand, open every page.
+24. [x] **Review round 1** (2026-10-10, branch `review-1`): Marius's first-use notes ([TODO.md](TODO.md), 42
+       items), each agreed in "Next" below and built overnight, one commit per piece: the start page
+       and the modules (Live, Lab, Gym, Players, PF Ranges, Equity), the phone header and rows, the
+       Live tap flow, player questions version 2 with types by family and the review of changed
+       answers, grade colours, the range editor's Save / Unsaved, the phone matrix, Equity's quick
+       ranges and street-by-street board, the Lab windows' spot line, "what happens if" colours and
+       sizes, "Playbook" instead of HHP, the model's size read, the account windows. Item 39
+       (solution stability) is in "Later".
 
 ## Direction (agreed 2026-10-06): HHP made visible, fear and greed as the engine
 
@@ -554,6 +562,7 @@ Marius's review notes live in [TODO.md](TODO.md); what we agree there moves here
   row of small buttons (Open, ⬇ JSON, 🗑); a click on the row opens the hand. The same for the
   Sessions and "Smells fishy" rows. (Cause today: the title may shrink to nothing, so the three
   full-size buttons never wrap.)
+- [x] Built 2026-10-10 (`App.tsx`, `HandsList.tsx` `Row`, `gym/GymPage.tsx`).
 
 **Modules and a start page (review items 4-5, agreed 2026-10-10):**
 - The parts of the app are "modules". Short names: **Live, Lab, Gym, Players, PF Ranges, Equity**.
@@ -566,6 +575,10 @@ Marius's review notes live in [TODO.md](TODO.md); what we agree there moves here
   stroke by stroke; on hover the card lifts, the border turns gold and a shine sweeps across. v2
   used framer-motion; v3 does it in CSS (stroke-dashoffset, keyframes), no new dependency.
 - The top menu stays as the quick switcher; the logo leads back to the start page.
+- [x] Built 2026-10-10: `ui/home/HomePage.tsx` (cards A♠ Live, K♥ Lab, Q♣ Gym, J♦ Players, 10♠ PF
+  Ranges, 9♥ Equity; three across on a phone), the animation in `index.css` (`.module-card`, honours
+  reduced motion); `ui/gym/` (watch or play, 6- or 9-max remembered, sessions and "Smells fishy"
+  moved here); a hand opened from a module goes back to it ("← Gym").
 
 **Grade colours (review item 6, agreed 2026-10-10):** the 1-5 sliders on the Players page (and
 wherever they show: seat tooltips, ✎ player info, the future player card) coloured by how strong
@@ -574,8 +587,8 @@ on the slider and its step text, with the number shown too. Red means "high", no
 Bluffs and a red Respect both jump out at once.
 - [x] Built 2026-10-10 (`ui/players/gradeColor.ts`): the slider, its step text (darkened on the
   light theme via `light-dark()`) and the number as a coloured badge (outlined = moved off the
-  profile); the question wizard's result, the review, ✎ ("Loose 3 → 4"). Seat tooltips are text
-  (`styleSummary`) and stay so.
+  profile); the question wizard's result, the review, ✎ ("Loose 3 → 4"); the Lab's seat tooltips
+  (`StyleSummary` in `SavedPlayerPicker.tsx`).
 
 **Player questions, preflop (review items 8-10, agreed 2026-10-10)** - `core/players/questions.ts`;
 existing players get their old answers mapped by the migration wizard (item 14, to agree):
@@ -636,10 +649,8 @@ existing players get their old answers mapped by the migration wizard (item 14, 
     with "Put him on X" (his sliders stay).
   - Weak-tight rec: Fish's psychology at its own slider positions (`style.ts` DERIVED, no preset in
     `profile.ts`), preflop style and open sizes in `preflop.ts`, playbook words rec + nit, in the
-    watch table's mix. Still to do in `profile.ts`: `MOTIVE_PRESETS['Weak-tight rec'] =
-    typePreset('Weak-tight rec', MOTIVE_PRESETS)`, so a seat with only the type (no saved style)
-    plays it after the flop too (today it plays Unknown there; the watch table gives its seats the
-    style).
+    watch table's mix; `profile.ts` registers it from `typePreset`, so a seat with only the type
+    name plays it after the flop too.
   - Versions (`core/players/versions.ts`): players carry `answersVersion`; old answers move as they
     are read - clean ones by themselves, sliders by the change in meaning (hand-tuning stays), the
     ambiguous ones wait in `review` with his settings untouched. Banner "N questions changed -
@@ -658,6 +669,8 @@ saves on every stroke today and silently copies a library chart to "… (mine)" 
 - Leaving with unsaved changes (another chart, another module, opening a hand) asks Save ·
   Discard · Cancel; closing or reloading the tab gets the browser's "leave this page?" warning.
 - Only saved ranges sync, not every stroke.
+- [x] Built 2026-10-10 (`ui/ranges/draft.ts`, `unsavedGuard.ts`): Ctrl+S saves too; App.tsx sends
+  every module switch through `leaveScreen`, so a draft is never lost without asking.
 
 **Equity module and the phone matrix (review items 19, 20, 40, agreed 2026-10-10):**
 - Quick ranges: Clear · Any two · Pairs · Top 3 % (QQ+, AK) · Top 5 % · Top 10 % · Top 10 % capped
@@ -670,6 +683,11 @@ saves on every stroke today and silently copies a library chart to "… (mine)" 
   ~30 px. On a phone the matrix comes first at full width (13 cells of ~27 px), the brush and chart
   list below or in a slide-up panel; tap-and-drag paints. The same for every 13x13 grid (Lab range
   windows, player popups).
+- [x] Built 2026-10-10: one ranking (`core/ranges/ranking.ts`, heads-up equity against a tight
+  raise, AK placed above JJ): Top 3 % = QQ+, AK; Top 5 % = 99+, AQs+, AKo; Top 10 % = 55+, ATs+,
+  KJs+, QJs, JTs, AJo+; capped = JJ-55, AQs-ATs, KJs+, QJs, JTs, AQo-AJo. `ui/equity/board.ts` for
+  the board button. Phone matrix: cells ~27 px, a finger paints without scrolling the page, a
+  read-only grid scrolls and shows a cell on tap; windows keep less padding on a phone (~25 px cells).
 
 **Watching the bots (review items 21-24, agreed 2026-10-10):**
 - A ⤢ full-screen button on every table (Lab, watching, later the Gym); on the phone it turns
@@ -690,6 +708,15 @@ saves on every stroke today and silently copies a library chart to "… (mine)" 
   looks weak - raise it; a big bet looks strong - call and let him keep betting".
 - Every range / Equity / size-explorer / what-if window shows the spot in its title, one shared
   header: "You (BTN, A♠K♦) vs Jansen (BB) · K♣7♦2♠ · pot 12 BB".
+- [x] Built 2026-10-10: `lab/SpotLine.tsx` as `Modal`'s new `subtitle` in the four Lab windows;
+  the EV table's title. The size read (`motives/beliefs.ts` `believedBarrel`, `decide.ts`): a
+  near-nut hand's call counts the bettor's later bets as his size reads them (⅓ pot: he bets again
+  40 %, ½ 50 %, pot 80 %); on a safe board it counts its own later bets, so it waits; on the turn
+  waiting is worth a quarter street, so it raises. Hand #4, BB stack-off raise ⅓ / ½ / ¾ / pot:
+  52/81/99/100 % -> 80/38/6/0 %; dry K♠7♦2♣: monsters flat the flop, then raise a ⅓-½ pot turn bet
+  92-98 % (`motives/sizeRead.test.ts`). Not reached: Marius's ~95 % raise of a small flop bet on a
+  scary board stays ~80 % (an HHP doctrine test - in-position slow-play - holds it back); his
+  "small pot" part only works through the size read.
 
 **"What happens if" and the naming (review items 28-30, agreed 2026-10-10):**
 - Each player has one colour, the same as his seat (Hero blue, villain orange); labels name the
@@ -698,6 +725,9 @@ saves on every stroke today and silently copies a library chart to "… (mine)" 
 - "HHP says" becomes **Playbook** ("Playbook says"). A sold version ships no quotes, transcripts or
   names (sources stay in the private copy, as the playbook already never reaches the server); a
   lawyer's check before charging money; or a referral/partnership with the channels.
+- [x] Built 2026-10-10: a legend and per-line names in one colour per player; `SizeChips` (Options
+  "What happens if: bet sizes" = the default, the window can change it); `whatIf(q, sizes)`.
+  "Playbook says" on the advice panel, "Your playbook" in the account window.
 
 **The Live module (review items 31-38, agreed 2026-10-10):**
 1. Setup: the players in seat order clockwise from Hero, with stacks; no button question.
@@ -711,10 +741,19 @@ saves on every stroke today and silently copies a library chart to "… (mine)" 
 6. The long preset list goes, except one tap for "I fold preflop".
 7. Board by texture when the exact cards are skipped: no flush card / flush card / second flush
    draw on the turn.
+- [x] Built 2026-10-10 (`core/live/tap.ts`, `table.ts`, `ui/live/*`): Hero's cards from the 13x13
+  grid or exact (remembered); raises 2-5 BB, or 2×-4× facing a raise; "Rest fold"; the board from a
+  card grid (seven keys a row) or ranks only plus texture; Showdown in the header at any moment;
+  "I fold · next hand" one tap; old tables and a hand in progress load and finish. A hand picked
+  from the grid is noted (`HandRecord.quick.guessed`): a board card it holds moves it to free suits.
+  A session counts a hand Hero folded with what he put in (`core/hand/sessions.ts`).
 
 **Account windows (review items 41-42, agreed 2026-10-10):** the account popup and "Users and
 plans" get a ✕, close on Esc and on a click outside; "Users and plans" opens centred, never
 taller than the screen, scrolling inside.
+- [x] Built 2026-10-10: the cause was not missing buttons - both windows are opened from the
+  sticky header, whose `backdrop-blur` makes it the frame of `position: fixed` children, so they
+  were squeezed into the header with the × off screen. `Modal` now renders into `<body>` (a portal).
 
 **Later (review item 39, agreed 2026-10-10): solution stability.** A "stable?" badge in the EV
 table: rerun the EV with the ranges 5-10 % wider / narrower and each slider half a step up / down;
