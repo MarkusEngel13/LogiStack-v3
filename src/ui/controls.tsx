@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import type { Chips, Currency } from '../core/hand/types';
 import { currencySymbol, parseAmount, toMajor } from './format';
 
@@ -240,7 +241,9 @@ export function Modal({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
-  return (
+  // rendered into <body>: a modal opened from inside the header (blurred, so it would become the
+  // modal's frame) still covers the screen, centred, with its × in view
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'var(--overlay)' }} onMouseDown={onClose}>
       <div
         className={`max-h-[90vh] w-full ${wide === 'xl' ? 'max-w-6xl' : wide ? 'max-w-4xl' : 'max-w-lg'} overflow-auto rounded-xl border border-line bg-surface shadow-2xl`}
@@ -255,6 +258,7 @@ export function Modal({
         <div className="p-5">{children}</div>
         {footer && <div className="flex justify-end gap-2 border-t border-line px-5 py-3">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
