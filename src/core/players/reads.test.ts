@@ -22,7 +22,7 @@ describe('showdown reads', () => {
   });
 
   it('a switch needs two reads', () => {
-    const s = { ...typeSettings('Fish'), leads: false };
+    const s = { ...typeSettings('Fish'), leads: 0 as const };
     expect(readSuggestions([read(['lead'])], s).flags).toEqual([]);
     expect(readSuggestions([read(['lead']), read(['lead'])], s).flags).toEqual(['leads']);
   });

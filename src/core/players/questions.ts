@@ -13,7 +13,7 @@ import { bendMix, type PreflopStyle } from '../motives/preflop';
 import { CELLS, comboCount } from '../ranges/hands';
 import { TEN_MAX_POSITIONS } from '../ranges/library';
 import { pickChart, type ChartChoice } from '../ranges/spot';
-import { at, SLIDERS, type SliderId, type Sizing, type StyleSettings } from './style';
+import { at, type Leads, type LimpTrap, type OpenTell, type SliderId, type Sizing, type StyleSettings } from './style';
 
 // ---- how many hands he plays, at a given table size ------------------------------------------------
 
@@ -82,6 +82,14 @@ export interface Question {
   options: Option[];
 }
 
+/**
+ * The questions' version: it goes up whenever an answer changes its meaning (an option split,
+ * merged or renamed). Each saved player keeps the version his answers came from; versions.ts moves
+ * old answers to the new questions. 2 = 2026-10-10: raise size bands and "raise size by hand",
+ * 3-bets "very rarely", limp-reraise and donk-bet levels, the c-bet middle, Q7 without c-bets.
+ */
+export const QUESTIONS_VERSION = 2;
+
 export const TABLE_SIZES = [
   { id: '6', label: '6 or fewer', n: 6 },
   { id: '8', label: '7 or 8', n: 8 },
@@ -129,9 +137,20 @@ export const QUESTIONS: Question[] = [
     help: 'A min-raise is cheap to call - and often tells you something about his hand.',
     options: [
       { id: '2', label: 'Min-raise', hint: '2 BB' },
-      { id: '3', label: '3 BB' },
-      { id: '4', label: '4 BB' },
-      { id: '5', label: '5 BB or more' },
+      { id: '3-4', label: '3-4 BB' },
+      { id: '5-6', label: '5-6 BB' },
+      { id: '7+', label: '7 BB or more' },
+    ],
+  },
+  {
+    id: 'openTell',
+    sets: 'Raise size by hand',
+    text: 'Does his raise size depend on his hand?',
+    help: 'A live tell: some players raise bigger with their good hands, others raise small with their best ones.',
+    options: [
+      { id: 'no', label: 'No', hint: 'the same size whatever he has' },
+      { id: 'strong', label: 'Bigger with strong hands' },
+      { id: 'weak', label: 'Bigger with weak hands', hint: 'small with his best ones' },
     ],
   },
   {
@@ -139,28 +158,32 @@ export const QUESTIONS: Question[] = [
     sets: 'Preflop aggression',
     text: 'Does he 3-bet?',
     options: [
-      { id: 'never', label: 'Never seen it', hint: 'or only with aces and kings' },
-      { id: 'some', label: 'Sometimes' },
-      { id: 'often', label: 'Often', hint: 'also with hands like suited connectors or weak aces' },
+      { id: 'never', label: 'Never', hint: 'he just calls, even with aces' },
+      { id: 'rarely', label: 'Very rarely', hint: 'QQ+, AK' },
+      { id: 'some', label: 'Sometimes', hint: 'also JJ-TT, AQ' },
+      { id: 'often', label: 'Often', hint: 'also suited connectors, weak aces' },
     ],
   },
   {
     id: 'limpTrap',
-    sets: 'Limp-reraises premiums',
+    sets: 'Limp-reraises',
     text: 'Have you seen him limp and then re-raise when someone raised behind him?',
+    help: 'It tells you what his limps hold: if he never does it, his limps hold no big hands.',
     options: [
-      { id: 'yes', label: 'Yes', hint: 'the limp-reraise trap' },
-      { id: 'no', label: 'No' },
+      { id: 'never', label: 'Never seen it', hint: 'his limps are capped: isolate wide and big' },
+      { id: 'monster', label: 'Seen it, with a monster' },
+      { id: 'often', label: 'Does it often', hint: 'weaker hands too: isolate tighter' },
     ],
   },
   {
     id: 'postflop',
     sets: 'Postflop aggression',
-    text: 'After the flop, what does he mostly do?',
+    text: 'When he did not raise before the flop, or you bet into him: does he bet and raise, or check and call?',
+    help: 'Without the initiative. His c-bets are the next question: a passive player may still c-bet every flop.',
     options: [
       { id: 'passive', label: 'Checks and calls', hint: 'bets only very strong hands' },
-      { id: 'fair', label: 'Bets when he has something' },
-      { id: 'lots', label: 'Bets and barrels a lot', hint: 'raises draws too' },
+      { id: 'fair', label: 'Average', hint: 'bets when he has something, sometimes a bluff' },
+      { id: 'lots', label: 'Bets and raises a lot', hint: 'raises draws too' },
       { id: 'always', label: 'Bets or raises almost every time' },
     ],
   },
@@ -171,7 +194,8 @@ export const QUESTIONS: Question[] = [
     help: 'His c-bets and barrels, whatever he holds - some players never raise after the flop but bet every street with the initiative.',
     options: [
       { id: 'hits', label: 'Only when he hits', hint: 'checks back most flops' },
-      { id: 'half', label: 'About half the time', hint: 'rarely bets the turn again' },
+      { id: 'less', label: 'Less than half', hint: 'rarely bets the turn again' },
+      { id: 'mixed', label: 'Mixed', hint: 'about half, no clear pattern' },
       { id: 'flop', label: 'Almost every flop', hint: 'the turn often, not always' },
       { id: 'every', label: 'Every street', hint: 'flop, turn and river' },
     ],
@@ -182,8 +206,9 @@ export const QUESTIONS: Question[] = [
     text: 'After calling a raise, does he bet first into the raiser (donk-bet)?',
     options: [
       { id: 'never', label: 'Never', hint: 'he checks to the raiser' },
-      { id: 'strong', label: 'Yes, with strong hands' },
-      { id: 'often', label: 'Yes, often' },
+      { id: 'rarely', label: 'Rarely', hint: 'only monsters: believe his leads' },
+      { id: 'sometimes', label: 'Sometimes', hint: 'strong hands and draws' },
+      { id: 'often', label: 'Often', hint: 'any piece: raise his leads' },
     ],
   },
   {
@@ -236,13 +261,15 @@ export const QUESTIONS: Question[] = [
 /** "Don't know" is always offered and is the absence of an answer. */
 export type Answers = Record<string, string>;
 
-const SET: Record<string, Partial<Record<SliderId, number>>> = {
+/** The slider each answer sets (`question:answer`). */
+export const SET: Record<string, Partial<Record<SliderId, number>>> = {
   'postflop:passive': { postAggr: 1.5 },
   'postflop:fair': { postAggr: 3 },
   'postflop:lots': { postAggr: 4 },
   'postflop:always': { postAggr: 5 },
   'cbet:hits': { cbet: 1 },
-  'cbet:half': { cbet: 2 },
+  'cbet:less': { cbet: 2 },
+  'cbet:mixed': { cbet: 3 },
   'cbet:flop': { cbet: 4 },
   'cbet:every': { cbet: 5 },
   'sticky:early': { sticky: 1.5 },
@@ -259,10 +286,58 @@ const SET: Record<string, Partial<Record<SliderId, number>>> = {
 };
 const SIZING: Record<string, Sizing> = { same: 'half', small: 'small', strength: 'payoff', big: 'big' };
 
+/** Preflop aggression from the first-in habit, before the 3-bets adjust it. */
+export const FIRST_IN: Record<string, number> = { limp: 1, mix: 2, raise: 3 };
+
+/**
+ * How the 3-bets move Preflop aggression from the first-in habit: a raiser who 3-bets light sits
+ * near the top, one who never 3-bets (he flats even aces) a step below the charts.
+ */
+export function threeBetStep(base: number, answer: string | undefined): number {
+  switch (answer) {
+    case 'never':
+      return base >= 3 ? -1 : -0.5;
+    case 'rarely':
+      return base >= 3 ? -0.5 : 0;
+    case 'often':
+      return base >= 3 ? 1.5 : 1;
+    default:
+      return 0;
+  }
+}
+
+export const LIMP_TRAP: Record<string, LimpTrap> = { never: 0, monster: 1, often: 2 };
+export const LEADS: Record<string, Leads> = { never: 0, rarely: 1, sometimes: 2, often: 3 };
+const OPEN_TELL: Record<string, OpenTell> = { no: 'no', strong: 'strong', weak: 'weak' };
+
+/** What the raise-size bands open to: the bots' size for each (about the band's middle). */
+const OPEN_BANDS: Record<string, number> = { '2': 2, '3-4': 3.5, '5-6': 5.5, '7+': 8 };
+
+/** The open size an answer means, in big blinds: a band's size, or an exact size told at the table ("2.5"). */
+export function openBBOf(answer: string | undefined): number | undefined {
+  if (answer === undefined) return undefined;
+  const band = OPEN_BANDS[answer];
+  if (typeof band === 'number') return band;
+  const n = Number(answer);
+  return Number.isFinite(n) && n >= 2 ? n : undefined;
+}
+
+/** The band an open size falls in (the answer it is nearest to). */
+export const openBand = (bb: number): string => (bb < 2.75 ? '2' : bb < 4.75 ? '3-4' : bb < 6.75 ? '5-6' : '7+');
+
 /** The table-size answer for n players. */
 export const tableSizeId = (n: number) => (n <= 6 ? '6' : n <= 8 ? '8' : '9');
 
 export const tableSizeOf = (a: Answers) => TABLE_SIZES.find((t) => t.id === a.table)?.n ?? 9;
+
+/** An answer in words: its option's label, or what was told at the table ("70 % of hands", "2.5 BB"). */
+export function answerLabel(q: string, a: string): string {
+  const option = QUESTIONS.find((x) => x.id === q)?.options.find((o) => o.id === a);
+  if (option) return q === 'open' && option.hint ? `${option.label} (${option.hint})` : option.label;
+  if (q === 'hands' && a.startsWith('pct')) return `${a.slice(3)} % of hands`;
+  if (q === 'open' && openBBOf(a)) return `${a} BB`;
+  return a;
+}
 
 /**
  * The style the answers describe, starting from `start` (the profile picked, or the type): every
@@ -280,33 +355,23 @@ export function applyAnswers(
 
   // preflop aggression: the first-in habit, adjusted by the 3-bets
   if (a.firstIn || a.threeBet) {
-    const base = a.firstIn ? { limp: 1, mix: 2, raise: 3 }[a.firstIn]! : s.sliders.pfAggr;
-    const adj = a.threeBet === 'often' ? (base >= 3 ? 1.5 : 1) : a.threeBet === 'never' && base >= 3 ? -0.5 : 0;
-    s.sliders.pfAggr = Math.max(1, Math.min(5, base + adj));
+    const base = FIRST_IN[a.firstIn ?? ''] ?? s.sliders.pfAggr;
+    s.sliders.pfAggr = Math.max(1, Math.min(5, base + threeBetStep(base, a.threeBet)));
   }
-  if (a.limpTrap) s.limpTrap = a.limpTrap === 'yes';
-  if (a.leads) s.leads = a.leads !== 'never';
+  const trap = LIMP_TRAP[a.limpTrap ?? ''];
+  if (typeof trap === 'number') s.limpTrap = trap;
+  const leads = LEADS[a.leads ?? ''];
+  if (typeof leads === 'number') s.leads = leads;
   if (a.leads === 'often') s.sliders.postAggr = Math.min(5, Math.max(s.sliders.postAggr, 3.5));
   if (a.sizing && SIZING[a.sizing]) s.sizing = SIZING[a.sizing]!;
-  if (a.open && Number(a.open) >= 2) s.openBB = Number(a.open);
+  const open = openBBOf(a.open);
+  if (open) s.openBB = open;
+  const tell = OPEN_TELL[a.openTell ?? ''];
+  if (typeof tell === 'string') s.openTell = tell;
 
   // how many hands, at his table size (only the width matters: limping or raising, he plays them)
   // "pct70" = a number you saw (70 % of hands); the named bands otherwise
   const share = a.hands?.startsWith('pct') ? Number(a.hands.slice(3)) / 100 : a.hands ? HANDS[a.hands] : undefined;
   if (share !== undefined) s.sliders.loose = looseFor(share, preflopOf(s), charts, tableSizeOf(a));
   return s;
-}
-
-/** The profile nearest a style (sum of slider distances), among `candidates`. */
-export function nearest<T extends { settings: StyleSettings }>(s: StyleSettings, candidates: readonly T[]): T | null {
-  let best: T | null = null;
-  let bestD = Infinity;
-  for (const c of candidates) {
-    const d = SLIDERS.reduce((sum, id) => sum + Math.abs(c.settings.sliders[id] - s.sliders[id]), 0);
-    if (d < bestD) {
-      best = c;
-      bestD = d;
-    }
-  }
-  return best;
 }

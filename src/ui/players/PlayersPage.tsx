@@ -11,6 +11,9 @@ import {
   styleMotives,
   stylePreflop,
   typeSettings,
+  type Leads,
+  type LimpTrap,
+  type OpenTell,
   type SeatStyle,
   type SliderId,
   type Sizing,
@@ -25,11 +28,15 @@ import { allCharts } from '../ranges/charts';
 import { QuestionWizard } from './QuestionWizard';
 import { PlayerCheck } from '../sim/PlayerCheck';
 import { readSuggestions, tagById } from '../../core/players/reads';
-import { QUESTIONS } from '../../core/players/questions';
+import { answerLabel, openBand, openBBOf, QUESTIONS } from '../../core/players/questions';
+import { oldAnswerLabel } from '../../core/players/versions';
 import { ExploitCheck } from '../sim/ExploitCheck';
 import { useSyncStatus } from '../sync/useSyncStatus';
+import { gradeBadge, gradeColor, gradeLabel, gradeText } from './gradeColor';
+import { ReviewWizard } from './ReviewWizard';
 import { styleSummary } from './SavedPlayerPicker';
 import { testTable, type TestMode } from './seating';
+import { TypeFit, useTypeFit } from './TypeFit';
 import {
   builtInId,
   deletePlayer,
@@ -38,6 +45,7 @@ import {
   importAll,
   loadPlayers,
   loadProfiles,
+  overridesFrom,
   playerSettings,
   profileById,
   savePlayer,
@@ -51,8 +59,16 @@ import {
 
 type Sel = { kind: 'player' | 'profile'; id: string };
 
+/** The raise-size bands as the bots open them (questions.ts's answers). */
+const OPEN_CHOICES = [
+  { value: 2, label: 'Min (2 BB)' },
+  { value: 3.5, label: '3-4 BB' },
+  { value: 5.5, label: '5-6 BB' },
+  { value: 8, label: '7 BB+' },
+];
+
 /**
- * The Players page: real players and the profiles they are built from, as six sliders in poker
+ * The Players page: real players and the profiles they are built from, as seven sliders in poker
  * words, with what the bots then do in a few fixed spots - next to what the profile (or type)
  * underneath does. Everything saves itself; "Play against" and "Watch" deal a test table.
  */
@@ -67,6 +83,10 @@ export function PlayersPage({ onOpenHand }: { onOpenHand: (hand: HandRecord, mod
   /** The question wizard: for a new player ({}), or to re-check one. */
   const [asking, setAsking] = useState<{ player?: SavedPlayer } | null>(null);
   const [exploit, setExploit] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
+  // players whose old answers the changed questions couldn't map by themselves
+  const toReview = players.filter((p) => p.review?.length);
+  const changed = new Set(toReview.flatMap((p) => p.review!.map((a) => a.q))).size;
 
   const reload = () => {
     setPlayers(loadPlayers());
@@ -117,7 +137,31 @@ export function PlayersPage({ onOpenHand }: { onOpenHand: (hand: HandRecord, mod
   };
 
   return (
-    <main className="mx-auto max-w-[1500px] px-6 py-6">
+    <main className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6">
+      {toReview.length > 0 && (
+        <div className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-accent/50 bg-accent/10 px-4 py-3">
+          <div className="min-w-0 flex-1 text-sm">
+            <b>
+              {changed} question{changed === 1 ? '' : 's'} changed - review {toReview.length} player{toReview.length === 1 ? '' : 's'}
+            </b>
+            <span className="block text-xs text-muted">Some old answers fit more than one new answer. The best guess is ready: one tap each.</span>
+          </div>
+          <Button variant="primary" onClick={() => setReviewing(true)}>
+            Review
+          </Button>
+        </div>
+      )}
+      {reviewing && (
+        <ReviewWizard
+          players={toReview}
+          profiles={profiles}
+          onSave={(p) => {
+            savePlayer(p);
+            setPlayers(loadPlayers());
+          }}
+          onClose={() => setReviewing(false)}
+        />
+      )}
       <div className="grid gap-5 xl:grid-cols-[250px_minmax(0,1fr)_400px]">
         <aside className="space-y-5">
           <ListBlock
@@ -293,12 +337,17 @@ function PlayerEditor({
     else sliders[id] = v;
     set({ ...o, sliders });
   };
-  const setFlag = <K extends 'sizing' | 'limpTrap' | 'leads' | 'openBB'>(k: K, v: StyleSettings[K]) => {
+  const setFlag = <K extends 'sizing' | 'limpTrap' | 'leads' | 'openBB' | 'openTell'>(k: K, v: StyleSettings[K]) => {
     const next = { ...o };
-    if (v === profile.settings[k] || v === undefined) delete next[k];
+    if (v === profile.settings[k] || v === undefined || (k === 'openTell' && v === 'no' && !profile.settings.openTell)) delete next[k];
     else next[k] = v as never;
     set(next);
   };
+  const fit = useTypeFit(settings, profiles);
+  const better = fit.best.length === 1 && fit.best[0]!.id !== profile.id ? fit.best[0]! : null;
+  // another profile under the same sliders: what the sliders don't cover (noise, size errors...) changes
+  const moveTo = (p: SavedProfile) => onChange({ ...player, profileId: p.id, overrides: overridesFrom(settings, p.settings) });
+  const exact = settings.openBB && openBBOf(openBand(settings.openBB)) !== settings.openBB ? settings.openBB : null;
 
   return (
     <>
@@ -313,6 +362,19 @@ function PlayerEditor({
             </select>
           </Field>
         </div>
+        <div className="-mt-2 text-xs text-muted">
+          His sliders fit:{' '}
+          <TypeFit
+            match={fit}
+            action={
+              better && (
+                <button type="button" className="ml-1 rounded border border-line px-1.5 py-0.5 text-[11px] text-muted hover:text-ink" onClick={() => moveTo(better)} title={`His sliders stay; what they don't cover comes from ${better.name}`}>
+                  Put him on {better.name}
+                </button>
+              )
+            }
+          />
+        </div>
         <StyleControls
           settings={settings}
           home={profile.settings}
@@ -322,20 +384,28 @@ function PlayerEditor({
           onLimpTrap={(v) => setFlag('limpTrap', v)}
           onLeads={(v) => setFlag('leads', v)}
         />
-        <Field label="Opens to" hint="His first-in raise size. A min-raise is cheap to call.">
-          <Segmented<number>
-            size="sm"
-            value={settings.openBB ?? 0}
-            onChange={(v) => setFlag('openBB', v || undefined)}
-            options={[
-              { value: 0, label: 'As his type' },
-              { value: 2, label: 'Min (2 BB)' },
-              { value: 3, label: '3 BB' },
-              { value: 4, label: '4 BB' },
-              { value: 5, label: '5 BB+' },
-            ]}
-          />
-        </Field>
+        <div className="grid gap-4">
+          <Field label="Opens to" hint={exact ? `Exactly ${exact} BB, told at the table.` : 'His first-in raise size. A min-raise is cheap to call.'}>
+            <Segmented<number>
+              size="sm"
+              value={settings.openBB ? (openBBOf(openBand(settings.openBB)) ?? 0) : 0}
+              onChange={(v) => setFlag('openBB', v || undefined)}
+              options={[{ value: 0, label: 'As his type' }, ...OPEN_CHOICES]}
+            />
+          </Field>
+          <Field label="Raise size by hand" hint="A live tell: his size gives his hand away.">
+            <Segmented<OpenTell>
+              size="sm"
+              value={settings.openTell ?? 'no'}
+              onChange={(v) => setFlag('openTell', v)}
+              options={[
+                { value: 'no', label: 'No' },
+                { value: 'strong', label: 'Bigger with strong' },
+                { value: 'weak', label: 'Bigger with weak' },
+              ]}
+            />
+          </Field>
+        </div>
         <Field label="Reads and tells" hint="What to look for at the table: his tells, his favourite lines, when he tilts.">
           <textarea
             className={`${inputClass} min-h-20`}
@@ -350,7 +420,7 @@ function PlayerEditor({
           settings={settings}
           onChange={onChange}
           onSlider={setSlider}
-          onFlag={(f) => setFlag(f, true)}
+          onFlag={(f) => (f === 'limpTrap' ? setFlag('limpTrap', 1) : setFlag('leads', 2))}
         />
         <div className="flex flex-wrap gap-2 border-t border-line pt-4">
           <Button variant="primary" onClick={() => onTest('play')} title="A 6-max table: you, him and your other saved players; bots play everyone but you">
@@ -381,7 +451,9 @@ function ToldAtTable({ player }: { player: SavedPlayer }) {
   for (const o of log) {
     const day = new Date(o.at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
     const q = QUESTIONS.find((x) => x.id === o.q);
-    const a = o.q === 'hands' && o.a.startsWith('pct') ? `${o.a.slice(3)} %` : (q?.options.find((x) => x.id === o.a)?.label ?? o.a);
+    // told before the questions changed: an answer the current ones don't have, in its old words
+    const now = answerLabel(o.q, o.a);
+    const a = now === o.a ? oldAnswerLabel(o.q, o.a, 1) : now;
     days.set(day, [...(days.get(day) ?? []), `${q?.sets ?? o.q}: ${a}`]);
   }
   return (
@@ -609,7 +681,7 @@ function ProfileOptions({ profiles }: { profiles: SavedProfile[] }) {
   );
 }
 
-/** The six sliders, the sizing habit and the specials. `home` = where the profile or type has them. */
+/** The seven sliders, the sizing habit and the specials. `home` = where the profile or type has them. */
 function StyleControls({
   settings,
   home,
@@ -626,13 +698,13 @@ function StyleControls({
   readOnly?: boolean;
   onSlider: (id: SliderId, v: number) => void;
   onSizing: (v: Sizing) => void;
-  onLimpTrap: (v: boolean) => void;
-  onLeads: (v: boolean) => void;
+  onLimpTrap: (v: LimpTrap) => void;
+  onLeads: (v: Leads) => void;
 }) {
   return (
     <div className="space-y-5">
       <div>
-        <div className="mb-2 flex items-baseline justify-between gap-3">
+        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3">
           <h3 className="text-xs font-bold tracking-wider text-muted uppercase">Style</h3>
           <span className="text-xs text-faint">3 = plays the price · below = less of it · above = more · ◆ = {homeName}</span>
         </div>
@@ -643,33 +715,70 @@ function StyleControls({
         </div>
       </div>
       <Field label="Bet sizes after the flop" hint={SIZING_INFO[settings.sizing].what}>
-        {readOnly ? (
-          <span className="text-sm">{SIZING_INFO[settings.sizing].label}</span>
-        ) : (
-          <Segmented<Sizing>
-            size="sm"
-            value={settings.sizing}
-            onChange={onSizing}
-            options={(Object.keys(SIZING_INFO) as Sizing[]).map((s) => ({ value: s, label: SIZING_INFO[s].label, title: SIZING_INFO[s].what }))}
-          />
-        )}
+        <Choice<Sizing>
+          readOnly={readOnly}
+          value={settings.sizing}
+          onChange={onSizing}
+          options={(Object.keys(SIZING_INFO) as Sizing[]).map((s) => ({ value: s, label: SIZING_INFO[s].label, title: SIZING_INFO[s].what }))}
+        />
       </Field>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Toggle
-          checked={settings.limpTrap}
-          onChange={(v) => !readOnly && onLimpTrap(v)}
-          label={<span className="text-sm">Limp-reraises premiums</span>}
-          hint="Limps half his aces, kings, queens and AK first in, to re-raise an isolation."
-        />
-        <Toggle
-          checked={settings.leads}
-          onChange={(v) => !readOnly && onLeads(v)}
-          label={<span className="text-sm">Leads into the raiser</span>}
-          hint="Donk-bets his strong hands instead of checking to the preflop raiser."
-        />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Limp-reraises" hint={LIMP_TRAP_HINT[settings.limpTrap]}>
+          <Choice<LimpTrap>
+            readOnly={readOnly}
+            value={settings.limpTrap}
+            onChange={onLimpTrap}
+            options={[
+              { value: 0, label: 'Never' },
+              { value: 1, label: 'With a monster' },
+              { value: 2, label: 'Often' },
+            ]}
+          />
+        </Field>
+        <Field label="Leads into the raiser" hint={LEADS_HINT[settings.leads]}>
+          <Choice<Leads>
+            readOnly={readOnly}
+            value={settings.leads}
+            onChange={onLeads}
+            options={[
+              { value: 0, label: 'Never' },
+              { value: 1, label: 'Rarely' },
+              { value: 2, label: 'Sometimes' },
+              { value: 3, label: 'Often' },
+            ]}
+          />
+        </Field>
       </div>
     </div>
   );
+}
+
+const LIMP_TRAP_HINT: Record<LimpTrap, string> = {
+  0: 'His limps hold no big hands: isolate wide and big.',
+  1: 'Limps half his aces, kings, queens and AK first in, to re-raise an isolation.',
+  2: 'Limps most premiums and strong hands like TT or AQ to re-raise: isolate tighter.',
+};
+const LEADS_HINT: Record<Leads, string> = {
+  0: 'Checks to the preflop raiser.',
+  1: 'Leads only monsters: believe his leads.',
+  2: 'Leads strong hands and draws instead of checking to the raiser.',
+  3: 'Leads any piece: raise his leads.',
+};
+
+/** A row of choices, or the chosen one as text when read-only. */
+function Choice<T extends string | number>({
+  readOnly,
+  value,
+  onChange,
+  options,
+}: {
+  readOnly?: boolean;
+  value: T;
+  onChange: (v: T) => void;
+  options: { value: T; label: string; title?: string }[];
+}) {
+  if (readOnly) return <span className="text-sm">{options.find((o) => o.value === value)?.label ?? String(value)}</span>;
+  return <Segmented<T> size="sm" value={value} onChange={onChange} options={options} />;
 }
 
 function SliderRow({
@@ -690,11 +799,23 @@ function SliderRow({
   const info = SLIDER_INFO[id];
   const moved = Math.abs(value - home) > 1e-9;
   const pct = (v: number) => `${((v - 1) / 4) * 100}%`;
+  const back = moved && !readOnly && (
+    <button type="button" className="mt-1 text-xs text-muted hover:text-ink" title={`Back to ${homeName} (${home})`} onClick={() => onChange(home)}>
+      ↺
+    </button>
+  );
   return (
-    <div className="grid gap-x-4 gap-y-1 py-3 sm:grid-cols-[170px_minmax(0,1fr)_70px]">
-      <div>
-        <div className="text-sm font-semibold">{info.label}</div>
-        <div className="text-xs text-faint">{info.what}</div>
+    <div className="grid gap-x-4 gap-y-1 py-3 sm:grid-cols-[170px_minmax(0,1fr)_80px]">
+      <div className="flex items-start justify-between gap-3 sm:block">
+        <div>
+          <div className="text-sm font-semibold">{info.label}</div>
+          <div className="text-xs text-faint">{info.what}</div>
+        </div>
+        {/* on a phone the number sits next to the name */}
+        <div className="flex shrink-0 items-start gap-1 sm:hidden">
+          <GradeNumber value={value} moved={moved} />
+          {back}
+        </div>
       </div>
       <div>
         <div className="relative">
@@ -706,7 +827,8 @@ function SliderRow({
             value={value}
             disabled={readOnly}
             onChange={(e) => onChange(Number(e.target.value))}
-            className="w-full accent-[var(--accent)] disabled:opacity-60"
+            className="w-full disabled:opacity-60"
+            style={{ accentColor: gradeColor(value) }}
             aria-label={info.label}
           />
           <span
@@ -717,18 +839,29 @@ function SliderRow({
             ◆
           </span>
         </div>
-        <div className={`mt-2 text-xs ${moved ? 'text-ink' : 'text-muted'}`}>{stepLabel(id, value)}</div>
+        <div className="mt-2 text-xs font-medium" style={{ color: gradeText(value) }}>
+          {stepLabel(id, value)}
+        </div>
         <div className="text-[11px] text-faint">Moves: {info.moves}</div>
       </div>
-      <div className="flex items-start justify-end gap-1">
-        <span className={`text-lg font-bold tabular-nums ${moved ? 'text-accent' : 'text-ink'}`}>{value}</span>
-        {moved && !readOnly && (
-          <button type="button" className="mt-1 text-xs text-muted hover:text-ink" title={`Back to ${homeName} (${home})`} onClick={() => onChange(home)}>
-            ↺
-          </button>
-        )}
+      <div className="hidden items-start justify-end gap-1 sm:flex">
+        <GradeNumber value={value} moved={moved} />
+        {back}
       </div>
     </div>
+  );
+}
+
+/** A slider's number in its grade colour; outlined when it is moved off the profile. */
+function GradeNumber({ value, moved }: { value: number; moved: boolean }) {
+  return (
+    <span
+      className={`rounded-md px-2 text-lg font-bold tabular-nums ${moved ? 'ring-2 ring-ink ring-offset-1 ring-offset-surface' : ''}`}
+      style={gradeBadge(value)}
+      title={moved ? 'Moved off the profile' : undefined}
+    >
+      {gradeLabel(value)}
+    </span>
   );
 }
 

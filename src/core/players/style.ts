@@ -1,8 +1,9 @@
 /**
- * Player styles in poker words: six sliders from 1 to 5 (half steps allowed), a sizing habit and
- * two specials. They are the easy face of the motive model - each slider moves one or two of the
- * hidden weights in profile.ts and the preflop style in preflop.ts - so a real player is "a type,
- * nudged": Dan = Fish, but Bluffs 3 and leads into the raiser.
+ * Player styles in poker words: seven sliders from 1 to 5 (half steps allowed), a sizing habit and
+ * a few specials (limp-reraises, leads, open size). They are the easy face of the motive model -
+ * each slider moves one or two of the hidden weights in profile.ts and the preflop style in
+ * preflop.ts - so a real player is "a type, nudged": Dan = Fish, but Bluffs 3 and leads into the
+ * raiser.
  *
  * The scale is centred: 3 = plays the price (the NEUTRAL profile's value, the Reg chart's width
  * and raising; Bluffs is calibrated on frequencies instead, see MAP), below 3 = less of it, above = more. So the number is the exploit: Bluffs 2 = fold
@@ -23,18 +24,40 @@ export type Sliders = Record<SliderId, number>;
 /** The usual bet sizes after the flop. */
 export type Sizing = 'type' | 'half' | 'small' | 'payoff' | 'big';
 
+/** Limp-reraises first in: 0 never seen it, 1 with a monster, 2 often (weaker hands too). */
+export type LimpTrap = 0 | 1 | 2;
+/** Leads into the preflop raiser: 0 never, 1 rarely (only monsters), 2 sometimes (strong hands and draws), 3 often (any piece). */
+export type Leads = 0 | 1 | 2 | 3;
+/** Whether his open size depends on his hand. */
+export type OpenTell = 'no' | 'strong' | 'weak';
+
 export interface StyleSettings {
   /** The built-in type the rest comes from: 'Fish', 'Reg', ... */
   base: string;
   sliders: Sliders;
   sizing: Sizing;
-  /** Limps premiums first in to re-raise (the limp-reraise trap). */
-  limpTrap: boolean;
-  /** Leads into the preflop raiser with strong hands instead of checking to him. */
-  leads: boolean;
+  /**
+   * The limp-reraise trap: how many strong hands his limps hold. 0 = none (his limps are capped),
+   * 1 = half his premiums, 2 = most premiums and the strong hands below them. Saved as on/off
+   * before 2026-10-10 (read with limpTrapLevel: on = 1).
+   */
+  limpTrap: LimpTrap;
+  /**
+   * How often he leads into the preflop raiser instead of checking to him (Leads). Saved as on/off
+   * before 2026-10-10 (read with leadsLevel: on = 2, the old "with strong hands").
+   */
+  leads: Leads;
   /** His open-raise size in big blinds (2 = min-raise); unset = his type's usual mix. */
   openBB?: number;
+  /** His open size gives his hand away: bigger with strong hands, or with weak ones; unset = no. */
+  openTell?: OpenTell;
 }
+
+/** The limp-reraise level of saved settings (true / false before the levels). */
+export const limpTrapLevel = (v: unknown): LimpTrap => (v === true ? 1 : v === 1 || v === 2 ? v : 0);
+
+/** The lead level of saved settings (true / false before the levels: true was "with strong hands"). */
+export const leadsLevel = (v: unknown): Leads => (v === true ? 2 : v === 1 || v === 2 || v === 3 ? v : 0);
 
 /** What a seat carries in a hand: the style as it was when the hand was set up. */
 export interface SeatStyle {
@@ -202,14 +225,32 @@ export const TYPE_SLIDERS: Record<string, Sliders> = {
   Fish: { loose: 4, pfAggr: 1, postAggr: 2, cbet: 2.5, sticky: 4, respect: 4, bluffs: 1.5 },
   Whale: { loose: 4, pfAggr: 1.5, postAggr: 1.5, cbet: 3, sticky: 5, respect: 2, bluffs: 1.5 },
   Maniac: { loose: 4, pfAggr: 5, postAggr: 5, cbet: 5, sticky: 4, respect: 1, bluffs: 5 },
+  // plays few hands, limps and calls, rarely bets, folds to pressure (Marius's table, 2026-10-10)
+  'Weak-tight rec': { loose: 2.5, pfAggr: 2, postAggr: 2, cbet: 2, sticky: 2.5, respect: 5, bluffs: 1.5 },
 };
 TYPE_SLIDERS.Unknown = { ...TYPE_SLIDERS.Reg! };
 
-export const BASE_TYPES = ['Unknown', 'Reg', 'TAG', 'LAG', 'Nit', 'Fish', 'Whale', 'Maniac'] as const;
+export const BASE_TYPES = ['Unknown', 'Reg', 'TAG', 'LAG', 'Nit', 'Weak-tight rec', 'Fish', 'Whale', 'Maniac'] as const;
+
+/**
+ * Built-in types without a preset of their own in profile.ts: another type's psychology at their
+ * own slider positions. A weak-tight rec thinks like a fish (his own hand, miscounted sizes, fear
+ * of draws) but plays few hands, rarely bets, never bluffs and folds to pressure.
+ */
+export const DERIVED: Readonly<Record<string, string>> = { 'Weak-tight rec': 'Fish' };
+
+/** A type's motive profile: its preset, or for a derived type its parent's moved to the type's sliders. */
+export function typePreset(base: string, presets: Record<string, MotiveProfile>): MotiveProfile {
+  const own = presets[base];
+  if (own) return own;
+  const parent = DERIVED[base];
+  if (!parent || !TYPE_SLIDERS[base]) return presets.Unknown!;
+  return styleMotives({ ...typeSettings(parent), sliders: { ...TYPE_SLIDERS[base]! } }, presets, base);
+}
 
 /** A type's own settings: its slider positions, its sizes, no specials. */
 export function typeSettings(base: string): StyleSettings {
-  return { base, sliders: { ...(TYPE_SLIDERS[base] ?? TYPE_SLIDERS.Unknown!) }, sizing: 'type', limpTrap: false, leads: false };
+  return { base, sliders: { ...(TYPE_SLIDERS[base] ?? TYPE_SLIDERS.Unknown!) }, sizing: 'type', limpTrap: 0, leads: 0 };
 }
 
 /** Sliders that differ from the base type's positions. */
@@ -219,11 +260,16 @@ export function movedSliders(s: StyleSettings): SliderId[] {
   return SLIDERS.filter((id) => s.sliders[id] !== undefined && Math.abs(s.sliders[id] - home[id]) > 1e-9);
 }
 
-/** Settings with every slider present: one missing from older saved data sits at its type's position. */
+/**
+ * Settings as older saved data has them, made whole: a missing slider sits at its type's position,
+ * the switches saved as on/off become their levels.
+ */
 export function complete(s: StyleSettings): StyleSettings {
   const home = TYPE_SLIDERS[s.base] ?? TYPE_SLIDERS.Unknown!;
-  if (SLIDERS.every((id) => s.sliders[id] !== undefined)) return s;
-  return { ...s, sliders: Object.fromEntries(SLIDERS.map((id) => [id, s.sliders[id] ?? home[id]])) as Sliders };
+  const sliders = SLIDERS.every((id) => s.sliders[id] !== undefined)
+    ? s.sliders
+    : (Object.fromEntries(SLIDERS.map((id) => [id, s.sliders[id] ?? home[id]])) as Sliders);
+  return { ...s, sliders, limpTrap: limpTrapLevel(s.limpTrap), leads: leadsLevel(s.leads) };
 }
 
 const SIZES: Record<Exclude<Sizing, 'type'>, Pick<MotiveProfile, 'betHabit' | 'raiseHabit' | 'habit' | 'habitRiver'>> = {
@@ -233,8 +279,12 @@ const SIZES: Record<Exclude<Sizing, 'type'>, Pick<MotiveProfile, 'betHabit' | 'r
   big: { betHabit: [0.75, 0.75, 1], raiseHabit: 3, habit: 0.3, habitRiver: 1 },
 };
 
-/** How much a donk-leader expects the raiser to bet when checked to (decide.ts default: 0.6). */
-const LEADER_EXPECTS = 0.25;
+/**
+ * How much a donk-leader expects the raiser to bet when checked to (decide.ts default: 0.6), by
+ * lead level: the less he trusts the check, the more of his hands lead - only monsters when he
+ * leads rarely, any piece when often. Level 2 is the old on/off switch's value.
+ */
+const LEADER_EXPECTS: Record<Leads, number | undefined> = { 0: undefined, 1: 0.4, 2: 0.25, 3: 0.1 };
 
 /**
  * The motive profile for a style: the base type's preset, with every moved slider's weights
@@ -242,7 +292,7 @@ const LEADER_EXPECTS = 0.25;
  * the modules apart).
  */
 export function styleMotives(s: StyleSettings, presets: Record<string, MotiveProfile>, name = s.base): MotiveProfile {
-  const base = presets[s.base] ?? presets.Unknown!;
+  const base = typePreset(s.base, presets);
   const moved = new Set(movedSliders(s));
   const v = s.sliders;
   const q: MotiveProfile = { ...base, name };
@@ -260,7 +310,8 @@ export function styleMotives(s: StyleSettings, presets: Record<string, MotivePro
     q.foldBelief = at('foldBelief', v.bluffs);
   }
   if (s.sizing !== 'type') Object.assign(q, SIZES[s.sizing]);
-  if (s.leads) q.expectsBet = LEADER_EXPECTS;
+  const expects = LEADER_EXPECTS[leadsLevel(s.leads)];
+  if (expects !== undefined) q.expectsBet = expects;
   return q;
 }
 
@@ -276,7 +327,8 @@ export function stylePreflop(s: StyleSettings, styles: Record<string, PreflopSty
     q.threeBet = at('threeBet', s.sliders.pfAggr);
     q.premiumCall = at('premiumCall', s.sliders.pfAggr);
   }
-  if (s.limpTrap) q.limpTrap = 0.5;
+  const trap = limpTrapLevel(s.limpTrap);
+  if (trap > 0) q.limpTrap = trap;
   return q;
 }
 

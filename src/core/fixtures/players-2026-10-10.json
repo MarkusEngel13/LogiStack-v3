@@ -1,0 +1,10 @@
+{
+  "source": "Marius's saved players (answers on the version-1 questions), 2026-10-10",
+  "players": {
+    "Jansen": { "table": "9", "hands": "some", "firstIn": "raise", "open": "4", "threeBet": "some", "limpTrap": "no", "postflop": "lots", "cbet": "every", "leads": "never", "sticky": "down", "respect": "depends", "bluffs": "regularly", "sizing": "same" },
+    "Michel": { "table": "9", "hands": "many", "firstIn": "raise", "open": "5", "threeBet": "often", "limpTrap": "no", "postflop": "lots", "cbet": "flop", "leads": "strong", "sticky": "down", "respect": "depends", "bluffs": "rarely", "sizing": "strength" },
+    "Olivier": { "table": "9", "hands": "some", "firstIn": "mix", "open": "3", "threeBet": "some", "limpTrap": "yes", "postflop": "fair", "cbet": "half", "leads": "strong", "sticky": "river", "respect": "folds", "bluffs": "rarely", "sizing": "same" },
+    "Tommy": { "table": "9", "hands": "few", "firstIn": "raise", "open": "3", "threeBet": "some", "limpTrap": "no", "postflop": "fair", "cbet": "half", "leads": "never", "sticky": "river", "respect": "folds", "bluffs": "rarely", "sizing": "same" },
+    "Oleksander": { "table": "9", "hands": "some", "firstIn": "mix", "open": "4", "threeBet": "some", "limpTrap": "no", "postflop": "fair", "cbet": "half", "leads": "strong", "sticky": "down", "respect": "folds", "bluffs": "rarely", "sizing": "same" }
+  }
+}
