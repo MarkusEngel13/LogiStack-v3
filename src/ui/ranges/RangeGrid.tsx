@@ -20,8 +20,10 @@ const cellFromPoint = (x: number, y: number): number | null => {
 };
 
 /**
- * The 13x13 chart. Click or drag to paint (mouse, pen or touch); hovering reports the cell for
- * the combo pop-up. Without onPaint it's read-only.
+ * The 13x13 chart. Click or drag to paint (mouse, pen or touch; a finger on a paintable grid
+ * paints instead of scrolling the page); hovering reports the cell for the combo pop-up. Without
+ * onPaint it's read-only: the page scrolls over it as usual and a tap reports the cell, since a
+ * finger has no hover. It fills its width; on a phone that is 13 cells of ~27 px.
  */
 export function RangeGrid({
   fills,
@@ -44,9 +46,13 @@ export function RangeGrid({
   const editable = !!onPaint;
 
   const down = (e: PointerEvent<HTMLDivElement>) => {
-    if (!editable || e.button !== 0) return;
     const cell = cellFromPoint(e.clientX, e.clientY);
     if (cell === null) return;
+    if (!editable) {
+      if (e.pointerType === 'touch') onHover?.(cell, e.clientX, e.clientY);
+      return;
+    }
+    if (e.button !== 0) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     painting.current = true;
     lastCell.current = cell;
@@ -60,7 +66,7 @@ export function RangeGrid({
         lastCell.current = cell;
         onPaint?.(cell, false);
       }
-    } else {
+    } else if (e.pointerType !== 'touch') {
       onHover?.(cell, e.clientX, e.clientY);
     }
   };
@@ -73,19 +79,24 @@ export function RangeGrid({
 
   return (
     <div
-      className="grid w-full touch-none gap-px rounded-md border border-line bg-line p-px select-none"
+      className="grid w-full gap-px rounded-md border border-line bg-line p-px select-none"
       style={{
         gridTemplateColumns: 'repeat(13, minmax(0, 1fr))',
         aspectRatio: '1 / 1',
         containerType: 'inline-size',
         cursor: editable ? cursor : 'default',
         opacity: dimmed ? 0.75 : 1,
+        // painting: a finger drags the brush, not the page (and no long-press menu)
+        touchAction: editable ? 'none' : undefined,
+        WebkitTouchCallout: editable ? 'none' : undefined,
+        WebkitTapHighlightColor: 'transparent',
       }}
       onPointerDown={down}
       onPointerMove={move}
       onPointerUp={up}
       onPointerCancel={up}
-      onPointerLeave={() => onHover?.(null, 0, 0)}
+      // a tapped cell stays shown (a finger leaves the grid when it lifts)
+      onPointerLeave={(e) => e.pointerType !== 'touch' && onHover?.(null, 0, 0)}
     >
       {Array.from({ length: CELLS }, (_, cell) => (
         <Cell key={cell} cell={cell} segments={fills[cell] ?? []} fillKey={keyOf(fills[cell])} />
