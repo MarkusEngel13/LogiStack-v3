@@ -183,7 +183,8 @@ describe('the C-bets slider', () => {
       expect(cb(withSlider(s, 'cbet', home + 0.5), 'cbet'), t).toBeGreaterThan(cb(s, 'cbet'));
       expect(cb(withSlider(s, 'cbet', 5), 'barrel'), t).toBeGreaterThan(cb(withSlider(s, 'cbet', 1), 'barrel') + 0.4);
     }
-  });
+    // eight postflop rows: ~5 s on a busy laptop, past vitest's default limit
+  }, 30_000);
 
   test("a player who never raises after the flop but bets every street with the initiative", () => {
     const s = withSlider(withSlider(typeSettings('Fish'), 'postAggr', 1), 'cbet', 5);

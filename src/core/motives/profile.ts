@@ -6,7 +6,7 @@
  * Units: "pots" - a weight of 0.1 is worth a tenth of the pot in the player's eyes.
  */
 
-import { styleMotives, type SeatStyle } from '../players/style';
+import { styleMotives, typePreset, type SeatStyle } from '../players/style';
 
 export interface MotiveProfile {
   name: string;
@@ -129,6 +129,8 @@ export const MOTIVE_PRESETS: Record<string, MotiveProfile> = {
 // an unknown player plays like the pool's reg, half-pot habit included: most players don't think
 // about sizes (Marius, 2026-10-08)
 MOTIVE_PRESETS.Unknown = { ...MOTIVE_PRESETS.Reg!, name: 'Unknown' };
+// the derived types (style.ts DERIVED): a seat with only the type name plays them too
+MOTIVE_PRESETS['Weak-tight rec'] = typePreset('Weak-tight rec', MOTIVE_PRESETS);
 
 export interface PlayerState {
   /** The wizard's statuses: 'winning', 'stuck', 'tilt', 'drinking' (lively), 'drinking-tired'. */

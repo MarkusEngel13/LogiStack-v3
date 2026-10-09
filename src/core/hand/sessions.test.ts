@@ -39,6 +39,29 @@ test('hands dealt one after another form a session with Hero’s result', () => 
   expect(s!.name).toBe('Thursday');
 });
 
+test('a hand Hero folded counts with what he put in, even if the others never finished it', () => {
+  // three-handed, Hero on the button: he limps, the small blind raises, the big blind calls, Hero
+  // folds - the hand stops there (the live screen often leaves it once Hero is out)
+  const left: HandRecord = {
+    ...first,
+    id: 'h4',
+    handNo: 4,
+    session: 'h4',
+    table: { ...first.table, seats: 3 },
+    players: [...first.players, { seat: 2, name: 'Ann', stack: 2500 }],
+    events: [
+      { type: 'action', seat: 0, action: 'call' },
+      { type: 'action', seat: 1, action: 'raise', to: 100 },
+      { type: 'action', seat: 2, action: 'call' },
+      { type: 'action', seat: 0, action: 'fold' },
+    ],
+  };
+  const won: HandRecord = { ...first, id: 'h5', handNo: 5, session: 'h4' };
+  const [s] = sessions([left, won]);
+  expect(s!.unfinished).toBe(0);
+  expect(s!.hands.map((x) => x.net)).toEqual([-25, 25]);
+});
+
 test('single hands are not sessions', () => {
   expect(sessions([first])).toEqual([]);
 });

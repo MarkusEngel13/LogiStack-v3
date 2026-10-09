@@ -18,9 +18,9 @@ export interface Session {
   /** When it started (the first hand). */
   at: string;
   name: string;
-  /** Hands played to the end, in order. */
+  /** Hands with Hero's result known (played to the end, or Hero folded), in order. */
   hands: SessionHand[];
-  /** Hands not finished (left in the middle). */
+  /** Hands not finished with Hero still in (left in the middle). */
   unfinished: number;
   net: number;
   netBB: number;
@@ -29,10 +29,16 @@ export interface Session {
   worst: SessionHand | null;
 }
 
-const finished = (h: HandRecord) => {
+/**
+ * Hero's result in a hand once it's known: the hand played to the end, or Hero folded on the way
+ * (what he put in - a live hand is often left there). null: Hero still in, the hand unfinished.
+ */
+const heroResult = (h: HandRecord): number | null => {
   try {
     const s = replay(h);
-    return s.phase === 'complete' || (s.phase === 'showdown' && !!s.result?.resolved) ? s : null;
+    if (s.phase === 'complete' || (s.phase === 'showdown' && !!s.result?.resolved)) return s.result?.net[h.hero!] ?? 0;
+    const me = s.seats.find((x) => x.seat === h.hero);
+    return me?.folded ? me.stack - me.startStack : null;
   } catch {
     return null;
   }
@@ -53,12 +59,11 @@ export function sessions(hands: readonly HandRecord[]): Session[] {
     const done: SessionHand[] = [];
     let unfinished = 0;
     for (const hand of list) {
-      const s = finished(hand);
-      if (!s) {
+      const net = heroResult(hand);
+      if (net === null) {
         unfinished++;
         continue;
       }
-      const net = s.result?.net[hand.hero!] ?? 0;
       done.push({ hand, net, netBB: net / hand.table.blinds.bb });
     }
     const net = done.reduce((t, x) => t + x.net, 0);

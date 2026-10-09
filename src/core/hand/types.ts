@@ -173,5 +173,9 @@ export interface HandRecord {
    * Entered with the live screen's quick taps: board suits (and the suits of hands from the grid)
    * may be guessed from a texture, so flush questions need a second look.
    */
-  quick?: { guessedSuits?: boolean };
+  quick?: {
+    guessedSuits?: boolean;
+    /** Seats whose hole cards came from the 13x13 grid (suits picked for them, core/live/quick.ts). */
+    guessed?: SeatNo[];
+  };
 }
