@@ -1,21 +1,19 @@
 /**
- * Quick hand entry for the live table: everything that turns a few taps into real hand events.
+ * Quick card entry for the live table: everything that turns a few taps into real cards.
  *
- * - Cards: a hand class from the 13x13 grid ("AKs") becomes two real cards, suits picked so they
- *   don't clash with any card already in play. A board is entered as ranks plus a texture
- *   (rainbow, two-tone, monotone); the turn and river as a rank plus "blank" or "flush card".
- *   Exact suits can be fixed later by cycling a card's suit.
- * - Lines: a whole street in one tap ("Fish bets ½ · you call"). Each line is a small policy
- *   (who checks, who bets, how the rest answer) played through the engine from the current state,
- *   so it is always legal and the pot, stacks and all-ins come out right. Lines that the engine
- *   would play differently from their label (someone can't raise, a player is all-in) are dropped.
+ * - A hand class from the 13x13 grid ("AKs") becomes two real cards, suits picked so they don't
+ *   clash with any card already in play. Such suits are guesses: the hand notes the seat
+ *   (`guessedSeats`), and a board card it turns out to hold moves the hand to other suits.
+ * - A board can be entered as ranks plus a texture (rainbow, two-tone, monotone); the turn and
+ *   river as a rank plus "no flush card", "flush card" or "flush draw". Exact suits can be fixed
+ *   later by cycling a card's suit.
+ * - Where the hand stands (over, who still has to show) and a one-line-per-street summary.
  */
 
-import { RANK_CHARS, rankOf, suitOf, cardToString, prettyCard, type Card } from '../cards';
-import { applyEvent, legalActions, potTotal } from '../engine/replay';
-import type { LegalActions, SeatState, TableState } from '../engine/state';
-import type { HandEvent, SeatNo } from '../hand/types';
-import { cellKind, cellRanks } from '../ranges/hands';
+import { RANK_CHARS, cardToString, parseCard, prettyCard, rankOf, suitOf, type Card } from '../cards';
+import type { SeatState, TableState } from '../engine/state';
+import type { CardStr, HandRecord, SeatNo } from '../hand/types';
+import { cellKind, cellOfCards, cellRanks } from '../ranges/hands';
 
 // ---- cards -------------------------------------------------------------------------------------
 
@@ -28,22 +26,34 @@ export function usedCards(state: TableState): Set<Card> {
   return out;
 }
 
-/**
- * Two real cards for a grid cell ("AKs" = cell), avoiding `used`. Suited hands try spades first,
- * offsuit and pairs spades + hearts first. null if every combo of the cell is blocked.
- */
-export function cellCards(cell: number, used: ReadonlySet<Card>): [Card, Card] | null {
+/** The real cards of a grid cell, in a fixed order: suited and offsuit hands spades first. */
+function cellCombos(cell: number): [Card, Card][] {
   const [hi, lo] = cellRanks(cell);
   const kind = cellKind(cell);
+  const out: [Card, Card][] = [];
   for (let a = 0; a < 4; a++) {
     for (let b = 0; b < 4; b++) {
       if (kind === 'suited' ? a !== b : kind === 'pair' ? b <= a : a === b) continue;
-      const x = card(hi, a);
-      const y = card(lo, b);
-      if (!used.has(x) && !used.has(y)) return [x, y];
+      out.push([card(hi, a), card(lo, b)]);
     }
   }
-  return null;
+  return out;
+}
+
+/**
+ * Two real cards for a grid cell ("AKs" = cell), avoiding `used`. Suited hands try spades first,
+ * offsuit and pairs spades + hearts first. With a `board`, suits that would pair up with it
+ * (a flush draw nobody saw) come last. null if every combo of the cell is blocked.
+ */
+export function cellCards(cell: number, used: ReadonlySet<Card>, board: readonly Card[] = []): [Card, Card] | null {
+  const onBoard = (c: Card) => board.filter((b) => suitOf(b) === suitOf(c)).length;
+  let best: { cards: [Card, Card]; score: number } | null = null;
+  for (const combo of cellCombos(cell)) {
+    if (used.has(combo[0]) || used.has(combo[1])) continue;
+    const score = onBoard(combo[0]) + onBoard(combo[1]);
+    if (!best || score < best.score) best = { cards: combo, score };
+  }
+  return best ? best.cards : null;
 }
 
 export type Texture = 'rainbow' | 'twotone' | 'mono';
@@ -106,20 +116,51 @@ export function flopCards(
 }
 
 /**
- * The turn or river from a rank. 'blank' = a suit that doesn't add to a flush (the fewest of it
- * on the board, not yours if that's a tie); 'flush' = the suit the board has most of (yours on a tie).
+ * What a turn or river card does to the flush picture:
+ * 'blank' = no flush card (a suit the board has least of),
+ * 'flush' = a flush card (the suit the board has most of: three of a suit, or four),
+ * 'draw'  = a flush draw (a suit the board has once: on a two-tone flop the second draw).
  */
-export function streetCard(rank: number, kind: 'blank' | 'flush', board: readonly Card[], used: ReadonlySet<Card>, heroSuits: readonly number[] = []): Card | null {
-  const count = (s: number) => board.filter((c) => suitOf(c) === s).length;
+export type StreetKind = 'blank' | 'flush' | 'draw';
+
+const suitCounts = (board: readonly Card[]) => [0, 1, 2, 3].map((s) => board.filter((c) => suitOf(c) === s).length);
+
+/**
+ * The turn or river from a rank and a kind. Ties go away from your suits for a blank or a draw
+ * (nobody gave you a draw) and to your suit for a flush card.
+ */
+export function streetCard(rank: number, kind: StreetKind, board: readonly Card[], used: ReadonlySet<Card>, heroSuits: readonly number[] = []): Card | null {
+  const count = suitCounts(board);
   let best: { c: Card; score: number } | null = null;
   for (let s = 0; s < 4; s++) {
     const c = card(rank, s);
     if (used.has(c)) continue;
     const mine = heroSuits.includes(s) ? 1 : 0;
-    const score = kind === 'blank' ? -count(s) * 10 - mine - s * 0.01 : count(s) * 10 + mine - s * 0.01;
-    if (!best || score > best.score) best = { c, score };
+    const score =
+      kind === 'blank'
+        ? -count[s]! * 10 - mine
+        : kind === 'flush'
+          ? count[s]! * 10 + mine
+          : (count[s] === 1 ? 100 : count[s] === 0 ? 10 : 0) - mine;
+    const stable = score - s * 0.01;
+    if (!best || stable > best.score) best = { c, score: stable };
   }
   return best ? best.c : null;
+}
+
+/**
+ * The kinds that mean something for the next card on this board, with their labels: on a rainbow
+ * flop the turn can bring a flush draw but no flush card; on a two-tone flop a flush card or a
+ * second flush draw; the river only a flush card (when some suit is there twice).
+ */
+export function streetKinds(board: readonly Card[]): { kind: StreetKind; label: string }[] {
+  const count = suitCounts(board);
+  const most = Math.max(...count);
+  const draws = count.filter((n) => n >= 2).length;
+  const out: { kind: StreetKind; label: string }[] = [{ kind: 'blank', label: 'No flush card' }];
+  if (most >= 2) out.push({ kind: 'flush', label: 'Flush card' });
+  if (board.length === 3 && count.includes(1)) out.push({ kind: 'draw', label: draws > 0 ? 'Second flush draw' : 'Flush draw' });
+  return out;
 }
 
 /** The same card in the next suit that's free (for fixing a guessed suit with one tap). */
@@ -133,236 +174,67 @@ export function nextSuit(c: Card, used: ReadonlySet<Card>): Card {
 
 export const rankChar = (rank: number) => RANK_CHARS[rank]!;
 
-// ---- lines -------------------------------------------------------------------------------------
-
-export interface Line {
-  id: string;
-  label: string;
-  events: HandEvent[];
-}
-
-type Intent = 'fold' | 'check' | 'call' | { to: number };
-
-/** Rounds an amount to the table's chip unit (a fifth of the big blind: 5 cents at 10/25). */
-export function roundChips(state: TableState, amount: number): number {
-  const unit = Math.max(1, Math.round(state.rules.bb / 5));
-  return Math.max(unit, Math.round(amount / unit) * unit);
-}
-
-function toEvent(seat: SeatNo, intent: Intent, legal: LegalActions): HandEvent {
-  if (intent === 'fold') return { type: 'action', seat, action: 'fold' };
-  if (intent === 'check' || intent === 'call') {
-    if (legal.canCheck) return { type: 'action', seat, action: 'check' };
-    return legal.toCall > 0 ? { type: 'action', seat, action: 'call' } : { type: 'action', seat, action: 'check' };
-  }
-  const can = legal.canBet || legal.canRaise;
-  if (!can) return legal.canCheck ? { type: 'action', seat, action: 'check' } : { type: 'action', seat, action: 'call' };
-  const to = Math.max(intent.to, legal.minTo);
-  if (to >= legal.maxTo) return { type: 'action', seat, action: 'allin' };
-  return { type: 'action', seat, action: legal.canBet ? 'bet' : 'raise', to };
-}
-
-/** A bet or raise of a given size, as an event for the player to act (the action pad uses this too). */
-export function sizedAction(state: TableState, to: number): HandEvent | null {
-  const legal = legalActions(state);
-  if (!legal) return null;
-  return toEvent(legal.seat, { to: roundChips(state, to) }, legal);
-}
-
-type Policy = (s: SeatState, state: TableState, legal: LegalActions) => Intent;
-
-/** Plays the rest of the current street with a policy. null if the engine refuses something. */
-function playStreet(start: TableState, policy: Policy): { events: HandEvent[]; end: TableState } | null {
-  let state = start;
-  const events: HandEvent[] = [];
-  const street = start.street;
-  try {
-    for (let i = 0; i < 40 && state.phase === 'betting' && state.street === street; i++) {
-      const legal = legalActions(state);
-      if (!legal) break;
-      const s = state.seats.find((x) => x.seat === legal.seat)!;
-      const ev = toEvent(s.seat, policy(s, state, legal), legal);
-      state = applyEvent(state, ev, state.eventsApplied);
-      events.push(ev);
-    }
-  } catch {
-    return null;
-  }
-  return events.length ? { events, end: state } : null;
-}
-
-/** Steps clockwise from seat `from` to seat `to` (0 = the same seat). */
-export const clockwise = (state: TableState, from: SeatNo, to: SeatNo) => (((to - from) % state.rules.tableSeats) + state.rules.tableSeats) % state.rules.tableSeats;
-
-const live = (state: TableState) => state.seats.filter((s) => s.dealtIn && !s.folded);
-const actionsOf = (events: HandEvent[], seat: SeatNo) => events.filter((e) => e.type === 'action' && e.seat === seat);
-const raised = (events: HandEvent[], seat: SeatNo) =>
-  actionsOf(events, seat).some((e) => e.type === 'action' && (e.action === 'bet' || e.action === 'raise' || e.action === 'allin'));
-
-export interface Names {
-  hero?: SeatNo;
-  name: (seat: SeatNo) => string;
-}
-
-/** "You" / a name, and the verb to go with it. */
-const who = (n: Names, seat: SeatNo) => (seat === n.hero ? 'You' : n.name(seat));
-const verb = (n: Names, seat: SeatNo, v: string) => (seat === n.hero ? v : `${v}${v.endsWith('s') ? 'es' : 's'}`);
-const subject = (n: Names, seat: SeatNo, v: string) => `${who(n, seat)} ${verb(n, seat, v)}`;
-
-function answerText(n: Names, seats: SeatNo[], v: 'call' | 'fold'): string {
-  if (seats.length === 0) return '';
-  if (seats.length === 1) return subject(n, seats[0]!, v).replace(/^You/, 'you');
-  return v === 'call' ? `${seats.length} call` : 'all fold';
-}
-
-const bbText = (x: number) => `${Math.round(x * 10) / 10} BB`;
-
-/** Whether anyone has raised the blinds yet. */
-const unopened = (state: TableState) => state.currentBet <= state.blindLevel && !state.log.some((e) => e.kind === 'action' && e.street === 'preflop' && (e.action === 'raise' || e.action === 'bet'));
+// ---- guessed suits -----------------------------------------------------------------------------
 
 /**
- * Preflop lines for the players who see the flop (`inPot`, Hero among them), from the current
- * state: limped, someone opens and the rest call, and (heads-up) open / 3-bet / call or fold.
- * Everyone else folds. `openBB` is the usual open; each limper adds one big blind to it.
+ * What the live screen notes on a hand (HandRecord.quick). `guessed`: seats whose hole cards were
+ * picked on the 13x13 grid, so their suits are a guess and may move to make room for a board card.
  */
-export function preflopLines(state: TableState, inPot: readonly SeatNo[], openBB: number, n: Names): Line[] {
-  if (state.phase !== 'betting' || state.street !== 'preflop' || inPot.length === 0) return [];
-  const bb = state.rules.bb;
-  const P = new Set(inPot);
-  const out: Line[] = [];
-  const check = (r: ReturnType<typeof playStreet>, expect: SeatNo[]) => {
-    if (!r) return null;
-    const left = live(r.end).map((s) => s.seat).sort((a, b) => a - b);
-    const want = [...expect].sort((a, b) => a - b);
-    return left.length === want.length && left.every((x, i) => x === want[i]) ? r : null;
-  };
-
-  // limped: nobody raises
-  if (unopened(state) && P.size >= 2) {
-    const r = check(playStreet(state, (s) => (P.has(s.seat) ? 'call' : 'fold')), [...P]);
-    if (r) out.push({ id: 'limp', label: `Limped · ${P.size}-way`, events: r.events });
-  }
-
-  // X opens, the rest of P call
-  if (unopened(state)) {
-    for (const x of inPot) {
-      let openTo = 0;
-      let limped = false;
-      const r = check(
-        playStreet(state, (s, st) => {
-          if (!P.has(s.seat)) return 'fold';
-          if (s.seat === x && unopened(st)) {
-            const limpers = st.seats.filter((o) => o.seat !== x && o.dealtIn && o.lastAction?.action === 'call').length;
-            limped = limpers > 0;
-            openTo = roundChips(st, (openBB + limpers) * bb);
-            return { to: openTo };
-          }
-          return 'call';
-        }),
-        [...P],
-      );
-      if (!r || !raised(r.events, x)) continue;
-      const rest = inPot.filter((s) => s !== x);
-      const tail = rest.length ? answerText(n, rest, 'call') : 'all fold';
-      out.push({ id: `open-${x}`, label: `${subject(n, x, limped ? 'raise' : 'open')} ${bbText(openTo / bb)} · ${tail}`, events: r.events });
-    }
-  }
-
-  // heads-up: X opens, Y 3-bets, X calls / folds
-  if (unopened(state) && P.size === 2) {
-    const [a, b] = inPot as [SeatNo, SeatNo];
-    for (const [x, y] of [
-      [a, b],
-      [b, a],
-    ] as const) {
-      for (const xAnswer of ['call', 'fold'] as const) {
-        let openTo = 0;
-        const r = playStreet(state, (s, st) => {
-          if (!P.has(s.seat)) return 'fold';
-          if (s.seat === x && unopened(st)) {
-            openTo = roundChips(st, openBB * bb);
-            return { to: openTo };
-          }
-          if (s.seat === y && st.currentBet === openTo) return { to: roundChips(st, openTo * 3) };
-          if (s.seat === x) return xAnswer;
-          return 'call';
-        });
-        const expect = xAnswer === 'call' ? [a, b] : [y];
-        const ok = check(r, expect);
-        if (!ok || !raised(ok.events, x) || !raised(ok.events, y)) continue;
-        const label = `${subject(n, x, 'open')} · ${who(n, y) === 'You' ? 'you 3-bet' : `${n.name(y)} 3-bets`} · ${answerText(n, [x], xAnswer)}`;
-        out.push({ id: `3b-${x}-${y}-${xAnswer}`, label, events: ok.events });
-      }
-    }
-  }
-  return out;
+export interface QuickNotes {
+  guessedSuits?: boolean;
+  guessed?: SeatNo[];
 }
 
-const FRACTION_TEXT: Record<string, string> = { '0.33': '⅓', '0.5': '½', '0.66': '⅔', '0.75': '¾', '1': 'pot' };
-export const fractionText = (f: number) => FRACTION_TEXT[String(f)] ?? `${Math.round(f * 100)}%`;
+export const guessedSeats = (h: HandRecord): SeatNo[] => (h.quick as QuickNotes | undefined)?.guessed ?? [];
 
-/** A bet's share of the pot as the nearest usual size ("½") when it's within a few percent of one. */
-function sizeText(f: number): string {
-  const near = [0.33, 0.5, 0.66, 0.75, 1].find((x) => Math.abs(x - f) <= 0.04);
-  return near !== undefined ? fractionText(near) : `${Math.round(f * 100)}%`;
+/** Sets a seat's hole cards; `guessed` when they came from the 13x13 grid. */
+export function withHoleCards(h: HandRecord, seat: SeatNo, cards: readonly [CardStr, CardStr], guessed: boolean): HandRecord {
+  const others = guessedSeats(h).filter((s) => s !== seat);
+  const quick: QuickNotes = { ...h.quick, guessed: guessed ? [...others, seat] : others };
+  if (!quick.guessed!.length) delete quick.guessed;
+  return {
+    ...h,
+    players: h.players.map((p) => (p.seat === seat ? { ...p, cards: [cards[0], cards[1]] } : p)),
+    quick,
+  };
+}
+
+/** Board cards entered so far (from the events). */
+const boardOf = (h: HandRecord): Card[] => h.events.flatMap((e) => (e.type === 'board' ? e.cards.map(parseCard) : []));
+
+/**
+ * Makes room for `cards` (board cards, or a seat's real hole cards): a guessed hand holding one
+ * of them moves to other suits of the same class (AKs stays suited), away from the board's suits
+ * where it can. `except`: the seat whose cards are being replaced. null when a hand can't move,
+ * or a hand that isn't a guess holds one of the cards.
+ */
+export function makeRoom(h: HandRecord, cards: readonly Card[], except?: SeatNo): HandRecord | null {
+  const guessed = new Set(guessedSeats(h));
+  const board = [...boardOf(h), ...cards];
+  const shown = h.events.flatMap((e) => (e.type === 'show' && e.cards ? e.cards.map(parseCard) : []));
+  let players = h.players;
+  for (const p of h.players) {
+    if (p.seat === except || !p.cards) continue;
+    const held = p.cards.map(parseCard) as [Card, Card];
+    if (!held.some((c) => cards.includes(c))) continue;
+    if (!guessed.has(p.seat)) return null;
+    const used = new Set<Card>([...board, ...shown]);
+    for (const o of players) if (o.seat !== p.seat && o.seat !== except && o.cards) for (const c of o.cards) used.add(parseCard(c));
+    const moved = cellCards(cellOfCards(held[0], held[1]), used, board);
+    if (!moved) return null;
+    players = players.map((o) => (o.seat === p.seat ? { ...o, cards: [cardToString(moved[0]), cardToString(moved[1])] } : o));
+  }
+  return players === h.players ? h : { ...h, players };
 }
 
 /**
- * Lines for a street after the flop, from the current state: checked through; each player bets
- * `frac` of the pot and the others all call or all fold; heads-up also bet / raise (3x) / call
- * or fold; three-way, bet and one of the two calls.
+ * Cards a seat could take although they're in play: the cards of guessed hands (other than
+ * `except`'s own), which move when taken.
  */
-export function postflopLines(state: TableState, frac: number, n: Names): Line[] {
-  if (state.phase !== 'betting' || state.street === 'preflop' || state.currentBet > 0) return [];
-  const actors = live(state).filter((s) => !s.allIn).map((s) => s.seat);
-  // acting order from the player to act
-  const first = state.toAct!;
-  const ordered = [...actors].sort((a, b) => clockwise(state, first, a) - clockwise(state, first, b));
-  const others = live(state).map((s) => s.seat);
-  const out: Line[] = [];
-  const f = fractionText(frac);
-
-  const checked = playStreet(state, () => 'check');
-  if (checked) out.push({ id: 'check', label: 'Checked through', events: checked.events });
-
-  const bettingLine = (b: SeatNo, answer: (s: SeatNo) => 'call' | 'fold', raiser?: SeatNo, bAnswer?: 'call' | 'fold') => {
-    let betTo = 0;
-    return playStreet(state, (s, st) => {
-      if (st.currentBet === 0) {
-        if (s.seat !== b) return 'check';
-        betTo = roundChips(st, potTotal(st) * frac);
-        return { to: betTo };
-      }
-      if (raiser !== undefined && s.seat === raiser && st.currentBet === betTo) return { to: roundChips(st, betTo * 3) };
-      if (s.seat === b) return bAnswer ?? 'call';
-      return answer(s.seat);
-    });
-  };
-
-  for (const b of ordered) {
-    const rest = others.filter((s) => s !== b);
-    for (const ans of ['call', 'fold'] as const) {
-      const r = bettingLine(b, () => ans);
-      if (!r || !raised(r.events, b)) continue;
-      out.push({ id: `bet-${b}-${ans}`, label: `${subject(n, b, 'bet')} ${f} · ${answerText(n, rest, ans)}`, events: r.events });
-    }
-    if (rest.length === 1 && actors.length === 2) {
-      const y = rest[0]!;
-      for (const bAns of ['call', 'fold'] as const) {
-        const r = bettingLine(b, () => 'call', y, bAns);
-        if (!r || !raised(r.events, y)) continue;
-        out.push({ id: `raise-${b}-${y}-${bAns}`, label: `${subject(n, b, 'bet')} ${f} · ${who(n, y) === 'You' ? 'you raise' : `${n.name(y)} raises`} · ${answerText(n, [b], bAns)}`, events: r.events });
-      }
-    }
-    if (rest.length === 2) {
-      for (const c of rest) {
-        const r = bettingLine(b, (s) => (s === c ? 'call' : 'fold'));
-        if (!r || !raised(r.events, b)) continue;
-        const folder = rest.find((s) => s !== c)!;
-        out.push({ id: `bet-${b}-${c}`, label: `${subject(n, b, 'bet')} ${f} · ${answerText(n, [c], 'call')}, ${answerText(n, [folder], 'fold')}`, events: r.events });
-      }
-    }
-  }
+export function softCards(h: HandRecord, except?: SeatNo): Set<Card> {
+  const guessed = new Set(guessedSeats(h));
+  const out = new Set<Card>();
+  for (const p of h.players) if (p.seat !== except && guessed.has(p.seat) && p.cards) for (const c of p.cards) out.add(parseCard(c));
   return out;
 }
 
@@ -375,6 +247,20 @@ export function showdownUnknown(state: TableState): SeatState[] {
   if (state.phase !== 'showdown') return [];
   return state.seats.filter((s) => s.dealtIn && !s.folded && !s.mucked && !s.cards);
 }
+
+/** Clockwise steps from seat `from` to seat `to` (0 = the same seat). */
+export const clockwise = (state: TableState, from: SeatNo, to: SeatNo) => (((to - from) % state.rules.tableSeats) + state.rules.tableSeats) % state.rules.tableSeats;
+
+const FRACTION_TEXT: Record<string, string> = { '0.33': '⅓', '0.5': '½', '0.66': '⅔', '0.75': '¾', '1': 'pot' };
+export const fractionText = (f: number) => FRACTION_TEXT[String(f)] ?? `${Math.round(f * 100)}%`;
+
+/** A bet's share of the pot as the nearest usual size ("½") when it's within a few percent of one. */
+function sizeText(f: number): string {
+  const near = [0.33, 0.5, 0.66, 0.75, 1].find((x) => Math.abs(x - f) <= 0.04);
+  return near !== undefined ? fractionText(near) : `${Math.round(f * 100)}%`;
+}
+
+const bbText = (x: number) => `${Math.round(x * 10) / 10} BB`;
 
 /**
  * The hand in one short line per street, for the live screen:
