@@ -1,15 +1,21 @@
 import { useMemo, useState } from 'react';
 import { STYLES } from '../../core/motives/preflop';
-import { applyAnswers, handsPlayed, nearest, QUESTIONS, tableSizeOf, type Answers } from '../../core/players/questions';
+import { answerLabel, applyAnswers, handsPlayed, QUESTIONS, QUESTIONS_VERSION, tableSizeOf, type Answers } from '../../core/players/questions';
 import { SIZING_INFO, SLIDER_INFO, SLIDERS, stepLabel, stylePreflop, type StyleSettings } from '../../core/players/style';
+import { askOptions, oldAnswerLabel } from '../../core/players/versions';
 import { Button, Field, inputClass, Modal, TextInput } from '../controls';
 import { allCharts } from '../ranges/charts';
+import { gradeBadge, gradeLabel, gradeText } from './gradeColor';
+import { specials } from './SavedPlayerPicker';
 import { builtInId, overridesFrom, playerSettings, profileById, type SavedPlayer, type SavedProfile } from './store';
+import { TypeFit, useTypeFit } from './TypeFit';
 
 /**
  * "Ask me questions": what you have seen a player do, one question at a time, turned into
- * sliders. Then the profile nearest to the answers, and the player saved on it with the sliders
- * that differ. Opened for a new player, or to re-check one (his last answers filled in).
+ * sliders. Then the type that fits the answers (core/players/classify.ts: the family before the
+ * flop, then the postflop sliders), and the player saved on it with the sliders that differ.
+ * Opened for a new player, or to re-check one (his last answers filled in; an old answer the
+ * changed questions couldn't map comes as the best guess, marked).
  */
 export function QuestionWizard({
   player,
@@ -26,14 +32,21 @@ export function QuestionWizard({
   const charts = useMemo(allCharts, []);
   const preflopOf = (s: StyleSettings) => stylePreflop(s, STYLES);
   const [name, setName] = useState(player?.name ?? '');
-  const [answers, setAnswers] = useState<Answers>(player?.answers ?? {});
+  // his old answers the changed questions couldn't map: their best guess, until you answer them
+  const pending = useMemo(() => Object.fromEntries((player?.review ?? []).map((a) => [a.q, a])), [player]);
+  const [answers, setAnswers] = useState<Answers>(() => ({
+    ...(player?.answers ?? {}),
+    ...Object.fromEntries((player?.review ?? []).map((a) => [a.q, askOptions(a)[0]!]).filter(([, g]) => g)),
+  }));
+  const [confirmed, setConfirmed] = useState<Set<string>>(new Set());
   // step 0: who; 1..n: the questions; n+1: the result
   const [step, setStep] = useState(player ? 1 : 0);
   const last = QUESTIONS.length + 1;
 
-  // the answers on top of a neutral start (Unknown), to find the nearest profile
+  // the answers on top of a neutral start (Unknown), to find the type that fits
   const fromScratch = useMemo(() => applyAnswers(answers, profileById(builtInId('Unknown'), profiles).settings, charts, preflopOf), [answers, profiles, charts]);
-  const suggested = useMemo(() => nearest(fromScratch, profiles), [fromScratch, profiles]);
+  const fit = useTypeFit(fromScratch, profiles);
+  const suggested = fit.best[0] ?? null;
   const [chosenId, setChosenId] = useState<string | null>(null);
   // a re-check keeps his profile unless you pick another; a new player starts on the closest one
   const profileId = chosenId ?? player?.profileId ?? suggested?.id ?? builtInId('Unknown');
@@ -49,6 +62,7 @@ export function QuestionWizard({
       else next[q] = a;
       return next;
     });
+    setConfirmed((c) => new Set(c).add(q));
     setStep((s) => Math.min(last, s + 1));
   };
 
@@ -60,6 +74,9 @@ export function QuestionWizard({
       profileId,
       overrides,
       answers,
+      answersVersion: QUESTIONS_VERSION,
+      // every question was in front of you: nothing left to review
+      review: undefined,
     });
   };
 
@@ -67,6 +84,9 @@ export function QuestionWizard({
   const n = tableSizeOf(answers);
   const regShare = useMemo(() => handsPlayed(STYLES.Reg!, charts, n), [charts, n]);
   const answered = Object.keys(answers).length;
+  const ask = q && !confirmed.has(q.id) ? pending[q.id] : undefined;
+  // an answer told at the table that no option shows ("70 % of hands", "2.5 BB")
+  const told = q && answers[q.id] !== undefined && !q.options.some((o) => o.id === answers[q.id]) ? answerLabel(q.id, answers[q.id]!) : null;
 
   return (
     <Modal
@@ -107,7 +127,7 @@ export function QuestionWizard({
               type="button"
               title={x.sets}
               onClick={() => setStep(i + 1)}
-              className={`h-1.5 flex-1 rounded-full ${i + 1 === step ? 'bg-accent' : answers[x.id] ? 'bg-ok' : 'bg-surface-3'}`}
+              className={`h-1.5 flex-1 rounded-full ${i + 1 === step ? 'bg-accent' : pending[x.id] && !confirmed.has(x.id) ? 'bg-warn' : answers[x.id] ? 'bg-ok' : 'bg-surface-3'}`}
             />
           ))}
           <button type="button" title="Result" onClick={() => setStep(last)} className={`h-1.5 w-6 rounded-full ${step === last ? 'bg-accent' : 'bg-surface-3'}`} />
@@ -138,6 +158,12 @@ export function QuestionWizard({
               For comparison: at a {n}-handed table a solid player plays about {Math.round(regShare * 100)} % of hands (1 in {Math.round(1 / regShare)}).
             </p>
           )}
+          {ask && (
+            <p className="mt-2 rounded-md border border-warn/50 px-3 py-2 text-sm">
+              This question changed. You answered <b>{oldAnswerLabel(ask.q, ask.old, ask.from)}</b>; the best guess is marked.
+            </p>
+          )}
+          {told && <p className="mt-2 text-sm text-muted">Told at the table: <b className="text-ink">{told}</b>. An answer below replaces it.</p>}
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {q.options.map((o) => (
               <button
@@ -148,7 +174,10 @@ export function QuestionWizard({
                   answers[q.id] === o.id ? 'border-accent bg-surface-3' : 'border-line bg-surface-2 hover:border-muted hover:bg-surface-3'
                 }`}
               >
-                <div className="text-sm font-semibold">{o.label}</div>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-sm font-semibold">{o.label}</span>
+                  {ask && answers[q.id] === o.id && <span className="shrink-0 text-[10px] font-bold text-warn uppercase">Best guess</span>}
+                </div>
                 {o.hint && <div className="text-xs text-muted">{o.hint}</div>}
               </button>
             ))}
@@ -175,9 +204,24 @@ export function QuestionWizard({
             <Field
               label="Profile"
               hint={
-                suggested && suggested.id === profileId
-                  ? `Closest to your answers: ${suggested.name}. What you didn’t answer comes from it.`
-                  : `Closest to your answers: ${suggested?.name ?? '—'}.`
+                <span className="inline-flex flex-wrap items-center gap-x-1">
+                  Fits your answers: <TypeFit match={fit} />
+                  {fit.best.length > 1 && (
+                    <span className="flex flex-wrap gap-1">
+                      {fit.best.map((p) => (
+                        <button key={p.id} type="button" className="rounded border border-line px-1.5 text-[11px] text-muted hover:text-ink" onClick={() => setChosenId(p.id)}>
+                          {p.name}
+                        </button>
+                      ))}
+                    </span>
+                  )}
+                  {suggested && suggested.id === profileId && fit.best.length === 1 && <span>What you didn’t answer comes from it.</span>}
+                  {suggested && suggested.id !== profileId && fit.best.length === 1 && (
+                    <button type="button" className="rounded border border-line px-1.5 text-[11px] text-muted hover:text-ink" onClick={() => setChosenId(suggested.id)}>
+                      Use {suggested.name}
+                    </button>
+                  )}
+                </span>
               }
             >
               <select className={inputClass} value={profileId} onChange={(e) => setChosenId(e.target.value)}>
@@ -198,20 +242,26 @@ export function QuestionWizard({
               const v = result.sliders[id];
               const moved = v !== profile.settings.sliders[id];
               return (
-                <div key={id} className="grid grid-cols-[150px_40px_minmax(0,1fr)] items-baseline gap-3 px-4 py-2 text-sm">
+                <div key={id} className="grid grid-cols-[minmax(0,130px)_44px_minmax(0,1fr)] items-baseline gap-3 px-4 py-2 text-sm sm:grid-cols-[150px_44px_minmax(0,1fr)]">
                   <span className="text-muted">{SLIDER_INFO[id].label}</span>
-                  <span className={`font-bold tabular-nums ${moved ? 'text-accent' : ''}`}>{v}</span>
-                  <span className="text-xs text-muted">{stepLabel(id, v)}</span>
+                  <span
+                    className={`justify-self-start rounded px-1.5 font-bold tabular-nums ${moved ? 'ring-2 ring-ink ring-offset-1 ring-offset-surface' : ''}`}
+                    style={gradeBadge(v)}
+                  >
+                    {gradeLabel(v)}
+                  </span>
+                  <span className="text-xs font-medium" style={{ color: gradeText(v) }}>
+                    {stepLabel(id, v)}
+                  </span>
                 </div>
               );
             })}
             <div className="px-4 py-2 text-xs text-muted">
               Bet sizes: {SIZING_INFO[result.sizing].label}
-              {result.limpTrap && ' · limp-reraises premiums'}
-              {result.leads && ' · leads into the raiser'}
+              {specials(result).map((x) => ` · ${x}`)}
             </div>
           </div>
-          <p className="text-xs text-faint">Orange: set by your answers. After saving, the Players page shows what the bot does with this style, so you can check it against him.</p>
+          <p className="text-xs text-faint">Outlined: set by your answers. After saving, the Players page shows what the bot does with this style, so you can check it against him.</p>
         </div>
       )}
     </Modal>

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { movedSliders, SLIDER_INFO, type SeatStyle } from '../../core/players/style';
+import { leadsLevel, limpTrapLevel, movedSliders, SLIDER_INFO, type SeatStyle, type StyleSettings } from '../../core/players/style';
 import { Field, inputClass } from '../controls';
 import { loadPlayers, loadProfiles, seatStyleOfPlayer, seatStyleOfProfile } from './store';
 
@@ -9,11 +9,23 @@ export interface Pick {
   style: SeatStyle;
 }
 
+const LIMP_TRAP_WORDS = ['', 'limp-reraises a monster', 'limp-reraises often'];
+const LEADS_WORDS = ['', 'leads into the raiser rarely (monsters)', 'leads into the raiser', 'leads into the raiser often'];
+
+/** The specials in words: limp-reraises, leads, open size and its tell. */
+export function specials(s: StyleSettings): string[] {
+  return [
+    LIMP_TRAP_WORDS[limpTrapLevel(s.limpTrap)],
+    LEADS_WORDS[leadsLevel(s.leads)],
+    s.openBB ? `opens ${s.openBB} BB` : '',
+    s.openTell === 'strong' ? 'opens bigger with strong hands' : s.openTell === 'weak' ? 'opens bigger with weak hands' : '',
+  ].filter((x): x is string => !!x);
+}
+
 /** One line on a style: its base type and the sliders moved off it. */
 export function styleSummary(style: SeatStyle): string {
   const moved = movedSliders(style.settings).map((id) => `${SLIDER_INFO[id].label} ${style.settings.sliders[id]}`);
-  const extras = [style.settings.limpTrap && 'limp-reraises', style.settings.leads && 'leads into the raiser'].filter(Boolean);
-  return [style.settings.base, ...moved, ...extras].join(' · ');
+  return [style.settings.base, ...moved, ...specials(style.settings)].join(' · ');
 }
 
 /** The wizard's "saved player" choice for a seat: a player from the Players page, or a profile. */

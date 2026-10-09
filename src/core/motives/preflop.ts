@@ -29,7 +29,11 @@ export interface PreflopStyle {
   raises: number;
   /** When first in: the share of opens that limp instead (premiums still raise). */
   limp: number;
-  /** When first in: the share of premiums that limp to re-raise (limp-reraise trap). */
+  /**
+   * When first in: limps strong hands to re-raise (the limp-reraise trap), as a level. 1 = half his
+   * premiums (PREMIUM); 2 = often: 80 % of them and half the strong hands below them (STRONG).
+   * None = his limps hold no big hands (capped).
+   */
   limpTrap?: number;
   /**
    * Facing a raise: re-raising (3-bets, 4-bets) against the chart, for hands that aren't premium.
@@ -50,6 +54,8 @@ export const STYLES: Record<string, PreflopStyle> = {
   Fish: { width: 1.7, raises: 0.4, limp: 0.7, threeBet: 0.08, premiumCall: 0.25 },
   Whale: { width: 2.6, raises: 0.5, limp: 0.6, threeBet: 0.1, premiumCall: 0.2 },
   Maniac: { width: 2, raises: 1.7, limp: 0 },
+  // style.ts's slider positions (Loose 2.5, Preflop aggression 2), 3-bets only premiums
+  'Weak-tight rec': { width: 0.9, raises: 0.65, limp: 0.35, threeBet: 0.15, premiumCall: 0.15 },
 };
 /**
  * Open sizes in big blinds, with how often each is used (Marius's 25c game, 2026-10-08 - for
@@ -64,10 +70,16 @@ export const OPEN_SIZES: Record<string, [number, number][]> = {
   Fish: [[3, 0.85], [4, 0.15]],
   Whale: [[3, 0.6], [4, 0.2], [5, 0.2]],
   Maniac: [[3, 0.2], [4, 0.3], [5, 0.3], [8, 0.2]],
+  'Weak-tight rec': [[3, 0.8], [4, 0.2]],
 };
 
 /** Hands this good (share of all combos) raise whatever the type: AA-QQ, AK. */
 const PREMIUM = 0.03;
+/**
+ * The strong hands below the premiums go up to here (about the top 6 %): TT-99, AQ, AJs, KQs and
+ * the like - what a frequent limp-reraiser also traps with, and a size tell's "strong hands".
+ */
+const STRONG = 0.065;
 
 export interface PreflopFacing {
   scenario: Scenario;
@@ -156,6 +168,13 @@ export function preflopChoice(state: TableState, charts: readonly ChartChoice[],
         break;
       }
     }
+    // a size tell (the Players page's "raise size by hand"): his usual size for most hands, half
+    // as much again with his strong ones - or, bigger with weak hands, a third less with the strong
+    const tell = me.style?.settings.openTell;
+    if (CELL_PERCENTILE[cell]! <= STRONG) {
+      if (tell === 'strong') open *= 1.5;
+      else if (tell === 'weak') open = Math.max(2, open * (2 / 3));
+    }
     to = open * blind;
   }
   else if (f.scenario === 'vs Limp') to = (f.inPosition ? 6 : 7) * blind + f.limpers * blind;
@@ -241,10 +260,12 @@ export function bendMix(chart: ChartChoice | null, cell: number, style: PreflopS
     call = 0;
   }
 
-  // a limp-reraiser limps some premiums first in, to re-raise an isolation (the vs-open charts
-  // raise premiums, so the re-raise comes by itself)
-  if (firstIn && premium && (style.limpTrap ?? 0) > 0) {
-    const t = Math.min(1, style.limpTrap!);
+  // a limp-reraiser limps some strong hands first in, to re-raise an isolation (the vs-open charts
+  // raise them, so the re-raise comes by itself): with a monster half his premiums, often most of
+  // them and half the strong hands below (so his limps are never capped)
+  const trap = style.limpTrap ?? 0;
+  if (firstIn && trap > 0) {
+    const t = premium ? (trap >= 2 ? 0.8 : 0.5) : trap >= 2 && q <= STRONG ? 0.5 : 0;
     call += raise * t;
     raise *= 1 - t;
   }

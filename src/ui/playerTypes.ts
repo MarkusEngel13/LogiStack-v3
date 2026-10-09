@@ -5,6 +5,7 @@ export const PLAYER_TYPES = [
   { id: 'TAG', color: '#ff8c00' },
   { id: 'LAG', color: '#ff3b3b' },
   { id: 'Nit', color: '#9a9a9a' },
+  { id: 'Weak-tight rec', color: '#7aa2f7' },
   { id: 'Fish', color: '#4ade80' },
   { id: 'Whale', color: '#00ced1' },
   { id: 'Maniac', color: '#da70d6' },

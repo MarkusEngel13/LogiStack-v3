@@ -6,7 +6,7 @@ import { STYLES, preflopChoice } from '../motives/preflop';
 import { LIBRARY } from '../ranges/library';
 import type { ChartChoice } from '../ranges/spot';
 import { postflopRow, preflopPreview } from './preview';
-import { at, BASE_TYPES, movedSliders, styleMotives, stylePreflop, typeSettings, type StyleSettings } from './style';
+import { at, BASE_TYPES, complete, leadsLevel, limpTrapLevel, movedSliders, styleMotives, stylePreflop, typePreset, typeSettings, type Leads, type StyleSettings } from './style';
 
 const charts: ChartChoice[] = LIBRARY.map((r) => ({ id: r.id, label: r.label, scenario: r.scenario, positions: r.positions, stack: r.stack, env: r.env, chart: r.chart }));
 const fish = typeSettings('Fish');
@@ -31,9 +31,34 @@ describe('sliders', () => {
     for (const t of BASE_TYPES) {
       const s = typeSettings(t);
       expect(movedSliders(s)).toEqual([]);
-      expect({ ...styleMotives(s, MOTIVE_PRESETS), name: '' }).toEqual({ ...MOTIVE_PRESETS[t]!, name: '' });
+      expect({ ...styleMotives(s, MOTIVE_PRESETS), name: '' }).toEqual({ ...typePreset(t, MOTIVE_PRESETS), name: '' });
       expect(stylePreflop(s, STYLES)).toEqual(STYLES[t] ?? STYLES.Reg);
+      expect(STYLES[t] ?? (t === 'Unknown' ? STYLES.Reg : undefined), t).toBeDefined();
     }
+  });
+
+  test('the weak-tight rec: a fish who plays few hands, rarely bets and folds to pressure', () => {
+    const p = typePreset('Weak-tight rec', MOTIVE_PRESETS);
+    const fishy = MOTIVE_PRESETS.Fish!;
+    expect(p.name).toBe('Weak-tight rec');
+    expect(p.rangeReading).toBe(fishy.rangeReading); // thinks about his own hand
+    expect(p.respect).toBe(at('respect', 5));
+    expect(p.stickiness).toBeLessThan(fishy.stickiness);
+    expect(p.cbetHabit!).toBeLessThan(fishy.cbetHabit!);
+    expect(STYLES['Weak-tight rec']!.width).toBe(at('width', 2.5));
+    // a moved slider still works on top of it
+    const more = styleMotives({ ...typeSettings('Weak-tight rec'), sliders: { ...typeSettings('Weak-tight rec').sliders, bluffs: 3 } }, MOTIVE_PRESETS);
+    expect(more.embarrassment).toBe(at('embarrassment', 3));
+    expect(more.respect).toBe(p.respect);
+  });
+
+  test('settings saved with the switches on/off read as levels', () => {
+    expect([limpTrapLevel(true), limpTrapLevel(false), limpTrapLevel(undefined), limpTrapLevel(2)]).toEqual([1, 0, 0, 2]);
+    expect([leadsLevel(true), leadsLevel(false), leadsLevel(3)]).toEqual([2, 0, 3]);
+    const old = { ...fish, limpTrap: true, leads: true } as unknown as StyleSettings;
+    expect(complete(old)).toMatchObject({ limpTrap: 1, leads: 2 });
+    expect(stylePreflop(old, STYLES).limpTrap).toBe(1);
+    expect(styleMotives(old, MOTIVE_PRESETS).expectsBet).toBe(styleMotives({ ...fish, leads: 2 }, MOTIVE_PRESETS).expectsBet);
   });
 
   test('a moved slider changes only its own weights', () => {
@@ -93,9 +118,12 @@ describe('what the sliders do', () => {
     expect(call(1)).toBeGreaterThan(call(5));
   });
 
-  test('a donk-leader leads strong hands into the raiser', () => {
-    const lead = (leads: boolean) => postflopRow(styleMotives({ ...fish, leads }, MOTIVE_PRESETS), 'lead').share;
-    expect(lead(true)).toBeGreaterThan(lead(false) + 0.1);
+  test('a donk-leader leads strong hands into the raiser, more of them the more often he leads', () => {
+    const lead = (leads: Leads) => postflopRow(styleMotives({ ...fish, leads }, MOTIVE_PRESETS), 'lead').share;
+    const [never, rarely, sometimes, often] = ([0, 1, 2, 3] as const).map(lead);
+    expect(rarely).toBeGreaterThan(never! + 0.05);
+    expect(sometimes).toBeGreaterThan(rarely! + 0.05);
+    expect(often).toBeGreaterThan(sometimes!);
   });
 });
 
@@ -125,13 +153,23 @@ describe('a seat with a style', () => {
     expect(profileFor(s.seats.find((x) => x.seat === 3)!).stickiness).toBe(MOTIVE_PRESETS.Fish!.stickiness);
   });
 
-  test('a limp-reraiser limps aces first in', () => {
+  test('a limp-reraiser limps aces first in: half of them with a monster, most when he does it often', () => {
     // seat 2 is UTG+1 of six (first to act is seat 2 after blinds at 0 and 1)
-    const plain = preflopChoice(replaySteps(hand(fish)).at(-1)!, charts, () => 0.5);
-    const trap = preflopChoice(replaySteps(hand({ ...fish, limpTrap: true })).at(-1)!, charts, () => 0.5);
-    const limp = (c: typeof plain) => c.options.filter((o) => o.label === 'Limp').reduce((a, o) => a + o.p, 0);
-    expect(limp(plain)).toBe(0);
-    expect(limp(trap)).toBeCloseTo(0.5);
+    const limp = (s: StyleSettings, cards?: [string, string]) =>
+      preflopChoice(replaySteps(hand(s, cards)).at(-1)!, charts, () => 0.5)
+        .options.filter((o) => o.label === 'Limp')
+        .reduce((a, o) => a + o.p, 0);
+    expect(limp(fish)).toBe(0);
+    expect(limp({ ...fish, limpTrap: 1 })).toBeCloseTo(0.5);
+    expect(limp({ ...fish, limpTrap: true } as unknown as StyleSettings)).toBeCloseTo(0.5); // saved before the levels
+    expect(limp({ ...fish, limpTrap: 2 })).toBeCloseTo(0.8);
+    // often: tens, nines and AQ limp-reraise too, so his limps are never capped (a reg raises them otherwise)
+    const regTrap = (limpTrap: 0 | 1 | 2) => ({ ...typeSettings('Reg'), limpTrap });
+    for (const cards of [['Td', 'Tc'], ['Ah', 'Qc'], ['9d', '9c']] as [string, string][]) {
+      expect(limp(regTrap(1), cards)).toBe(0);
+      expect(limp(regTrap(2), cards)).toBeCloseTo(0.5);
+    }
+    expect(limp(regTrap(2), ['8d', '8c'])).toBe(0);
   });
 });
 

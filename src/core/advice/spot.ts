@@ -45,6 +45,7 @@ const VILLAIN: Record<string, string[]> = {
   Reg: ['reg'],
   TAG: ['reg'],
   Nit: ['nit'],
+  'Weak-tight rec': ['rec', 'nit'],
   LAG: ['lag'],
   Maniac: ['maniac'],
 };

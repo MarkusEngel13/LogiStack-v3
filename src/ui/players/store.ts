@@ -11,14 +11,21 @@ import { SHARED_PROFILES_KEY } from '../sync/sync';
 import {
   BASE_TYPES,
   complete,
+  leadsLevel,
+  limpTrapLevel,
   SLIDERS,
   typeSettings,
+  type Leads,
+  type LimpTrap,
+  type OpenTell,
   type SeatStyle,
   type SliderId,
   type Sizing,
   type StyleSettings,
 } from '../../core/players/style';
 import type { ShowdownRead } from '../../core/players/reads';
+import { QUESTIONS_VERSION } from '../../core/players/questions';
+import { moveAnswer, upgrade, type Ask } from '../../core/players/versions';
 
 export interface SavedProfile {
   id: string;
@@ -37,9 +44,12 @@ export interface SavedProfile {
 export interface PlayerOverrides {
   sliders?: Partial<Record<SliderId, number>>;
   sizing?: Sizing;
-  limpTrap?: boolean;
-  leads?: boolean;
+  /** A level; on/off (true / false) when saved before 2026-10-10. */
+  limpTrap?: LimpTrap | boolean;
+  /** A level; on/off (true / false) when saved before 2026-10-10. */
+  leads?: Leads | boolean;
   openBB?: number;
+  openTell?: OpenTell;
 }
 
 export interface SavedPlayer {
@@ -51,6 +61,10 @@ export interface SavedPlayer {
   notes?: string;
   /** The question wizard's last answers (question id → option id), to re-check later. */
   answers?: Record<string, string>;
+  /** The version of the questions his answers are on (questions.ts's QUESTIONS_VERSION; none = 1). */
+  answersVersion?: number;
+  /** Old answers the new questions couldn't map by themselves: the Players page asks you about them. */
+  review?: Ask[];
   /** Hands you saw him show down, with what he did (the live screen's "Showdown I saw"). */
   reads?: ShowdownRead[];
   /** What you told the app about him during a game (✎ on the live screen), newest last. */
@@ -97,7 +111,43 @@ export const loadProfiles = (): SavedProfile[] => [
   ...read<SavedProfile>(PROFILES_KEY).map((p) => ({ ...p, settings: complete(p.settings) })),
   ...read<SavedProfile>(SHARED_PROFILES_KEY).map((p) => ({ ...p, settings: complete(p.settings) })),
 ];
-export const loadPlayers = (): SavedPlayer[] => read<SavedPlayer>(PLAYERS_KEY);
+
+// players answered on older questions are moved to the current ones as they are read (versions.ts):
+// the clean moves made, the rest waiting in `review`; saved like this with the next change
+export const loadPlayers = (): SavedPlayer[] => {
+  const list = read<SavedPlayer>(PLAYERS_KEY);
+  if (!list.some((p) => p.answers && (p.answersVersion ?? 1) < QUESTIONS_VERSION)) return list;
+  const profiles = loadProfiles();
+  return list.map((p) => upgradePlayer(p, profiles));
+};
+
+/** A player answered on older questions, moved to the current ones. */
+export function upgradePlayer(pl: SavedPlayer, profiles = loadProfiles()): SavedPlayer {
+  const from = pl.answersVersion ?? 1;
+  if (!pl.answers || from >= QUESTIONS_VERSION) return pl;
+  const { settings, answers, asks } = upgrade(playerSettings(pl, profiles), pl.answers, from);
+  return {
+    ...pl,
+    overrides: overridesFrom(settings, profileById(pl.profileId, profiles).settings),
+    answers,
+    answersVersion: QUESTIONS_VERSION,
+    ...(asks.length || pl.review?.length ? { review: [...(pl.review ?? []), ...asks] } : {}),
+  };
+}
+
+/**
+ * A player with one review question answered (`choice`; null = don't know: the answer goes, his
+ * sliders stay as the old answer set them).
+ */
+export function reviewPlayer(pl: SavedPlayer, ask: Ask, choice: string | null, profiles = loadProfiles()): SavedPlayer {
+  const review = (pl.review ?? []).filter((x) => x.q !== ask.q);
+  const { [ask.q]: _drop, ...rest } = pl.answers ?? {};
+  void _drop;
+  if (choice === null) return { ...pl, answers: rest, review };
+  const answers = { ...rest, [ask.q]: choice };
+  const settings = moveAnswer(playerSettings(pl, profiles), ask.q, ask.old, choice, answers, ask.from);
+  return { ...pl, overrides: overridesFrom(settings, profileById(pl.profileId, profiles).settings), answers, review };
+}
 
 export function saveProfile(p: SavedProfile): boolean {
   if (p.builtIn || p.sharedBy) return false;
@@ -142,13 +192,15 @@ export function playerSettings(pl: SavedPlayer, profiles = loadProfiles()): Styl
     const v = pl.overrides.sliders?.[id];
     if (v !== undefined) sliders[id] = v;
   }
+  const openTell = pl.overrides.openTell ?? base.openTell;
   return {
     base: base.base,
     sliders,
     sizing: pl.overrides.sizing ?? base.sizing,
-    limpTrap: pl.overrides.limpTrap ?? base.limpTrap,
-    leads: pl.overrides.leads ?? base.leads,
+    limpTrap: limpTrapLevel(pl.overrides.limpTrap ?? base.limpTrap),
+    leads: leadsLevel(pl.overrides.leads ?? base.leads),
     ...((pl.overrides.openBB ?? base.openBB) ? { openBB: pl.overrides.openBB ?? base.openBB } : {}),
+    ...(openTell ? { openTell } : {}),
   };
 }
 
@@ -159,9 +211,10 @@ export function overridesFrom(s: StyleSettings, profile: StyleSettings): PlayerO
   for (const id of SLIDERS) if (s.sliders[id] !== profile.sliders[id]) sliders[id] = s.sliders[id];
   if (Object.keys(sliders).length) o.sliders = sliders;
   if (s.sizing !== profile.sizing) o.sizing = s.sizing;
-  if (s.limpTrap !== profile.limpTrap) o.limpTrap = s.limpTrap;
-  if (s.leads !== profile.leads) o.leads = s.leads;
+  if (limpTrapLevel(s.limpTrap) !== limpTrapLevel(profile.limpTrap)) o.limpTrap = limpTrapLevel(s.limpTrap);
+  if (leadsLevel(s.leads) !== leadsLevel(profile.leads)) o.leads = leadsLevel(s.leads);
   if (s.openBB !== profile.openBB && s.openBB) o.openBB = s.openBB;
+  if ((s.openTell ?? 'no') !== (profile.openTell ?? 'no')) o.openTell = s.openTell ?? 'no';
   return o;
 }
 
