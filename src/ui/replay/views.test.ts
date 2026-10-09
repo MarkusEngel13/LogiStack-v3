@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import { FIXTURES } from '../../core/fixtures';
+import { nextHand } from '../../core/hand/nextHand';
 import { CURRENCIES } from '../format';
-import { actionRows, moneyFor, replaySeatViews, resultSummary, safeSteps, streetSteps } from './views';
+import { actionRows, beforeHand, moneyFor, replaySeatViews, resultSummary, safeSteps, streetSteps } from './views';
 
 const money = moneyFor(FIXTURES.multiwayShowdown, 'currency');
 
@@ -80,6 +81,15 @@ describe('replay views', () => {
   test('street jump targets', () => {
     const { steps } = safeSteps(FIXTURES.multiwayShowdown);
     expect(streetSteps(steps)).toEqual({ preflop: 0, flop: 7, turn: 13, river: 18, result: 20 });
+  });
+
+  test('a hand dropped unfinished: the next one starts from the stacks before it (blinds back), the button moves', () => {
+    const rec = FIXTURES.multiwayShowdown;
+    const { steps } = safeSteps(rec);
+    const next = nextHand(rec, beforeHand(rec, steps[0]!), { id: 'n', createdAt: '', rand: () => 0.5 });
+    expect(next.players.map((p) => p.stack)).toEqual(rec.players.map((p) => p.stack));
+    expect(next.button).not.toBe(rec.button);
+    expect(next.events).toEqual([]);
   });
 
   test('chips currency formats without symbol', () => {

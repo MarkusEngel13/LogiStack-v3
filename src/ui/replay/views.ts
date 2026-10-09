@@ -222,3 +222,12 @@ export function streetSteps(steps: TableState[]): Partial<Record<Street | 'resul
   if (last.phase === 'showdown' || last.phase === 'complete') out.result = steps.length - 1;
   return out;
 }
+
+/**
+ * The table as it was before the hand (the blinds are in from the first step on, so the stacks
+ * come from the setup): to deal the next hand when this one is dropped unfinished.
+ */
+export function beforeHand(record: HandRecord, start: TableState): TableState {
+  const stackOf = (seat: number) => record.players.find((p) => p.seat === seat)?.stack;
+  return { ...start, result: null, seats: start.seats.map((s) => ({ ...s, stack: stackOf(s.seat) ?? s.stack })) };
+}

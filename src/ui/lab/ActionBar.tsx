@@ -31,6 +31,12 @@ interface Props {
   onNewHand: () => void;
   /** The gym: deal the next hand at the same table (button moves, stacks carry over). */
   onNextHand?: () => void;
+  /**
+   * Full screen: the buttons in as few rows as possible, under the table. The table already shows
+   * who is to act and what the bots did, so that line and the bot's note go; so do the extras
+   * (blind raise, bot plays).
+   */
+  compact?: boolean;
 }
 
 /** The Lab's input panel: whatever the hand needs next at the current step. */
@@ -38,7 +44,7 @@ export function ActionBar(props: Props) {
   const { state, laterEvents, error } = props;
   const key = `${state.eventsApplied}-${props.hand.events.length}-${state.toAct}`;
   return (
-    <div className="space-y-3 rounded-lg border border-line bg-surface px-4 py-3">
+    <div className={`rounded-lg border border-line bg-surface ${props.compact ? 'space-y-2 px-3 py-2' : 'space-y-3 px-4 py-3'}`}>
       {laterEvents > 0 && (
         <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-sm text-warn">
           You are back in the hand. Entering something here replaces the {laterEvents} {laterEvents === 1 ? 'entry' : 'entries'} after this
@@ -49,7 +55,7 @@ export function ActionBar(props: Props) {
       {state.phase === 'dealing' && <DealControls key={key} {...props} />}
       {state.phase === 'showdown' && <ShowdownControls key={key} {...props} />}
       {state.phase === 'complete' && <CompleteControls key={key} {...props} />}
-      {props.botNote && <div className="text-sm text-muted">🤖 {props.botNote}</div>}
+      {props.botNote && !props.compact && <div className="text-sm text-muted">🤖 {props.botNote}</div>}
       {error && <div className="text-sm text-danger">{error}</div>}
     </div>
   );
@@ -84,7 +90,7 @@ function Who({ state, seat, children }: { state: TableState; seat: number; child
 
 // ---------------------------------------------------------------------------------------------
 
-function BettingControls({ hand, state, money, onEvent, onBot, botBusy }: Props) {
+function BettingControls({ hand, state, money, onEvent, onBot, botBusy, compact }: Props) {
   const legal = legalActions(state)!;
   const seat = state.seats.find((s) => s.seat === legal.seat)!;
   const presets = sizePresets(state, legal, hand.table.blinds.sb);
@@ -107,19 +113,34 @@ function BettingControls({ hand, state, money, onEvent, onBot, botBusy }: Props)
   const amountOk = amount === legal.maxTo || (amount >= legal.minTo && amount <= legal.maxTo);
   const verb = legal.canBet ? 'Bet' : 'Raise to';
 
+  const sizeButtons = presets.map((p) => (
+    <button
+      key={p.label}
+      type="button"
+      onClick={() => setAmount(p.to)}
+      className={`rounded border px-2.5 py-1 text-xs tabular-nums ${
+        amount === p.to ? 'border-accent bg-surface-3 text-ink' : 'border-line text-muted hover:bg-surface-3 hover:text-ink'
+      }`}
+    >
+      {p.label} <span className="text-faint">{money(p.to)}</span>
+    </button>
+  ));
+
   return (
     <div className="space-y-3">
       {offers.map((o) => (
         <StraddleOffer key={o.seat} offer={o} hand={hand} state={state} money={money} onEvent={onEvent} />
       ))}
 
-      <Who state={state} seat={legal.seat}>
-        <span className="text-sm text-muted">to act</span>
-        <span className="text-sm text-muted">
-          stack {money(seat.stack)} · pot {money(potTotal(state))}
-          {legal.toCall > 0 && ` · to call ${money(legal.toCall)}`}
-        </span>
-      </Who>
+      {!compact && (
+        <Who state={state} seat={legal.seat}>
+          <span className="text-sm text-muted">to act</span>
+          <span className="text-sm text-muted">
+            stack {money(seat.stack)} · pot {money(potTotal(state))}
+            {legal.toCall > 0 && ` · to call ${money(legal.toCall)}`}
+          </span>
+        </Who>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         {legal.toCall > 0 && (
@@ -140,7 +161,7 @@ function BettingControls({ hand, state, money, onEvent, onBot, botBusy }: Props)
         {canAggro && (
           <>
             <span className="mx-1 h-8 w-px bg-line" />
-            <div className="w-32">
+            <div className={compact ? 'w-24' : 'w-32'}>
               <MoneyInput value={amount} currency={hand.table.currency} onChange={setAmount} />
             </div>
             <ToneButton
@@ -153,13 +174,17 @@ function BettingControls({ hand, state, money, onEvent, onBot, botBusy }: Props)
             <ToneButton tone="allin" onClick={() => act('allin')}>
               All-in {money(legal.maxTo)}
             </ToneButton>
-            <label className="ml-1 flex cursor-pointer items-center gap-1.5 text-sm text-muted select-none" title="Raised without looking at the cards">
-              <input type="checkbox" checked={blind} onChange={(e) => setBlind(e.target.checked)} className="h-4 w-4 accent-[var(--accent)]" />
-              Blind {BLIND_ICON}
-            </label>
+            {compact ? (
+              sizeButtons
+            ) : (
+              <label className="ml-1 flex cursor-pointer items-center gap-1.5 text-sm text-muted select-none" title="Raised without looking at the cards">
+                <input type="checkbox" checked={blind} onChange={(e) => setBlind(e.target.checked)} className="h-4 w-4 accent-[var(--accent)]" />
+                Blind {BLIND_ICON}
+              </label>
+            )}
           </>
         )}
-        {onBot && (
+        {onBot && !compact && (
           <Button
             variant="secondary"
             disabled={botBusy}
@@ -171,20 +196,9 @@ function BettingControls({ hand, state, money, onEvent, onBot, botBusy }: Props)
         )}
       </div>
 
-      {canAggro && (
+      {canAggro && !compact && (
         <div className="flex flex-wrap items-center gap-1.5">
-          {presets.map((p) => (
-            <button
-              key={p.label}
-              type="button"
-              onClick={() => setAmount(p.to)}
-              className={`rounded border px-2.5 py-1 text-xs tabular-nums ${
-                amount === p.to ? 'border-accent bg-surface-3 text-ink' : 'border-line text-muted hover:bg-surface-3 hover:text-ink'
-              }`}
-            >
-              {p.label} <span className="text-faint">{money(p.to)}</span>
-            </button>
-          ))}
+          {sizeButtons}
           <span className="ml-2 text-xs text-faint">
             min {money(legal.minTo)} · all-in {money(legal.maxTo)}
           </span>
