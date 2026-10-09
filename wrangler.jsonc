@@ -19,7 +19,7 @@
       "binding": "DB",
       "database_name": "logistack",
       // from `npx wrangler d1 create logistack` (docs/DEPLOY.md, step B)
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "4aa42d9e-bc12-4560-af24-cab364b25c8b",
       "migrations_dir": "migrations"
     }
   ]
