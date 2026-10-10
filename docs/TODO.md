@@ -11,6 +11,13 @@ until agreed. `[ ]` open · `[~]` agreed, to build · `[-]` parked · `[x]` buil
       Keep "author-page - Production" as it is. Mind the free Zero Trust limit: 50 users.
 - [ ] Optional: Zero Trust -> Settings -> seat expiration, so users inactive for a while give their
       seat back by themselves (stays within 50).
+
+## Going live (soon)
+- [ ] Buy a domain and move off `logistack.mariusdinu81.workers.dev` (custom domain on the Worker;
+      Cloudflare Registrar if it sells the ending). `logistack.com` is taken (registered 2011, a
+      software company "Logistack" uses it) - check `.poker`, `.app`, `logistackpoker.com` at the
+      registrar, and think about the name clash before going public.
+- [ ] Then: own sign-up and login instead of Cloudflare Access (no 50-user limit), see comment 5.
 ## Phone layout
 1. [x] Phone: the LogiStack logo above (or just under) the menu bar. (ROADMAP "Next")
 2. [x] Phone: the menu bar wraps its text and links instead of running off the screen. (ROADMAP "Next")
