@@ -180,12 +180,14 @@ until agreed. `[ ]` open · `[~]` agreed, to build · `[-]` parked · `[x]` buil
 71. [~] A welcome card for new users: Free's limits, their data on the server (only theirs), ask for
         Premium or deletion under the account.
 72. [~] Shared profiles show "LogiStack" (or a pseudonym), never the sharer's email.
+74. [~] No "playbook" anywhere users read (not even "it never leaves your browser"): the advice is
+        simply given. Only the admin's upload and his file loading still name it.
 
 ## Later
 39. [x] Solution stability: nudge the inputs (preflop range 5-10 % narrower or wider, other
         parameters 5-15 % up or down) and show whether the suggested line holds or flips - a line
         that flips on a 5 % change is not a safe exploit.
-67. [ ] Onboarding (long term): the app can be overwhelming at first, so on a new user's first login
+73. [ ] Onboarding (long term): the app can be overwhelming at first, so on a new user's first login
         a short intro to the modules (Live, Lab, Gym, Players, PF Ranges, Equity: what each is for).
         Afterwards, a detailed walkthrough per module, started by choice, never forced. A Help menu
         lists every walkthrough so they can be restarted at any time. Remember per account what was seen.
