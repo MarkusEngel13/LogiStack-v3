@@ -13,7 +13,7 @@ import { bendMix, type PreflopStyle } from '../motives/preflop';
 import { CELLS, comboCount } from '../ranges/hands';
 import { TEN_MAX_POSITIONS } from '../ranges/library';
 import { pickChart, type ChartChoice } from '../ranges/spot';
-import { at, type Leads, type LimpTrap, type OpenTell, type SliderId, type Sizing, type StyleSettings } from './style';
+import { at, type Leads, type LimpTrap, type OpenTell, type PairJam, type SliderId, type Sizing, type StyleSettings } from './style';
 
 // ---- how many hands he plays, at a given table size ------------------------------------------------
 
@@ -87,6 +87,8 @@ export interface Question {
  * merged or renamed). Each saved player keeps the version his answers came from; versions.ts moves
  * old answers to the new questions. 2 = 2026-10-10: raise size bands and "raise size by hand",
  * 3-bets "very rarely", limp-reraise and donk-bet levels, the c-bet middle, Q7 without c-bets.
+ * A new question changes no old answer, so it needs no new version: players saved before it simply
+ * haven't answered it ("don't know"), as with the c-bets question (2026-10-10: the pair jam).
  */
 export const QUESTIONS_VERSION = 2;
 
@@ -212,6 +214,17 @@ export const QUESTIONS: Question[] = [
     ],
   },
   {
+    id: 'pairJam',
+    sets: 'Check-raises all-in with a pair',
+    text: 'With three pots or less behind (a 3-bet pot, short stacks), have you seen him check-raise all-in on the flop or turn with a pair under the top card, like 99 on J-8-4?',
+    help: 'Some players do it when they fear your draws: ahead now, get it in. Then his all-in holds those pairs, not only sets and two pair - call it wider.',
+    options: [
+      { id: 'never', label: 'Never seen it', hint: 'his check-raise all-in is a big hand' },
+      { id: 'sometimes', label: 'Now and then' },
+      { id: 'often', label: 'Very often', hint: 'sometimes second pair; short-stacked, weaker pairs too' },
+    ],
+  },
+  {
     id: 'sticky',
     sets: 'Sticky',
     text: 'He has top pair on a dry board (like K♠7♦2♣) and you bet the flop, the turn and the river. What does he do?',
@@ -308,6 +321,7 @@ export function threeBetStep(base: number, answer: string | undefined): number {
 
 export const LIMP_TRAP: Record<string, LimpTrap> = { never: 0, monster: 1, often: 2 };
 export const LEADS: Record<string, Leads> = { never: 0, rarely: 1, sometimes: 2, often: 3 };
+export const PAIR_JAM: Record<string, PairJam> = { never: 0, sometimes: 1, often: 2 };
 const OPEN_TELL: Record<string, OpenTell> = { no: 'no', strong: 'strong', weak: 'weak' };
 
 /** What the raise-size bands open to: the bots' size for each (about the band's middle). */
@@ -363,6 +377,8 @@ export function applyAnswers(
   const leads = LEADS[a.leads ?? ''];
   if (typeof leads === 'number') s.leads = leads;
   if (a.leads === 'often') s.sliders.postAggr = Math.min(5, Math.max(s.sliders.postAggr, 3.5));
+  const jam = PAIR_JAM[a.pairJam ?? ''];
+  if (typeof jam === 'number') s.pairJam = jam;
   if (a.sizing && SIZING[a.sizing]) s.sizing = SIZING[a.sizing]!;
   const open = openBBOf(a.open);
   if (open) s.openBB = open;

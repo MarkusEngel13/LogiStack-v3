@@ -74,6 +74,12 @@ export interface MotiveProfile {
    * bet". Live regs c-bet most flops out of habit, whatever they hold. Optional, 0 by default.
    */
   cbetHabit?: number;
+  /**
+   * His own move: the share of his pocket pairs under the top card (99 on J-8-4) that check-raise
+   * all-in at an SPR of about 3 or less, when the draws scare him (pairJam.ts). Optional: only the
+   * Players page's "check-raises all-in with a pair" sets it.
+   */
+  pairJam?: number;
 }
 
 /** Plain expected value, no psychology: the reference the tests compare against. */

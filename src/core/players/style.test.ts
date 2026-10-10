@@ -6,7 +6,7 @@ import { STYLES, preflopChoice } from '../motives/preflop';
 import { LIBRARY } from '../ranges/library';
 import type { ChartChoice } from '../ranges/spot';
 import { postflopRow, preflopPreview } from './preview';
-import { at, BASE_TYPES, complete, leadsLevel, limpTrapLevel, movedSliders, styleMotives, stylePreflop, typePreset, typeSettings, type Leads, type StyleSettings } from './style';
+import { at, BASE_TYPES, complete, leadsLevel, limpTrapLevel, movedSliders, PAIR_JAM_RATE, pairJamLevel, styleMotives, stylePreflop, typePreset, typeSettings, type Leads, type PairJam, type StyleSettings } from './style';
 
 const charts: ChartChoice[] = LIBRARY.map((r) => ({ id: r.id, label: r.label, scenario: r.scenario, positions: r.positions, stack: r.stack, env: r.env, chart: r.chart }));
 const fish = typeSettings('Fish');
@@ -124,6 +124,27 @@ describe('what the sliders do', () => {
     expect(rarely).toBeGreaterThan(never! + 0.05);
     expect(sometimes).toBeGreaterThan(rarely! + 0.05);
     expect(often).toBeGreaterThan(sometimes!);
+  });
+
+  test('the check-raise all-in with a pair under the top card: never, now and then, very often', () => {
+    const p = (pairJam: PairJam) => styleMotives({ ...fish, pairJam }, MOTIVE_PRESETS);
+    expect(fish.pairJam).toBe(0);
+    expect('pairJam' in p(0)).toBe(false);
+    expect([p(1).pairJam, p(2).pairJam]).toEqual([PAIR_JAM_RATE[1], PAIR_JAM_RATE[2]]);
+    // the readout's spot: 99 and TT, 25 BB deep (SPR 3), half-pot c-bet on J♥8♥4♣
+    const jam = (pairJam: PairJam) => postflopRow(p(pairJam), 'pair-jam').share;
+    const [never, sometimes, often] = ([0, 1, 2] as const).map(jam);
+    expect(never).toBeLessThan(0.05);
+    expect(sometimes).toBeGreaterThan(never! + 0.15);
+    expect(often).toBeGreaterThan(0.5);
+  });
+
+  test('settings saved before the pair jam read as never', () => {
+    const { pairJam: _gone, ...old } = fish;
+    void _gone;
+    expect([pairJamLevel(undefined), pairJamLevel(1), pairJamLevel(2), pairJamLevel(3), pairJamLevel(true)]).toEqual([0, 1, 2, 0, 0]);
+    expect(complete(old as StyleSettings).pairJam).toBe(0);
+    expect(styleMotives(old as StyleSettings, MOTIVE_PRESETS)).toEqual(styleMotives(fish, MOTIVE_PRESETS));
   });
 });
 

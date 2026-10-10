@@ -96,7 +96,7 @@ function share(d: Decision, range: Float32Array, board: Situation['board'], kind
 let ranges: { btn: Float32Array; bb: Float32Array } | null = null;
 const rangesOnce = () => (ranges ??= { btn: parseRange(BTN), bb: parseRange(BB) });
 
-export const POSTFLOP_SPOTS = ['cbet-faced', 'cbet', 'barrel', 'lead', 'river-call', 'river-bluff'] as const;
+export const POSTFLOP_SPOTS = ['cbet-faced', 'cbet', 'barrel', 'lead', 'pair-jam', 'river-call', 'river-bluff'] as const;
 export type PostflopSpot = (typeof POSTFLOP_SPOTS)[number];
 
 /** One postflop spot through the motive model (0.1-1 s on the flop, fast on the river). */
@@ -135,6 +135,22 @@ export function postflopRow(p: MotiveProfile, which: PostflopSpot): PostflopRow 
         what: 'leads with two pair or better',
         share: share(d, bb, s.board, ['bet'], ['cpfs', 'thick']),
       };
+    }
+    case 'pair-jam': {
+      // short enough for his check-raise all-in with a pair under the top card (SPR 3)
+      const stack = 2475;
+      const s = spot('Jh 8h 4c', { toCall: POT / 2, stack, oppStack: stack - POT / 2 });
+      const d = decide(p, s, bb, btn);
+      const pairs = parseRange('TT, 99');
+      const jam = d.options.findIndex((o) => o.kind === 'raise' && o.allIn);
+      let w = 0;
+      let x = 0;
+      for (let c = 0; c < 1326; c++) {
+        if (!(pairs[c]! > 0) || !(bb[c]! > 0) || Number.isNaN(d.probs[0]![c]!)) continue;
+        w += bb[c]!;
+        if (jam >= 0) x += bb[c]! * d.probs[jam]![c]!;
+      }
+      return { label: 'Big blind 25 BB deep with 99 or TT, half-pot c-bet on J♥8♥4♣', what: 'check-raises all-in', share: w > 0 ? x / w : 0 };
     }
     case 'river-call': {
       const s = spot('Kd 8c 4h 2s Ts', { pot: 2000, toCall: 2000, stack: 8000, oppStack: 6000 });

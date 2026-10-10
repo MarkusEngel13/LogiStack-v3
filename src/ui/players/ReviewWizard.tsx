@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { QUESTIONS } from '../../core/players/questions';
-import { leadsLevel, limpTrapLevel, SLIDER_INFO, SLIDERS, type StyleSettings } from '../../core/players/style';
+import { leadsLevel, limpTrapLevel, pairJamLevel, SLIDER_INFO, SLIDERS, type StyleSettings } from '../../core/players/style';
 import { askOptions, oldAnswerLabel } from '../../core/players/versions';
 import { Button, Modal } from '../controls';
 import { playerTypeColor } from '../playerTypes';
@@ -9,6 +9,7 @@ import { playerSettings, profileById, reviewPlayer, type SavedPlayer, type Saved
 
 const LIMP_TRAP = ['never', 'with a monster', 'often'];
 const LEADS = ['never', 'rarely', 'sometimes', 'often'];
+const PAIR_JAM = ['never', 'now and then', 'very often'];
 
 /** What moves from one style to another: sliders (with their grades), the open size, the switches. */
 function moves(a: StyleSettings, b: StyleSettings): React.ReactNode[] {
@@ -25,6 +26,7 @@ function moves(a: StyleSettings, b: StyleSettings): React.ReactNode[] {
   if (a.openBB !== b.openBB) out.push(<span key="open">Opens {a.openBB ?? 'as his type'} → {b.openBB ?? 'as his type'} BB</span>);
   if (limpTrapLevel(a.limpTrap) !== limpTrapLevel(b.limpTrap)) out.push(<span key="trap">Limp-reraises {LIMP_TRAP[limpTrapLevel(a.limpTrap)]} → {LIMP_TRAP[limpTrapLevel(b.limpTrap)]}</span>);
   if (leadsLevel(a.leads) !== leadsLevel(b.leads)) out.push(<span key="leads">Leads {LEADS[leadsLevel(a.leads)]} → {LEADS[leadsLevel(b.leads)]}</span>);
+  if (pairJamLevel(a.pairJam) !== pairJamLevel(b.pairJam)) out.push(<span key="jam">Check-raise all-in with a pair {PAIR_JAM[pairJamLevel(a.pairJam)]} → {PAIR_JAM[pairJamLevel(b.pairJam)]}</span>);
   return out;
 }
 

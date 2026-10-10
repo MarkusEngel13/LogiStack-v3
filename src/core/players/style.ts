@@ -1,9 +1,9 @@
 /**
  * Player styles in poker words: seven sliders from 1 to 5 (half steps allowed), a sizing habit and
- * a few specials (limp-reraises, leads, open size). They are the easy face of the motive model -
- * each slider moves one or two of the hidden weights in profile.ts and the preflop style in
- * preflop.ts - so a real player is "a type, nudged": Dan = Fish, but Bluffs 3 and leads into the
- * raiser.
+ * a few specials (limp-reraises, leads, the pair jam, open size). They are the easy face of the
+ * motive model - each slider moves one or two of the hidden weights in profile.ts and the preflop
+ * style in preflop.ts - so a real player is "a type, nudged": Dan = Fish, but Bluffs 3 and leads
+ * into the raiser.
  *
  * The scale is centred: 3 = plays the price (the NEUTRAL profile's value, the Reg chart's width
  * and raising; Bluffs is calibrated on frequencies instead, see MAP), below 3 = less of it, above = more. So the number is the exploit: Bluffs 2 = fold
@@ -28,6 +28,8 @@ export type Sizing = 'type' | 'half' | 'small' | 'payoff' | 'big';
 export type LimpTrap = 0 | 1 | 2;
 /** Leads into the preflop raiser: 0 never, 1 rarely (only monsters), 2 sometimes (strong hands and draws), 3 often (any piece). */
 export type Leads = 0 | 1 | 2 | 3;
+/** Check-raises all-in with a pair under the top card: 0 never, 1 now and then, 2 very often. */
+export type PairJam = 0 | 1 | 2;
 /** Whether his open size depends on his hand. */
 export type OpenTell = 'no' | 'strong' | 'weak';
 
@@ -47,6 +49,12 @@ export interface StyleSettings {
    * before 2026-10-10 (read with leadsLevel: on = 2, the old "with strong hands").
    */
   leads: Leads;
+  /**
+   * The check-raise all-in with a pocket pair under the top card and above the second (99 on
+   * J-8-4), on the flop or turn at an SPR of about 3 or less (motives/pairJam.ts). Missing in
+   * settings saved before 2026-10-10 (read with pairJamLevel: never).
+   */
+  pairJam: PairJam;
   /** His open-raise size in big blinds (2 = min-raise); unset = his type's usual mix. */
   openBB?: number;
   /** His open size gives his hand away: bigger with strong hands, or with weak ones; unset = no. */
@@ -58,6 +66,9 @@ export const limpTrapLevel = (v: unknown): LimpTrap => (v === true ? 1 : v === 1
 
 /** The lead level of saved settings (true / false before the levels: true was "with strong hands"). */
 export const leadsLevel = (v: unknown): Leads => (v === true ? 2 : v === 1 || v === 2 || v === 3 ? v : 0);
+
+/** The pair-jam level of saved settings (missing before 2026-10-10: never). */
+export const pairJamLevel = (v: unknown): PairJam => (v === 1 || v === 2 ? v : 0);
 
 /** What a seat carries in a hand: the style as it was when the hand was set up. */
 export interface SeatStyle {
@@ -250,7 +261,7 @@ export function typePreset(base: string, presets: Record<string, MotiveProfile>)
 
 /** A type's own settings: its slider positions, its sizes, no specials. */
 export function typeSettings(base: string): StyleSettings {
-  return { base, sliders: { ...(TYPE_SLIDERS[base] ?? TYPE_SLIDERS.Unknown!) }, sizing: 'type', limpTrap: 0, leads: 0 };
+  return { base, sliders: { ...(TYPE_SLIDERS[base] ?? TYPE_SLIDERS.Unknown!) }, sizing: 'type', limpTrap: 0, leads: 0, pairJam: 0 };
 }
 
 /** Sliders that differ from the base type's positions. */
@@ -269,7 +280,7 @@ export function complete(s: StyleSettings): StyleSettings {
   const sliders = SLIDERS.every((id) => s.sliders[id] !== undefined)
     ? s.sliders
     : (Object.fromEntries(SLIDERS.map((id) => [id, s.sliders[id] ?? home[id]])) as Sliders);
-  return { ...s, sliders, limpTrap: limpTrapLevel(s.limpTrap), leads: leadsLevel(s.leads) };
+  return { ...s, sliders, limpTrap: limpTrapLevel(s.limpTrap), leads: leadsLevel(s.leads), pairJam: pairJamLevel(s.pairJam) };
 }
 
 const SIZES: Record<Exclude<Sizing, 'type'>, Pick<MotiveProfile, 'betHabit' | 'raiseHabit' | 'habit' | 'habitRiver'>> = {
@@ -285,6 +296,12 @@ const SIZES: Record<Exclude<Sizing, 'type'>, Pick<MotiveProfile, 'betHabit' | 'r
  * leads rarely, any piece when often. Level 2 is the old on/off switch's value.
  */
 const LEADER_EXPECTS: Record<Leads, number | undefined> = { 0: undefined, 1: 0.4, 2: 0.25, 3: 0.1 };
+
+/**
+ * The share of his pocket pairs under the top card that check-raise all-in when everything fits
+ * (SPR 3 or less, draws he fears), by level: now and then = about one in four, very often = most.
+ */
+export const PAIR_JAM_RATE: Record<PairJam, number | undefined> = { 0: undefined, 1: 0.3, 2: 0.75 };
 
 /**
  * The motive profile for a style: the base type's preset, with every moved slider's weights
@@ -312,6 +329,8 @@ export function styleMotives(s: StyleSettings, presets: Record<string, MotivePro
   if (s.sizing !== 'type') Object.assign(q, SIZES[s.sizing]);
   const expects = LEADER_EXPECTS[leadsLevel(s.leads)];
   if (expects !== undefined) q.expectsBet = expects;
+  const jam = PAIR_JAM_RATE[pairJamLevel(s.pairJam)];
+  if (jam !== undefined) q.pairJam = jam;
   return q;
 }
 

@@ -13,11 +13,13 @@ import {
   complete,
   leadsLevel,
   limpTrapLevel,
+  pairJamLevel,
   SLIDERS,
   typeSettings,
   type Leads,
   type LimpTrap,
   type OpenTell,
+  type PairJam,
   type SeatStyle,
   type SliderId,
   type Sizing,
@@ -48,6 +50,7 @@ export interface PlayerOverrides {
   limpTrap?: LimpTrap | boolean;
   /** A level; on/off (true / false) when saved before 2026-10-10. */
   leads?: Leads | boolean;
+  pairJam?: PairJam;
   openBB?: number;
   openTell?: OpenTell;
 }
@@ -206,6 +209,7 @@ export function playerSettings(pl: SavedPlayer, profiles = loadProfiles()): Styl
     sizing: pl.overrides.sizing ?? base.sizing,
     limpTrap: limpTrapLevel(pl.overrides.limpTrap ?? base.limpTrap),
     leads: leadsLevel(pl.overrides.leads ?? base.leads),
+    pairJam: pairJamLevel(pl.overrides.pairJam ?? base.pairJam),
     ...((pl.overrides.openBB ?? base.openBB) ? { openBB: pl.overrides.openBB ?? base.openBB } : {}),
     ...(openTell ? { openTell } : {}),
   };
@@ -220,6 +224,7 @@ export function overridesFrom(s: StyleSettings, profile: StyleSettings): PlayerO
   if (s.sizing !== profile.sizing) o.sizing = s.sizing;
   if (limpTrapLevel(s.limpTrap) !== limpTrapLevel(profile.limpTrap)) o.limpTrap = limpTrapLevel(s.limpTrap);
   if (leadsLevel(s.leads) !== leadsLevel(profile.leads)) o.leads = leadsLevel(s.leads);
+  if (pairJamLevel(s.pairJam) !== pairJamLevel(profile.pairJam)) o.pairJam = pairJamLevel(s.pairJam);
   if (s.openBB !== profile.openBB && s.openBB) o.openBB = s.openBB;
   if ((s.openTell ?? 'no') !== (profile.openTell ?? 'no')) o.openTell = s.openTell ?? 'no';
   return o;

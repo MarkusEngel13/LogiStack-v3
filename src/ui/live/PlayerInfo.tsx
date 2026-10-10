@@ -22,6 +22,7 @@ const SHORT: Record<string, string> = {
   postflop: 'Without the initiative',
   cbet: 'C-bets when checked to',
   leads: 'Donk-bets into the raiser',
+  pairJam: 'Check-raise all-in, pair under the top card',
   sticky: 'Top pair, you bet 3 streets',
   respect: 'One pair vs a big river bet',
   bluffs: 'River bluffs',

@@ -14,6 +14,7 @@ import {
   type Leads,
   type LimpTrap,
   type OpenTell,
+  type PairJam,
   type SeatStyle,
   type SliderId,
   type Sizing,
@@ -380,7 +381,7 @@ function PlayerEditor({
     else sliders[id] = v;
     set({ ...o, sliders });
   };
-  const setFlag = <K extends 'sizing' | 'limpTrap' | 'leads' | 'openBB' | 'openTell'>(k: K, v: StyleSettings[K]) => {
+  const setFlag = <K extends 'sizing' | 'limpTrap' | 'leads' | 'pairJam' | 'openBB' | 'openTell'>(k: K, v: StyleSettings[K]) => {
     const next = { ...o };
     if (v === profile.settings[k] || v === undefined || (k === 'openTell' && v === 'no' && !profile.settings.openTell)) delete next[k];
     else next[k] = v as never;
@@ -426,6 +427,7 @@ function PlayerEditor({
           onSizing={(v) => setFlag('sizing', v)}
           onLimpTrap={(v) => setFlag('limpTrap', v)}
           onLeads={(v) => setFlag('leads', v)}
+          onPairJam={(v) => setFlag('pairJam', v)}
         />
         <div className="grid gap-4">
           <Field label="Opens to" hint={exact ? `Exactly ${exact} BB, told at the table.` : 'His first-in raise size. A min-raise is cheap to call.'}>
@@ -622,7 +624,7 @@ function ProfileEditor({
                 value={profile.settings.base}
                 onChange={(e) => {
                   if (!window.confirm(`Rebuild on ${e.target.value}? The sliders move to its positions.`)) return;
-                  set({ ...typeSettings(e.target.value), sizing: profile.settings.sizing, limpTrap: profile.settings.limpTrap, leads: profile.settings.leads });
+                  set({ ...typeSettings(e.target.value), sizing: profile.settings.sizing, limpTrap: profile.settings.limpTrap, leads: profile.settings.leads, pairJam: profile.settings.pairJam });
                 }}
               >
                 {BASE_TYPES.map((t) => (
@@ -643,6 +645,7 @@ function ProfileEditor({
           onSizing={(sizing) => set({ ...profile.settings, sizing })}
           onLimpTrap={(limpTrap) => set({ ...profile.settings, limpTrap })}
           onLeads={(leads) => set({ ...profile.settings, leads })}
+          onPairJam={(pairJam) => set({ ...profile.settings, pairJam })}
         />
         {!ro && account && (
           <Toggle
@@ -734,6 +737,7 @@ function StyleControls({
   onSizing,
   onLimpTrap,
   onLeads,
+  onPairJam,
 }: {
   settings: StyleSettings;
   home: StyleSettings;
@@ -743,6 +747,7 @@ function StyleControls({
   onSizing: (v: Sizing) => void;
   onLimpTrap: (v: LimpTrap) => void;
   onLeads: (v: Leads) => void;
+  onPairJam: (v: PairJam) => void;
 }) {
   return (
     <div className="space-y-5">
@@ -791,6 +796,18 @@ function StyleControls({
             ]}
           />
         </Field>
+        <Field label="Check-raises all-in with a pair" hint={PAIR_JAM_HINT[settings.pairJam]}>
+          <Choice<PairJam>
+            readOnly={readOnly}
+            value={settings.pairJam}
+            onChange={onPairJam}
+            options={[
+              { value: 0, label: 'Never' },
+              { value: 1, label: 'Now and then' },
+              { value: 2, label: 'Very often' },
+            ]}
+          />
+        </Field>
       </div>
     </div>
   );
@@ -806,6 +823,11 @@ const LEADS_HINT: Record<Leads, string> = {
   1: 'Leads only monsters: believe his leads.',
   2: 'Leads strong hands and draws instead of checking to the raiser.',
   3: 'Leads any piece: raise his leads.',
+};
+const PAIR_JAM_HINT: Record<PairJam, string> = {
+  0: 'His check-raise all-in is a big hand.',
+  1: 'Now and then jams a pair under the top card (99 on J-8-4) with three pots or less behind, more when draws are around.',
+  2: 'Jams most pairs under the top card with three pots or less behind, sometimes second pair; short-stacked weaker pairs too: call his jams wider.',
 };
 
 /** A row of choices, or the chosen one as text when read-only. */

@@ -9,7 +9,8 @@ vi.hoisted(() => {
 });
 
 import marius from '../../core/fixtures/players-2026-10-10.json';
-import { loadPlayers, playerSettings, reviewPlayer, savePlayer, type SavedPlayer } from './store';
+import { typeSettings } from '../../core/players/style';
+import { loadPlayers, overridesFrom, playerSettings, reviewPlayer, savePlayer, type SavedPlayer } from './store';
 
 class Mem {
   m = new Map<string, string>();
@@ -101,6 +102,14 @@ describe('saved players and the question versions', () => {
     const stored = JSON.parse(localStorage.getItem('logistack.players.v1')!) as SavedPlayer[];
     expect(stored.find((p) => p.name === 'Jansen')!.answersVersion).toBe(2);
     expect(playerSettings(byName('Jansen')).openBB).toBe(3.5);
+  });
+
+  test('players saved before the pair jam never do it; a level set on him is kept as an override', () => {
+    const dan = byName('Dan');
+    expect(playerSettings(dan).pairJam).toBe(0);
+    expect(playerSettings({ ...dan, overrides: { ...dan.overrides, pairJam: 2 } }).pairJam).toBe(2);
+    expect(overridesFrom({ ...playerSettings(dan), pairJam: 1 }, typeSettings('Fish')).pairJam).toBe(1);
+    expect(overridesFrom(playerSettings(dan), typeSettings('Fish')).pairJam).toBeUndefined();
   });
 
   test("don't know drops the answer and keeps his sliders", () => {
