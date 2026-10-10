@@ -3,7 +3,7 @@ import { PLAN_LABELS, PLANS, type Kind, type Plan, type Role } from '../../share
 import { Button, inputClass, Modal } from '../controls';
 import { useSyncStatus } from './useSyncStatus';
 
-const KIND_LABEL: Record<Kind, string> = { hand: 'hands', player: 'players', profile: 'profiles', range: 'charts', settings: 'settings', fishy: 'marks' };
+const KIND_LABEL: Record<Kind, string> = { hand: 'hands', player: 'players', profile: 'profiles', range: 'charts', settings: 'settings', fishy: 'marks', quiz: 'quiz days' };
 
 /**
  * Top right: who is logged in, the plan, and whether everything is synced. Nothing at all when the

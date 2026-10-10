@@ -7,6 +7,7 @@ import { useToast } from '../toast';
 import { formatAmount } from '../format';
 import { loadHands } from '../library';
 import { gymTable, type GymMode } from './gymTables';
+import { QuizHome } from '../quiz/QuizHome';
 
 /**
  * The Gym: bots of mixed types to watch (every seat, cards face up, hand after hand) or to play
@@ -34,13 +35,33 @@ export function GymPage({ onStart, onOpen }: { onStart: (hand: HandRecord, mode:
     }
   };
   const start = (mode: GymMode) => onStart(gymTable(mode, size), mode);
+  const [tab, setTab] = useState<'bots' | 'quiz'>(() => {
+    try {
+      return localStorage.getItem('logistack.gymTab') === 'quiz' ? 'quiz' : 'bots';
+    } catch {
+      return 'bots';
+    }
+  });
+  const pickTab = (t: 'bots' | 'quiz') => {
+    setTab(t);
+    try {
+      localStorage.setItem('logistack.gymTab', t);
+    } catch {
+      // storage blocked: the tab is only kept until the page closes
+    }
+  };
 
   return (
     <div className="mx-auto max-w-4xl space-y-5 px-3 py-5 sm:px-6 sm:py-6">
       <div>
         <h1 className="text-xl font-bold">Gym</h1>
-        <p className="text-xs text-muted">Bots of mixed types: watch how each one plays, or sit down and play against them.</p>
+        <p className="text-xs text-muted">{tab === 'bots' ? 'Bots of mixed types: watch how each one plays, or sit down and play against them.' : 'Quick drills: stacks, table maths, ranges, draws. Results are saved to your account.'}</p>
       </div>
+      <Segmented value={tab} options={[{ value: 'bots', label: '🤖 Play · Watch' }, { value: 'quiz', label: '🧠 Quizzes' }]} onChange={pickTab} />
+      {tab === 'quiz' ? (
+        <QuizHome />
+      ) : (
+        <>
       <Section title="A table of bots">
         <div className="flex flex-wrap items-center gap-3">
           <Segmented size="sm" value={size} options={[{ value: 6, label: '6-max' }, { value: 9, label: '9-max' }]} onChange={pickSize} />
@@ -105,6 +126,8 @@ export function GymPage({ onStart, onOpen }: { onStart: (hand: HandRecord, mode:
             })}
           </ul>
         </Section>
+      )}
+        </>
       )}
     </div>
   );

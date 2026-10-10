@@ -1,10 +1,11 @@
 import type { CSSProperties, ReactNode } from 'react';
+import { leftToday } from '../quiz/quizStore';
 
 /** The modules, in the order of the menu: id, name, card, what it is for. */
 export const MODULES = [
   { id: 'live', name: 'Live', rank: 'A', suit: '♠', what: 'Tonight’s table, hand by hand' },
   { id: 'lab', name: 'Lab', rank: 'K', suit: '♥', what: 'Your hands: replay, study, what if' },
-  { id: 'gym', name: 'Gym', rank: 'Q', suit: '♣', what: 'Watch the bots, play against them' },
+  { id: 'gym', name: 'Gym', rank: 'Q', suit: '♣', what: 'Play · Watch · Quiz' },
   { id: 'players', name: 'Players', rank: 'J', suit: '♦', what: 'Your opponents and their styles' },
   { id: 'ranges', name: 'PF Ranges', rank: '10', suit: '♠', what: 'Preflop charts, yours and the library' },
   { id: 'equity', name: 'Equity', rank: '9', suit: '♥', what: 'Hands and ranges against each other' },
@@ -19,6 +20,7 @@ const RED = new Set(['♥', '♦']);
  * icon draws itself; the animation lives in index.css (.module-card).
  */
 export function HomePage({ onOpen }: { onOpen: (id: ModuleId) => void }) {
+  const left = leftToday();
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:py-12">
       <div className="mb-8 text-center sm:mb-12">
@@ -34,7 +36,7 @@ export function HomePage({ onOpen }: { onOpen: (id: ModuleId) => void }) {
       {/* a phone: three across, so all six fit on one screen */}
       <div className="grid grid-cols-3 gap-3 sm:gap-6 lg:grid-cols-6" style={{ perspective: '1000px' }}>
         {MODULES.map((m, i) => (
-          <ModuleCard key={m.id} index={i} rank={m.rank} suit={m.suit} name={m.name} what={m.what} onClick={() => onOpen(m.id)}>
+          <ModuleCard key={m.id} index={i} rank={m.rank} suit={m.suit} name={m.name} what={m.what} onClick={() => onOpen(m.id)} badge={m.id === 'gym' && left !== 0 ? (left === null ? 'Quiz' : `${left} left`) : undefined}>
             {ICONS[m.id]}
           </ModuleCard>
         ))}
@@ -50,6 +52,7 @@ function ModuleCard({
   name,
   what,
   onClick,
+  badge,
   children,
 }: {
   index: number;
@@ -58,6 +61,8 @@ function ModuleCard({
   name: string;
   what: string;
   onClick: () => void;
+  /** A small tag at the top (the Gym: today's quiz questions left). */
+  badge?: string | undefined;
   children: ReactNode;
 }) {
   const suitColor = RED.has(suit) ? 'var(--suit-h)' : 'var(--text-muted)';
@@ -82,6 +87,7 @@ function ModuleCard({
       <span className="absolute top-2.5 left-3 flex flex-col items-center leading-none select-none">{corner}</span>
       <span className="pointer-events-none absolute -top-10 -right-6 rotate-12 font-serif text-[7.5rem] leading-none text-accent opacity-10 select-none">{suit}</span>
       <span className="absolute right-3 bottom-2.5 flex rotate-180 flex-col items-center leading-none select-none">{corner}</span>
+      {badge && <span className="absolute top-2 right-2 z-30 rounded-full bg-accent px-1.5 py-0.5 text-[9px] font-bold whitespace-nowrap text-accent-ink sm:px-2 sm:text-[11px]">{badge}</span>}
       <span className="relative z-10 mb-2 h-10 w-10 text-muted transition-colors duration-300 group-hover:text-accent sm:mb-3 sm:h-16 sm:w-16">{children}</span>
       <span className="relative z-10 border-b border-transparent pb-1 font-serif text-[11px] tracking-wider whitespace-nowrap text-ink uppercase transition-colors group-hover:border-accent/50 sm:text-base sm:tracking-widest">
         {name}

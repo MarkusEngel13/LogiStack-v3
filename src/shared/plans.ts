@@ -12,7 +12,7 @@ export type Plan = (typeof PLANS)[number];
 export type Role = 'user' | 'editor' | 'admin';
 
 /** What the server stores per user, by item kind. */
-export const KINDS = ['hand', 'player', 'profile', 'range', 'settings', 'fishy'] as const;
+export const KINDS = ['hand', 'player', 'profile', 'range', 'settings', 'fishy', 'quiz'] as const;
 export type Kind = (typeof KINDS)[number];
 
 export interface Limits {
@@ -28,19 +28,19 @@ export interface Limits {
 
 export const LIMITS: Record<Plan, Limits> = {
   free: {
-    items: { hand: 20, player: 3, profile: 2, range: 3, settings: 1, fishy: 50 },
+    items: { hand: 20, player: 3, profile: 2, range: 3, settings: 1, fishy: 50, quiz: null },
     shareProfiles: false,
     explorer: false,
     stats: false,
   },
   premium: {
-    items: { hand: null, player: null, profile: null, range: null, settings: 1, fishy: null },
+    items: { hand: null, player: null, profile: null, range: null, settings: 1, fishy: null, quiz: null },
     shareProfiles: false,
     explorer: true,
     stats: false,
   },
   pro: {
-    items: { hand: null, player: null, profile: null, range: null, settings: 1, fishy: null },
+    items: { hand: null, player: null, profile: null, range: null, settings: 1, fishy: null, quiz: null },
     shareProfiles: true,
     explorer: true,
     stats: true,

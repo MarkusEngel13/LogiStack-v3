@@ -28,6 +28,8 @@ const STORES: Store[] = [
   { kind: 'range', key: 'logistack.ranges.v1' },
   { kind: 'settings', key: 'logistack.settings.v1', single: true },
   { kind: 'fishy', key: 'logistack.fishy.v0' },
+  // quizzes: one item per day (the set and every answer) and one with your levels, chip set and missed questions
+  { kind: 'quiz', key: 'logistack.quiz.v1' },
 ];
 
 /** Profiles others shared, as the Players page reads them (read-only, `sharedBy` = owner). */
