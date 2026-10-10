@@ -5,10 +5,12 @@ import { TouchEditBar } from '../ranges/RangeGrid';
 import { useTouchScreen } from '../touch';
 
 export const BUCKET_COLORS: Record<string, string> = {
-  value: '#dc2626',
-  bluff: '#7c3aed',
+  raise: '#dc2626',
   call: '#16a34a',
   fold: 'transparent',
+  // charts painted before raise / call / fold (still in the review queue)
+  value: '#dc2626',
+  bluff: '#7c3aed',
 };
 
 /**

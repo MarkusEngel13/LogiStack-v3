@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { ChipDef, Scene, Tower } from '../../core/quiz/stack';
 
 /**
@@ -20,33 +21,55 @@ function darker(hex: string, k = 0.65) {
   return `rgb(${r},${g},${b})`;
 }
 
-/** One chip whose top face is centred at (x, y). `turn` shifts the edge stripes (no two chips line up). */
+/** Stripes around a chip's edge: about five show across the front (v2's look). */
+const STRIPES = 10;
+/** A stripe's share of the space from one stripe to the next. */
+const STRIPE_SHARE = 0.3;
+
+/**
+ * One chip whose top face is centred at (x, y), turned by `turn` (0-1 of a full circle): the edge
+ * stripes sit where the turn puts them, so in a tower they zip instead of lining up. A stripe
+ * follows the round edge: narrower towards the sides.
+ */
 function Chip({ def, x, y, turn }: { def: ChipDef; x: number; y: number; turn: number }) {
   const rx = W / 2;
   const ry = FACE / 2;
   const edge = darker(def.color, 0.78);
-  // stripes on the visible half of the edge
-  const stripes = [0, 1, 2, 3].map((k) => {
-    const a = ((k / 4 + turn) % 1) * Math.PI; // 0..π across the front
-    const sx = x - Math.cos(a) * rx * 0.92;
-    return <rect key={k} x={sx - 1.6} y={y} width={3.2} height={T} fill={def.stripe} opacity={0.9} />;
-  });
+  // a point on the front of the edge at angle a (0 = left side, π = right side), below the face
+  const at = (a: number) => [x - Math.cos(a) * rx, y + Math.sin(a) * ry] as const;
+  const half = (Math.PI * STRIPE_SHARE) / STRIPES;
+  const stripes: ReactNode[] = [];
+  for (let k = 0; k < STRIPES; k++) {
+    const mid = ((((k / STRIPES + turn) % 1) + 1) % 1) * 2 * Math.PI;
+    const a0 = Math.max(0, mid - half);
+    const a1 = Math.min(Math.PI, mid + half);
+    if (a1 <= a0) continue; // round the back
+    const [x0, y0] = at(a0);
+    const [x1, y1] = at(a1);
+    stripes.push(<polygon key={k} points={`${x0},${y0} ${x1},${y1} ${x1},${y1 + T} ${x0},${y0 + T}`} fill={def.stripe} opacity={0.9} />);
+  }
   return (
     <g>
-      <path d={`M ${x - rx} ${y} L ${x - rx} ${y + T} A ${rx} ${ry} 0 0 0 ${x + rx} ${y + T} L ${x + rx} ${y} Z`} fill={edge} />
+      <path d={`M ${x - rx} ${y} L ${x - rx} ${y + T} A ${rx} ${ry} 0 0 0 ${x + rx} ${y + T} L ${x + rx} ${y} Z`} fill={edge} stroke={darker(def.color, 0.45)} strokeWidth={0.35} />
       {stripes}
       <ellipse cx={x} cy={y} rx={rx} ry={ry} fill={def.color} stroke={darker(def.color, 0.55)} strokeWidth={0.6} />
-      <ellipse cx={x} cy={y} rx={rx * 0.68} ry={ry * 0.68} fill="none" stroke={def.stripe} strokeWidth={1.4} strokeDasharray="3 3" opacity={0.85} />
+      <ellipse cx={x} cy={y} rx={rx * 0.68} ry={ry * 0.68} fill="none" stroke={def.stripe} strokeWidth={1.4} strokeDasharray="3 3" strokeDashoffset={turn * 6} opacity={0.85} />
       <ellipse cx={x} cy={y} rx={rx * 0.42} ry={ry * 0.42} fill={def.color} stroke={darker(def.color, 0.7)} strokeWidth={0.5} />
     </g>
   );
 }
 
+/** A turn for chips of questions made before chips had one: scattered, the same on every screen. */
+const oldTurn = (i: number, c: number) => {
+  const s = Math.sin(i * 12.9898 + c * 78.233) * 43758.5453;
+  return s - Math.floor(s);
+};
+
 function TowerView({ tower, chips, x, base }: { tower: Tower; chips: ChipDef[]; x: number; base: number }) {
   return (
     <g>
       {tower.chips.map((c, i) => (
-        <Chip key={i} def={chips[c]!} x={x + (tower.jitter[i] ?? 0)} y={base - i * T} turn={((i * 0.37 + c * 0.13) % 1 + 1) % 1} />
+        <Chip key={i} def={chips[c]!} x={x + (tower.jitter[i] ?? 0)} y={base - i * T + (tower.lift?.[i] ?? 0)} turn={tower.turn?.[i] ?? oldTurn(i, c)} />
       ))}
     </g>
   );
@@ -81,12 +104,12 @@ export function ChipScene({ scene, chips, label }: { scene: Scene; chips: ChipDe
           );
         })}
         {scene.loose.map((l, i) => (
-          <Chip key={`l${i}`} def={chips[l.chip]!} x={cx + l.x * W * 0.6} y={front + FACE * 0.9 + l.y * FACE} turn={(i * 0.29) % 1} />
+          <Chip key={`l${i}`} def={chips[l.chip]!} x={cx + l.x * W * 0.6} y={front + FACE * 0.9 + l.y * FACE} turn={l.turn ?? oldTurn(i, l.chip)} />
         ))}
         {[...splash]
           .sort((a, b) => a.y - b.y)
           .map((s, i) => (
-            <Chip key={`s${i}`} def={chips[s.chip]!} x={cx + s.x * W * 0.95} y={height / 2 + s.y * FACE * 1.1} turn={(i * 0.41) % 1} />
+            <Chip key={`s${i}`} def={chips[s.chip]!} x={cx + s.x * W * 0.95} y={height / 2 + s.y * FACE * 1.1} turn={s.turn ?? oldTurn(i, s.chip)} />
           ))}
       </svg>
     </figure>

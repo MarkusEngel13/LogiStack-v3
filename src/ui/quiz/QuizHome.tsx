@@ -2,28 +2,43 @@ import { useMemo, useState } from 'react';
 import { DAILY_SIZE, statsOf, streak, today } from '../../core/quiz/daily';
 import { QUIZZES, QUIZ_INFO, type QuizId } from '../../core/quiz/types';
 import { Button, Section } from '../controls';
+import { useSyncStatus } from '../sync/useSyncStatus';
 import { ChipLegend } from './ChipStack';
 import { ChipSetEditor } from './ChipSetEditor';
 import { QuizRunner, type QuizSource } from './QuizRunner';
-import { allAttempts, loadDays, loadState, openInSet, saveState, todayRecord } from './quizStore';
+import { loadLines, loadState, openInSet, saveState, tidyStore, todayRecord } from './quizStore';
 import { formatAmount } from '../format';
 
 const ICON: Record<QuizId, string> = { stack: '🪙', maths: '🧮', ranges: '🎯', draws: '🃏', build: '🧱', board: '🗺️', reads: '🕵️' };
 
-/** The Gym's quizzes: today's set of ten, your streak, and each quiz to practise at your level. */
+const PRACTICE_LOCKED = 'Practice any quiz with Premium · ask for it under your account (top right)';
+
+/**
+ * The Gym's quizzes: today's set of ten, your streak, and each quiz to practise at your level.
+ * The Free plan has the day's set only (a set already started can always be finished); the admin
+ * has every level of every quiz open.
+ */
 export function QuizHome() {
+  const { account } = useSyncStatus();
+  const admin = account?.role === 'admin';
+  const locked = account?.limits?.quizPractice === false;
+  // the admin and local-only mode keep every day's questions; everyone else keeps today's
+  const keepDays = !account || admin;
   const [state, setState] = useState(loadState);
   const [run, setRun] = useState<QuizSource | null>(null);
   const [chips, setChips] = useState(false);
   const [tick, setTick] = useState(0); // re-read after a run
-  const { day, days, stats } = useMemo(() => {
+  const { day, lines, stats } = useMemo(() => {
     void tick;
+    tidyStore(keepDays);
     const s = loadState();
-    return { day: todayRecord(s), days: loadDays(), stats: statsOf(allAttempts()) };
-  }, [tick]);
+    const day = todayRecord(s);
+    const lines = loadLines();
+    return { day, lines, stats: statsOf(s.recent, lines) };
+  }, [tick, keepDays]);
   const open = openInSet(day);
   const doneCount = day.set.length - open.length;
-  const fire = streak(days, today());
+  const fire = streak(lines, today());
 
   const close = () => {
     setRun(null);
@@ -55,6 +70,7 @@ export function QuizHome() {
       </Section>
 
       <Section title="Practise">
+        {locked && <p className="mb-3 rounded-md border border-line bg-surface-2 px-3 py-2 text-sm text-muted">🔒 {PRACTICE_LOCKED}</p>}
         <ul className="grid gap-3 sm:grid-cols-2">
           {QUIZZES.map((quiz) => {
             const info = QUIZ_INFO[quiz];
@@ -75,15 +91,24 @@ export function QuizHome() {
                 </div>
                 <div className="text-xs text-muted">
                   {info.levelNames[level - 1]}
-                  {st.answered > 0 && ` · ${Math.round((100 * st.correct) / st.answered)} % right of ${st.answered}`}
+                  {st.answered > 0 && ` · ${Math.round((100 * st.correct) / st.answered)} % right ${st.total > st.answered ? `of the last ${st.answered} · ${st.total} answered` : `of ${st.answered}`}`}
                   {st.medianError !== undefined && ` · usually ${Math.round(st.medianError * 100)} % off`}
                 </div>
                 <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-1">
-                  {Array.from({ length: info.levels }, (_, i) => i + 1).map((l) => (
-                    <Button key={l} variant={l === level ? 'primary' : 'secondary'} disabled={l > level} title={l > level ? 'Get 8 of 10 right on the level below' : info.levelNames[l - 1]} onClick={() => setRun({ kind: 'practice', quiz, level: l })}>
-                      {l === level ? `▶ Level ${l}` : l}
-                    </Button>
-                  ))}
+                  {Array.from({ length: info.levels }, (_, i) => i + 1).map((l) => {
+                    const closed = locked || (!admin && l > level);
+                    return (
+                      <Button
+                        key={l}
+                        variant={l === level ? 'primary' : 'secondary'}
+                        disabled={closed}
+                        title={locked ? PRACTICE_LOCKED : closed ? 'Get 8 of 10 right on the level below' : info.levelNames[l - 1]}
+                        onClick={() => setRun({ kind: 'practice', quiz, level: l })}
+                      >
+                        {l === level ? `▶ Level ${l}` : l}
+                      </Button>
+                    );
+                  })}
                   {quiz === 'stack' && (
                     <Button variant="ghost" onClick={() => setChips(true)} title="The colours and values of your chips">
                       Your chips
