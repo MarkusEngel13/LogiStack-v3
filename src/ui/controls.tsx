@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useTouchScreen } from './touch';
 import { createPortal } from 'react-dom';
 import type { Chips, Currency } from '../core/hand/types';
 import { currencySymbol, parseAmount, toMajor } from './format';
@@ -267,5 +268,78 @@ export function Modal({
       </div>
     </div>,
     document.body,
+  );
+}
+
+/**
+ * A slider that a scrolling finger can't move: on a touch screen it changes only on a sideways
+ * drag (a vertical swipe across it scrolls the page, a tap on the track does nothing), with − and
+ * + buttons for exact steps. With a mouse it is a plain slider.
+ */
+export function RangeSlider({
+  value,
+  min,
+  max,
+  step,
+  onChange,
+  disabled,
+  className = '',
+  style,
+  label,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (v: number) => void;
+  disabled?: boolean;
+  className?: string;
+  style?: CSSProperties;
+  label: string;
+}) {
+  const touch = useTouchScreen();
+  const gesture = useRef<{ x: number; y: number; dx: number; dy: number; touch: boolean } | null>(null);
+  const clamp = (v: number) => Math.max(min, Math.min(max, Math.round(v / step) * step));
+  const input = (
+    <input
+      type="range"
+      min={min}
+      max={max}
+      step={step}
+      value={value}
+      disabled={disabled}
+      aria-label={label}
+      className={`min-w-0 grow ${className}`}
+      style={{ ...style, touchAction: 'pan-y' }}
+      onPointerDown={(e) => (gesture.current = { x: e.clientX, y: e.clientY, dx: 0, dy: 0, touch: e.pointerType === 'touch' })}
+      onPointerMove={(e) => {
+        const g = gesture.current;
+        if (g) {
+          g.dx = Math.max(g.dx, Math.abs(e.clientX - g.x));
+          g.dy = Math.max(g.dy, Math.abs(e.clientY - g.y));
+        }
+      }}
+      onPointerUp={() => (gesture.current = null)}
+      onPointerCancel={() => (gesture.current = null)}
+      onChange={(e) => {
+        const g = gesture.current;
+        // a finger: only a clear sideways drag counts (not a tap on the track, not a scroll)
+        if (g?.touch && (g.dx < 10 || g.dy > g.dx)) return;
+        onChange(Number(e.target.value));
+      }}
+    />
+  );
+  if (!touch) return input;
+  const btn = 'flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-line bg-surface-2 text-lg leading-none text-ink disabled:opacity-30';
+  return (
+    <div className="flex min-w-0 grow items-center gap-2">
+      <button type="button" className={btn} disabled={disabled || value <= min} onClick={() => onChange(clamp(value - step))} aria-label={`${label} down`}>
+        −
+      </button>
+      {input}
+      <button type="button" className={btn} disabled={disabled || value >= max} onClick={() => onChange(clamp(value + step))} aria-label={`${label} up`}>
+        +
+      </button>
+    </div>
   );
 }

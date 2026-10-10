@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { LIBRARY, SCENARIOS, TEN_MAX_POSITIONS, type LibraryRange, type Scenario } from '../../core/ranges/library';
 import { chartFromCells, emptyChart, foldOf, type ActionMix, type Chart } from '../../core/ranges/range';
-import { Button, Field, inputClass, Modal, Segmented, Toggle } from '../controls';
+import { Button, Field, inputClass, Modal, RangeSlider, Segmented, Toggle } from '../controls';
 import { setBrushAction, smartPaintCells } from './brush';
 import { copyLabel, copyOfLibrary, sameChart, savedMine } from './draft';
 import { deleteMyRange, loadMyRanges, saveMyRange, type MyRange } from './myRanges';
@@ -287,16 +287,14 @@ export function RangesPage() {
             {(['allin', 'raise', 'call'] as const).map((a) => (
               <label key={a} className="flex items-center gap-3 text-sm">
                 <span className="w-12 text-xs font-semibold text-muted">{ACTION_LABELS[a]}</span>
-                <input
-                  type="range"
+                <RangeSlider
                   min={0}
                   max={100}
                   step={5}
                   value={brush[a]}
-                  onChange={(e) => setBrush((b) => setBrushAction(b, a, Number(e.target.value)))}
-                  className="grow"
+                  onChange={(v) => setBrush((b) => setBrushAction(b, a, v))}
                   style={{ accentColor: ACTION_COLORS[a] }}
-                  aria-label={`${ACTION_LABELS[a]} %`}
+                  label={`${ACTION_LABELS[a]} %`}
                 />
                 <span className="w-10 text-right font-mono text-xs">{brush[a]}%</span>
               </label>

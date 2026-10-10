@@ -178,6 +178,13 @@ export function addReads(playerId: string, reads: ShowdownRead[]): boolean {
   return savePlayer({ ...pl, reads: [...(pl.reads ?? []), ...reads] });
 }
 
+/** Your players and profiles exactly as saved, to put back with `restoreSaved` (Undo). */
+export const snapshotSaved = () => ({ players: read<SavedPlayer>(PLAYERS_KEY), profiles: read<SavedProfile>(PROFILES_KEY) });
+export function restoreSaved(s: ReturnType<typeof snapshotSaved>) {
+  write(PROFILES_KEY, s.profiles);
+  write(PLAYERS_KEY, s.players);
+}
+
 export const deletePlayer = (id: string) => write(PLAYERS_KEY, loadPlayers().filter((p) => p.id !== id));
 
 export function profileById(id: string, profiles = loadProfiles()): SavedProfile {

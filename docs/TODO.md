@@ -74,6 +74,15 @@ until agreed. `[ ]` open · `[~]` agreed, to build · `[-]` parked · `[x]` buil
 37. [x] The long list of preset outcome buttons is too long to use under pressure (replaced by 31-36).
 38. [x] Keep "no flush card / flush card", add "second flush draw on the turn".
 
+## Touch (phone) - 2026-10-10
+43. [x] A finger that scrolls never changes anything: the 13x13 grid paints only after "✏ Edit"
+        (coloured frame, "Done"), else a swipe scrolls and a tap shows the cell. Mouse unchanged.
+44. [x] Sliders on a phone move only on a sideways drag (a vertical swipe or a tap on the track
+        does nothing), with − / + buttons beside them (`RangeSlider` in `controls.tsx`).
+45. [x] "+ Sliders" makes a draft player, saved only once you name him or change something;
+        deleting a player, profile, hand or fishy mark (and copying a profile) shows "… · Undo" for
+        6 s instead of a confirm box (`ui/toast.tsx`). Cause of this morning's two unnamed players.
+
 ## Later
 39. [~] Solution stability: nudge the inputs (preflop range 5-10 % narrower or wider, other
         parameters 5-15 % up or down) and show whether the suggested line holds or flips - a line

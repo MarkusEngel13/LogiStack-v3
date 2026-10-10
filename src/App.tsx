@@ -7,6 +7,7 @@ import { OptionsModal } from './ui/OptionsModal';
 import { leaveScreen } from './ui/ranges/unsavedGuard';
 import { AccountBadge } from './ui/sync/AccountBadge';
 import { SettingsProvider } from './ui/settings';
+import { ToastProvider } from './ui/toast';
 import { HandWizard } from './ui/wizard/HandWizard';
 
 // modules load when first opened (the start page and the wizard stay in the main file)
@@ -81,6 +82,7 @@ export default function App() {
 
   return (
     <SettingsProvider>
+      <ToastProvider>
       <div className="min-h-screen">
         <header className="sticky top-0 z-40 border-b border-line bg-bg/90 backdrop-blur">
           {/* a computer: one row; a phone: the logo, account and options on top, the modules wrapping under them */}
@@ -156,6 +158,7 @@ export default function App() {
 
         {optionsOpen && <OptionsModal onClose={() => setOptionsOpen(false)} />}
       </div>
+      </ToastProvider>
     </SettingsProvider>
   );
 }

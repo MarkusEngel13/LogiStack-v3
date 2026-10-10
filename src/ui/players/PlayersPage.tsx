@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { MOTIVE_PRESETS } from '../../core/motives/profile';
 import { STYLES } from '../../core/motives/preflop';
 import { POSTFLOP_SPOTS, preflopPreview, type PostflopRow, type PreflopRow } from '../../core/players/preview';
@@ -20,12 +20,13 @@ import {
   type StyleSettings,
 } from '../../core/players/style';
 import type { HandRecord } from '../../core/hand/types';
-import { Button, Field, inputClass, Segmented, TextInput, Toggle } from '../controls';
+import { Button, Field, inputClass, RangeSlider, Segmented, TextInput, Toggle } from '../controls';
 import { useEquity } from '../lab/useEquity';
 import { downloadJson } from '../library';
 import { playerTypeColor } from '../playerTypes';
 import { allCharts } from '../ranges/charts';
 import { QuestionWizard } from './QuestionWizard';
+import { useToast } from '../toast';
 import { PlayerCheck } from '../sim/PlayerCheck';
 import { readSuggestions, tagById } from '../../core/players/reads';
 import { answerLabel, openBand, openBBOf, QUESTIONS } from '../../core/players/questions';
@@ -40,6 +41,8 @@ import { TypeFit, useTypeFit } from './TypeFit';
 import {
   builtInId,
   deletePlayer,
+  restoreSaved,
+  snapshotSaved,
   deleteProfile,
   exportAll,
   importAll,
@@ -93,13 +96,19 @@ export function PlayersPage({ onOpenHand }: { onOpenHand: (hand: HandRecord, mod
     setProfiles(loadProfiles());
   };
 
-  const player = sel?.kind === 'player' ? players.find((p) => p.id === sel.id) : undefined;
+  /** A new player not saved yet: he's saved when you name him or change anything (a stray tap on "+ Sliders" leaves nothing behind). */
+  const [draft, setDraft] = useState<SavedPlayer | null>(null);
+  const toast = useToast();
+  const player = sel?.kind === 'player' ? (players.find((p) => p.id === sel.id) ?? (draft?.id === sel.id ? draft : undefined)) : undefined;
+  // moving on from an untouched new player drops him
+  useEffect(() => {
+    if (draft && !(sel?.kind === 'player' && sel.id === draft.id)) setDraft(null);
+  }, [sel, draft]);
   const profile = sel?.kind === 'profile' ? profiles.find((p) => p.id === sel.id) : undefined;
 
   const newPlayer = (profileId = player?.profileId ?? profile?.id ?? builtInId('Unknown')) => {
     const p: SavedPlayer = { id: crypto.randomUUID(), name: 'New player', profileId, overrides: {} };
-    savePlayer(p);
-    reload();
+    setDraft(p);
     setSel({ kind: 'player', id: p.id });
   };
   const newProfile = (from: SavedProfile) => {
@@ -109,9 +118,18 @@ export function PlayersPage({ onOpenHand }: { onOpenHand: (hand: HandRecord, mod
       settings: structuredClone(from.settings),
       note: from.builtIn ? undefined : from.note,
     };
+    const before = snapshotSaved();
     saveProfile(p);
     reload();
     setSel({ kind: 'profile', id: p.id });
+    toast({
+      text: `Profile “${p.name}” created`,
+      undo: () => {
+        restoreSaved(before);
+        reload();
+        setSel({ kind: 'profile', id: from.id });
+      },
+    });
   };
 
   const test = (style: SeatStyle, mode: TestMode) => {
@@ -177,7 +195,10 @@ export function PlayersPage({ onOpenHand }: { onOpenHand: (hand: HandRecord, mod
               </div>
             }
           >
-            {players.length === 0 && <p className="px-2 text-xs text-faint">No players yet. Add the people you play with.</p>}
+            {draft && (
+              <ListItem active={sel?.kind === 'player' && sel.id === draft.id} label={draft.name} sub="new · saved once you change something" onClick={() => setSel({ kind: 'player', id: draft.id })} />
+            )}
+            {players.length === 0 && !draft && <p className="px-2 text-xs text-faint">No players yet. Add the people you play with.</p>}
             {[...players]
               .sort((a, b) => a.name.localeCompare(b.name))
               .map((p) => (
@@ -226,13 +247,27 @@ export function PlayersPage({ onOpenHand }: { onOpenHand: (hand: HandRecord, mod
             profiles={profiles}
             onChange={(p) => {
               savePlayer(p);
+              if (draft?.id === p.id) setDraft(null);
               reload();
             }}
             onDelete={() => {
-              if (!window.confirm(`Delete ${player.name}?`)) return;
+              if (draft?.id === player.id) {
+                setDraft(null);
+                setSel(null);
+                return;
+              }
+              const before = snapshotSaved();
               deletePlayer(player.id);
               reload();
               setSel(null);
+              toast({
+                text: `${player.name} deleted`,
+                undo: () => {
+                  restoreSaved(before);
+                  reload();
+                  setSel({ kind: 'player', id: player.id });
+                },
+              });
             }}
             onTest={(mode) => test(seatStyleOfPlayer(player, profiles), mode)}
             onAsk={() => setAsking({ player })}
@@ -251,10 +286,18 @@ export function PlayersPage({ onOpenHand }: { onOpenHand: (hand: HandRecord, mod
             onNewPlayer={() => newPlayer(profile.id)}
             onDelete={() => {
               const n = players.filter((p) => p.profileId === profile.id).length;
-              if (!window.confirm(`Delete ${profile.name}?${n ? ` Its ${n} player(s) move to ${profile.settings.base}, keeping their own sliders.` : ''}`)) return;
+              const before = snapshotSaved();
               deleteProfile(profile.id);
               reload();
               setSel({ kind: 'profile', id: builtInId(profile.settings.base) });
+              toast({
+                text: `${profile.name} deleted${n ? ` · its ${n} player${n === 1 ? '' : 's'} moved to ${profile.settings.base}` : ''}`,
+                undo: () => {
+                  restoreSaved(before);
+                  reload();
+                  setSel({ kind: 'profile', id: profile.id });
+                },
+              });
             }}
             onTest={(mode) => test(seatStyleOfProfile(profile), mode)}
           />
@@ -819,17 +862,16 @@ function SliderRow({
       </div>
       <div>
         <div className="relative">
-          <input
-            type="range"
+          <RangeSlider
             min={1}
             max={5}
             step={0.5}
             value={value}
             disabled={readOnly}
-            onChange={(e) => onChange(Number(e.target.value))}
+            onChange={onChange}
             className="w-full disabled:opacity-60"
             style={{ accentColor: gradeColor(value) }}
-            aria-label={info.label}
+            label={info.label}
           />
           <span
             className="pointer-events-none absolute -bottom-2 -translate-x-1/2 text-[10px] text-muted"

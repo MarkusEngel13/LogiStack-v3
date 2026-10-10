@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { sessions, type Session } from '../../core/hand/sessions';
 import type { HandRecord } from '../../core/hand/types';
 import { Button, Section, Segmented } from '../controls';
-import { deleteFishy, loadFishy } from '../fishy';
+import { addFishy, deleteFishy, loadFishy } from '../fishy';
+import { useToast } from '../toast';
 import { formatAmount } from '../format';
 import { loadHands } from '../library';
 import { gymTable, type GymMode } from './gymTables';
@@ -22,6 +23,7 @@ export function GymPage({ onStart, onOpen }: { onStart: (hand: HandRecord, mode:
   });
   const [hands] = useState(loadHands);
   const [fishy, setFishy] = useState(loadFishy);
+  const toast = useToast();
   const sessionList = useMemo(() => sessions(hands), [hands]);
   const pickSize = (n: 6 | 9) => {
     setSize(n);
@@ -86,6 +88,13 @@ export function GymPage({ onStart, onOpen }: { onStart: (hand: HandRecord, mode:
                       onClick={() => {
                         deleteFishy(m.id);
                         setFishy(loadFishy());
+                        toast({
+                          text: 'Mark removed',
+                          undo: () => {
+                            addFishy(m);
+                            setFishy(loadFishy());
+                          },
+                        });
                       }}
                     >
                       Remove

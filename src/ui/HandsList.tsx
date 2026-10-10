@@ -3,7 +3,8 @@ import { FIXTURES } from '../core/fixtures';
 import type { HandRecord } from '../core/hand/types';
 import { Button, Section } from './controls';
 import { formatAmount } from './format';
-import { deleteHand, downloadJson, loadHands } from './library';
+import { deleteHand, downloadJson, loadHands, saveHand } from './library';
+import { useToast } from './toast';
 
 function describe(h: HandRecord) {
   const money = (v: number) => formatAmount(v, h.table.currency, h.table.blinds.bb);
@@ -51,6 +52,7 @@ export function Row({ hand, onOpen, onDelete }: { hand: HandRecord; onOpen: () =
 /** The Lab: your hands open editable, sample hands as a replay; a new hand starts here. */
 export function HandsList({ onOpen, onNew }: { onOpen: (hand: HandRecord, editable: boolean) => void; onNew: () => void }) {
   const [hands, setHands] = useState(loadHands);
+  const toast = useToast();
   return (
     <div className="mx-auto max-w-4xl space-y-5 px-3 py-5 sm:px-6 sm:py-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -73,10 +75,15 @@ export function HandsList({ onOpen, onNew }: { onOpen: (hand: HandRecord, editab
                 hand={h}
                 onOpen={() => onOpen(h, true)}
                 onDelete={() => {
-                  if (window.confirm(`Delete hand #${h.handNo ?? ''}?`)) {
-                    deleteHand(h.id);
-                    setHands(loadHands());
-                  }
+                  deleteHand(h.id);
+                  setHands(loadHands());
+                  toast({
+                    text: `Hand #${h.handNo ?? ''} deleted`,
+                    undo: () => {
+                      saveHand(h);
+                      setHands(loadHands());
+                    },
+                  });
                 }}
               />
             ))}

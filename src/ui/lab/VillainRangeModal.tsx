@@ -6,7 +6,7 @@ import { SCENARIOS } from '../../core/ranges/library';
 import { formatRange, parseRange, RangeSyntaxError } from '../../core/ranges/notation';
 import { comboTotal, withoutCards, type Weights } from '../../core/ranges/range';
 import { weightsFor, type ChartChoice, type Took } from '../../core/ranges/spot';
-import { Button, Modal, Segmented, Toggle } from '../controls';
+import { Button, Modal, RangeSlider, Segmented, Toggle } from '../controls';
 import { QuickRangeButtons } from '../equity/QuickRanges';
 import { smartPaintCells } from '../ranges/brush';
 import { RangeGrid, type Segment } from '../ranges/RangeGrid';
@@ -138,17 +138,7 @@ export function VillainRangeModal({
           <div>
             <div className="mb-1.5 text-xs font-semibold tracking-wider text-muted uppercase">Brush</div>
             <label className="flex items-center gap-3">
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={5}
-                value={brush}
-                onChange={(e) => setBrush(Number(e.target.value))}
-                className="grow"
-                style={{ accentColor: RANGE_COLOR }}
-                aria-label="Brush weight"
-              />
+              <RangeSlider min={0} max={100} step={5} value={brush} onChange={setBrush} style={{ accentColor: RANGE_COLOR }} label="Brush weight" />
               <span className="w-10 text-right font-mono text-xs">{brush}%</span>
             </label>
             <div className="mt-2 flex flex-wrap gap-1.5">
