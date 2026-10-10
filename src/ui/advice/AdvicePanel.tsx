@@ -3,7 +3,9 @@ import { matchAdvice, type PlaybookEntry } from '../../core/advice/playbook';
 import { spotTags, type SpotTags } from '../../core/advice/spot';
 import type { TableState } from '../../core/engine/state';
 import type { SeatNo } from '../../core/hand/types';
+import { useSyncStatus } from '../sync/useSyncStatus';
 import { usePlaybook } from './usePlaybook';
+import { useServerAdvice } from './useServerAdvice';
 
 /** What drives the opponent, in plain words and a color: fear red, greed amber, ego violet... */
 const MOTIVES: Record<string, { label: string; color: string }> = {
@@ -91,17 +93,55 @@ function Entry({ e }: { e: PlaybookEntry }) {
 }
 
 /**
- * "Playbook says": the loaded playbook's advice for the player to act at this moment (the words
- * of core/advice/spot.ts, matched against each entry's `when`). Named after no channel: the app
- * may be sold one day, and the sources' names and words stay in the private playbook file.
+ * Advice for the player to act. The admin (and the app running local-only) sees "Playbook says"
+ * from the private playbook file in this browser; everyone else sees "Consider this": a piece or
+ * three of that playbook's advice in our own words, from the server (the admin uploads it in the
+ * Admin dashboard; the coaches' words, names and videos never leave the admin's browser).
  */
 export function AdvicePanel({ state, seat }: { state: TableState; seat: SeatNo }) {
+  const { account } = useSyncStatus();
+  const tags = useMemo(() => spotTags(state, seat), [state, seat]);
+  const name = state.seats.find((s) => s.seat === seat)?.name;
+  if (account && account.role !== 'admin') return <ConsiderThis tags={tags} name={name} />;
+  return <PlaybookPanel tags={tags} name={name} admin={account?.role === 'admin'} />;
+}
+
+/** "Consider this": the server's advice for this moment; nothing at all when there is none. */
+function ConsiderThis({ tags, name }: { tags: SpotTags; name: string | undefined }) {
+  const a = useServerAdvice(tags);
+  if (!a || a.entries.length === 0) return null;
+  return (
+    <div className="rounded-lg border border-line bg-surface px-4 py-3 text-sm">
+      <div className="mb-1 flex items-baseline justify-between gap-2">
+        <div className="text-xs font-bold tracking-wider text-muted uppercase">Consider this</div>
+        {name && <span className="truncate text-[11px] text-faint">{name} to act</span>}
+      </div>
+      <div className="mb-2 text-xs text-faint">{momentText(tags)}</div>
+      <ul className="space-y-2">
+        {a.entries.map((e) => (
+          <li key={e.id} className="rounded-md border border-line bg-surface-2 px-3 py-2">
+            <div className="font-semibold text-ink">{e.title}</div>
+            <p className="mt-1 text-ink">{e.advice}</p>
+          </li>
+        ))}
+      </ul>
+      {a.perSpot < 3 && <p className="mt-2 text-[11px] text-faint">Premium shows up to three for each moment.</p>}
+    </div>
+  );
+}
+
+/**
+ * "Playbook says": the loaded playbook's advice for the player to act at this moment (the words
+ * of core/advice/spot.ts, matched against each entry's `when`). Named after no channel: the app
+ * may be sold one day, and the sources' names and words stay in the private playbook file. The
+ * admin can look at what the others get for the same moment ("Users see").
+ */
+function PlaybookPanel({ tags, name, admin }: { tags: SpotTags; name: string | undefined; admin: boolean }) {
   const { playbook, load, clear } = usePlaybook();
   const [error, setError] = useState<string | null>(null);
+  const [asUsers, setAsUsers] = useState(false);
   const file = useRef<HTMLInputElement>(null);
-  const tags = useMemo(() => spotTags(state, seat), [state, seat]);
   const matches = useMemo(() => (playbook ? matchAdvice(playbook.entries, tags, 3) : []), [playbook, tags]);
-  const name = state.seats.find((s) => s.seat === seat)?.name;
 
   const picker = (
     <input
@@ -129,6 +169,14 @@ export function AdvicePanel({ state, seat }: { state: TableState; seat: SeatNo }
         <div className="text-xs font-bold tracking-wider text-muted uppercase">Playbook says{name ? ` to ${name}` : ''}</div>
         {playbook && (
           <span className="text-[11px] text-faint">
+            {admin && (
+              <>
+                <button type="button" className={asUsers ? 'text-accent' : 'hover:text-ink'} onClick={() => setAsUsers((v) => !v)} title="What the others get for this moment: Consider this, from the server">
+                  users see
+                </button>{' '}
+                ·{' '}
+              </>
+            )}
             {playbook.entries.length} entries ·{' '}
             <button type="button" className="hover:text-ink" onClick={() => file.current?.click()}>
               replace
@@ -161,6 +209,29 @@ export function AdvicePanel({ state, seat }: { state: TableState; seat: SeatNo }
         </ul>
       )}
       {error && <p className="mt-2 text-xs text-danger">{error}</p>}
+      {asUsers && (
+        <div className="mt-3 border-t border-line pt-3">
+          <UsersSee tags={tags} />
+        </div>
+      )}
     </div>
+  );
+}
+
+/** The admin's look at "Consider this" (Premium's three; Free gets the first). */
+function UsersSee({ tags }: { tags: SpotTags }) {
+  const a = useServerAdvice(tags);
+  if (!a) return <p className="text-xs text-muted">Asking the server… (nothing comes when no playbook is uploaded or nothing fits)</p>;
+  if (!a.entries.length) return <p className="text-xs text-muted">The server has nothing for this moment.</p>;
+  return (
+    <ul className="space-y-1.5 text-xs">
+      {a.entries.map((e, i) => (
+        <li key={e.id}>
+          <b>{e.title}</b>
+          {i === 0 ? <span className="text-faint"> · Free sees this one</span> : null}
+          <p className="text-muted">{e.advice}</p>
+        </li>
+      ))}
+    </ul>
   );
 }
