@@ -67,11 +67,23 @@ export function limitsFor(plan: Plan, role: Role = 'user'): Limits {
 
 export type Denied = { ok: false; reason: 'limit' | 'plan'; message: string };
 
+/** Each kind in words: one, many. */
+const KIND_WORDS: Record<Kind, [string, string]> = {
+  hand: ['hand', 'hands'],
+  player: ['player', 'players'],
+  profile: ['profile', 'profiles'],
+  range: ['chart', 'charts'],
+  settings: ['set of settings', 'sets of settings'],
+  fishy: ['fishy mark', 'fishy marks'],
+  quiz: ['quiz record', 'quiz records'],
+};
+
 /** May this user save one more item of a kind (`count` = how many they have now)? */
 export function canSave(plan: Plan, role: Role, kind: Kind, count: number, isNew: boolean): { ok: true } | Denied {
   const max = limitsFor(plan, role).items[kind];
   if (!isNew || max === null || count < max) return { ok: true };
-  return { ok: false, reason: 'limit', message: `The ${PLAN_LABELS[plan]} plan keeps ${max} ${kind}${max === 1 ? '' : 's'}. Upgrade to keep more.` };
+  const what = max === 1 ? KIND_WORDS[kind][0] : KIND_WORDS[kind][1];
+  return { ok: false, reason: 'limit', message: `The ${PLAN_LABELS[plan]} plan keeps ${max} ${what}. Ask for Premium to keep more.` };
 }
 
 /** May this user share a profile with everyone? */
