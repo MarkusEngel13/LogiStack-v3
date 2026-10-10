@@ -24,26 +24,37 @@ export interface Limits {
   explorer: boolean;
   /** Stats reports for own players. */
   stats: boolean;
+  /** Quizzes: practise any quiz at will (without it: only the day's set of ten). */
+  quizPractice: boolean;
+  /** "Consider this": pieces of advice shown per moment of a hand (from the playbook on the server). */
+  advicePerSpot: number;
 }
 
 export const LIMITS: Record<Plan, Limits> = {
   free: {
-    items: { hand: 20, player: 3, profile: 2, range: 3, settings: 1, fishy: 50, quiz: null },
+    // quiz: your levels and missed questions, the history, today (and a spare day or two)
+    items: { hand: 20, player: 3, profile: 2, range: 3, settings: 1, fishy: 50, quiz: 10 },
     shareProfiles: false,
     explorer: false,
     stats: false,
+    quizPractice: false,
+    advicePerSpot: 1,
   },
   premium: {
     items: { hand: null, player: null, profile: null, range: null, settings: 1, fishy: null, quiz: null },
     shareProfiles: false,
     explorer: true,
     stats: false,
+    quizPractice: true,
+    advicePerSpot: 3,
   },
   pro: {
     items: { hand: null, player: null, profile: null, range: null, settings: 1, fishy: null, quiz: null },
     shareProfiles: true,
     explorer: true,
     stats: true,
+    quizPractice: true,
+    advicePerSpot: 3,
   },
 };
 
@@ -70,3 +81,6 @@ export function canShare(plan: Plan, role: Role): { ok: true } | Denied {
 
 export const isPlan = (x: unknown): x is Plan => typeof x === 'string' && (PLANS as readonly string[]).includes(x);
 export const isKind = (x: unknown): x is Kind => typeof x === 'string' && (KINDS as readonly string[]).includes(x);
+
+/** The quiz items there are (ui/quiz/quizStore): `state` (levels, missed questions), `history` (a line a day), `day:2026-10-10`. */
+export const isQuizItemId = (id: string) => /^(state|history|day:\d{4}-\d{2}-\d{2})$/.test(id);

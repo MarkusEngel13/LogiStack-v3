@@ -43,8 +43,11 @@ export interface Playbook {
   entries: PlaybookEntry[];
 }
 
-export interface AdviceMatch {
-  entry: PlaybookEntry;
+/** What an entry needs to be matched to a moment (the full entry, or the server's copy). */
+type Matchable = Pick<PlaybookEntry, 'when' | 'strength'>;
+
+export interface AdviceMatch<E extends Matchable = PlaybookEntry> {
+  entry: E;
   /** How many of the moment's dimensions it names (the more specific, the more relevant). */
   specificity: number;
   score: number;
@@ -55,8 +58,8 @@ export interface AdviceMatch {
  * value with the moment's tags), the most specific first, then the best sourced. General advice
  * (no `when`) never shows up here.
  */
-export function matchAdvice(entries: readonly PlaybookEntry[], tags: SpotTags, limit = 3): AdviceMatch[] {
-  const out: AdviceMatch[] = [];
+export function matchAdvice<E extends Matchable = PlaybookEntry>(entries: readonly E[], tags: SpotTags, limit = 3): AdviceMatch<E>[] {
+  const out: AdviceMatch<E>[] = [];
   for (const entry of entries) {
     const when = entry.when;
     if (!when) continue;
@@ -75,6 +78,30 @@ export function matchAdvice(entries: readonly PlaybookEntry[], tags: SpotTags, l
     out.push({ entry, specificity, score: specificity + 0.5 * Math.log2(1 + entry.strength) });
   }
   return out.sort((a, b) => b.score - a.score || b.entry.strength - a.entry.strength).slice(0, limit);
+}
+
+// ---- the server's copy ("Consider this" for other users) -----------------------------------------
+
+/**
+ * What goes to the server for other users: the advice in our own words and when it applies. The
+ * coaches' words (said, quotes), their names, the videos and the caveats stay in the admin's file.
+ */
+export interface ServerAdvice {
+  id: string;
+  title: string;
+  advice: string;
+  when: Partial<Record<Dimension, string[]>>;
+  strength: number;
+}
+
+/** Names that mark an entry as someone's own words or story: those entries don't go up. */
+const NAMED = /\b(charlie|carrel|hungry ?horse|hhp|dominik|nitsche|spraggy|mariano|rampage|epiphany|youtube|video|vlog|podcast)\b/i;
+
+/** The entries other users may see, stripped to `ServerAdvice` (only those tied to moments of a hand). */
+export function serverAdvice(p: Playbook): ServerAdvice[] {
+  return p.entries
+    .filter((e) => e.when && Object.values(e.when).some((v) => v?.length) && !NAMED.test(`${e.title} ${e.advice}`))
+    .map((e) => ({ id: e.id, title: e.title, advice: e.advice, when: e.when!, strength: e.strength }));
 }
 
 /** A loaded file, checked enough not to break the screen (a wrong file is refused, not half-used). */
