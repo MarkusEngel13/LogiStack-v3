@@ -272,13 +272,23 @@ export function RangesPage() {
       .sort((a, b) => firstPosition(a) - firstPosition(b) || (a.ref.kind === b.ref.kind ? 0 : a.ref.kind === 'library' ? -1 : 1)),
   })).filter((g) => g.items.length > 0);
 
-  // a phone: the full width (13 cells of ~27 px); larger: as high as the window allows, never under 320 px
+  // a phone: the full width (13 cells of ~27 px); larger: as high as the window allows, never under
+  // 320 px. A wide screen has the tools in a column on the right, so the grid starts under the menu
+  // and only the totals bar sits under it (160 px for the menu, the bar and the margins).
+  // There the page is as wide as it needs (main's width below, never wider than the window) and
+  // the grids fill main's left part: the tools always sit right beside them, the page centred.
   const gridWidth = compareEntry
-    ? 'w-full md:w-[min(calc(50%_-_8px),max(calc(100vh_-_300px),320px))]'
-    : 'w-full md:w-[min(100%,max(calc(100vh_-_300px),320px))]';
+    ? 'w-full md:w-[min(calc(50%_-_8px),max(calc(100vh_-_300px),320px))] xl:w-[calc(50%_-_8px)]'
+    : 'w-full md:w-[min(100%,max(calc(100vh_-_300px),320px))] xl:w-full';
+  // the grid(s) as tall as the window allows, plus the tools column (270 px) and its gap (24 px);
+  // at most the window less the sidebar, the gaps and the margins
+  const mainWidth = compareEntry
+    ? 'xl:w-[min(calc(2_*_max(100vh_-_160px,320px)_+_310px),calc(100vw_-_380px))]'
+    : 'xl:w-[min(calc(max(100vh_-_160px,320px)_+_294px),calc(100vw_-_380px))]';
 
   return (
-    <div className="mx-auto grid max-w-[1500px] gap-5 px-3 py-3 sm:px-6 sm:py-5 md:grid-cols-[290px_minmax(0,1fr)]">
+    <div className="mx-auto grid max-w-[1500px] gap-5 px-3 py-3 sm:px-6 sm:py-5 md:grid-cols-[290px_minmax(0,1fr)] xl:w-fit xl:max-w-none">
+
       {/* Sidebar: brush, then the library (on a phone: under the chart) */}
       <aside className="order-2 space-y-4 md:order-none">
         <div className="rounded-lg border border-line bg-surface p-4">
@@ -374,9 +384,10 @@ export function RangesPage() {
         </div>
       </aside>
 
-      {/* The chart (on a phone: first) */}
-      <main ref={mainRef} className="order-1 min-w-0 scroll-mt-28 space-y-3 md:order-none">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+      {/* The chart (on a phone: first). A wide screen: the grid on the left, the tools in a column on its right. */}
+      <main ref={mainRef} className={`order-1 min-w-0 scroll-mt-28 space-y-3 md:order-none xl:grid xl:grid-cols-[minmax(0,1fr)_270px] xl:items-start xl:gap-6 xl:space-y-0 ${mainWidth}`}>
+        <div className="space-y-3 xl:order-2">
+        <div className="flex flex-wrap items-start justify-between gap-3 xl:flex-col xl:flex-nowrap xl:items-stretch xl:justify-start">
           <div className="min-w-0 max-md:w-full">
             {/* A fixed row, so the tools beside it never jump; the box is as wide as the name where the browser can (the pill right after it). */}
             <div className="flex w-[460px] max-w-full items-center gap-2">
@@ -408,7 +419,7 @@ export function RangesPage() {
               {basedOn && <span className="text-faint">· copy of “{basedOn.label}”</span>}
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 md:gap-2 xl:grid xl:grid-cols-2">
             <Button variant="secondary" onClick={undo} disabled={history.length === 0} title="Ctrl+Z" className={TIGHT}>
               ↶ Undo
             </Button>
@@ -427,7 +438,7 @@ export function RangesPage() {
             <select
               value={compare}
               onChange={(e) => setCompare(e.target.value)}
-              className="max-w-full rounded-md border border-line bg-surface-2 px-2.5 py-1.5 text-sm text-ink md:py-2"
+              className="max-w-full rounded-md border border-line bg-surface-2 px-2.5 py-1.5 text-sm text-ink md:py-2 xl:col-span-2 xl:w-full xl:min-w-0"
               aria-label="Compare with"
             >
               <option value="">Compare with…</option>
@@ -457,14 +468,17 @@ export function RangesPage() {
           </div>
         </div>
 
-        {/* One line, so the grid never moves; a phone keeps the room for the chart (unless saving failed). */}
-        <div className={`truncate rounded-md border border-line bg-surface-2 px-3 py-1.5 text-sm ${saveFailed ? 'text-danger' : 'text-muted max-md:hidden'}`}>
+        {/* One line, so the grid never moves (in the tools column it wraps: nothing moves there); a phone keeps the room for the chart (unless saving failed). */}
+        <div className={`truncate rounded-md border border-line bg-surface-2 px-3 py-1.5 text-sm xl:whitespace-normal ${saveFailed ? 'text-danger' : 'text-muted max-md:hidden'}`}>
           {saveFailed
             ? 'Not saved: this browser would not store it (storage full or blocked).'
             : isLibrary
               ? 'Library chart. Paint on it; Save keeps it as your own chart, the library stays as it is.'
               : 'Your chart. Changes are a draft until Save; Discard goes back. Ctrl+Z undoes.'}
         </div>
+        </div>
+
+        <div className="space-y-3 xl:order-1">
 
         {/* On a phone the brush card is under the chart: its presets and Smart Paint are here too. */}
         <div className="flex flex-wrap items-center gap-1.5 md:hidden">
@@ -491,6 +505,7 @@ export function RangesPage() {
               <div className="truncate text-center text-xs text-muted">{compareEntry.label}</div>
             </div>
           )}
+        </div>
         </div>
       </main>
 
