@@ -93,10 +93,11 @@ function Entry({ e }: { e: PlaybookEntry }) {
 }
 
 /**
- * Advice for the player to act. The admin (and the app running local-only) sees "Playbook says"
+ * Advice for the player to act. The admin (and the app running local-only) sees the full advice
  * from the private playbook file in this browser; everyone else sees "Consider this": a piece or
- * three of that playbook's advice in our own words, from the server (the admin uploads it in the
- * Admin dashboard; the coaches' words, names and videos never leave the admin's browser).
+ * three of that advice in our own words, from the server (the admin uploads it in the Admin
+ * dashboard; the coaches' words, names and videos never leave the admin's browser). Users never
+ * read the word "playbook": the advice is simply given.
  */
 export function AdvicePanel({ state, seat }: { state: TableState; seat: SeatNo }) {
   const { account } = useSyncStatus();
@@ -131,7 +132,7 @@ function ConsiderThis({ tags, name }: { tags: SpotTags; name: string | undefined
 }
 
 /**
- * "Playbook says": the loaded playbook's advice for the player to act at this moment (the words
+ * The admin's "Advice": the loaded playbook's advice for the player to act at this moment (the words
  * of core/advice/spot.ts, matched against each entry's `when`). Named after no channel: the app
  * may be sold one day, and the sources' names and words stay in the private playbook file. The
  * admin can look at what the others get for the same moment ("Users see").
@@ -166,7 +167,7 @@ function PlaybookPanel({ tags, name, admin }: { tags: SpotTags; name: string | u
   return (
     <div className="rounded-lg border border-line bg-surface px-4 py-3 text-sm">
       <div className="mb-1 flex items-center justify-between gap-2">
-        <div className="text-xs font-bold tracking-wider text-muted uppercase">Playbook says{name ? ` to ${name}` : ''}</div>
+        <div className="text-xs font-bold tracking-wider text-muted uppercase">Advice{name ? ` for ${name}` : ''}</div>
         {playbook && (
           <span className="text-[11px] text-faint">
             {admin && (
@@ -200,7 +201,7 @@ function PlaybookPanel({ tags, name, admin }: { tags: SpotTags; name: string | u
           </button>
         </p>
       ) : matches.length === 0 ? (
-        <p className="text-muted">Nothing in the playbook for exactly this moment.</p>
+        <p className="text-muted">No advice for exactly this moment.</p>
       ) : (
         <ul className="space-y-2">
           {matches.map((m) => (

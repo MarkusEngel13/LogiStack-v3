@@ -74,7 +74,7 @@ export function OptionsModal({ onClose }: { onClose: () => void }) {
         <Field label="“What happens if”: bet sizes" hint="The sizes the window starts with (you can change them there too).">
           <SizeChips value={settings.whatIfSizes} onChange={(whatIfSizes) => update({ whatIfSizes })} />
         </Field>
-        <Field label="Backup" hint="Everything this browser keeps: hands, players, profiles, your charts, settings. Use it to move your data between VS Code (localhost) and the website, or to keep a copy. The playbook is not included.">
+        <Field label="Backup" hint="Everything this browser keeps: hands, players, profiles, your charts, settings. Use it to keep a copy, or to move your data to another browser.">
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => downloadJson(`logistack-backup-${new Date().toISOString().slice(0, 10)}.json`, makeBackup())}>Export everything</Button>
             <label className="cursor-pointer rounded-md border border-line bg-surface-2 px-3.5 py-2 text-sm hover:bg-surface-3">
