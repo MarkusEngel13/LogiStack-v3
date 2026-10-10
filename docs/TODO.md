@@ -5,7 +5,10 @@ until agreed. `[ ]` open · `[~]` agreed, to build · `[-]` parked · `[x]` buil
 
 
 ## Tonight (Marius, Cloudflare dashboard) - 2026-10-10
-- [ ] Open sign-up: Zero Trust -> Access -> Applications -> logistack -> Policies: a policy for
+- [ ] Changed plan (2026-10-10): 4-5 testers by email, not Everyone. Zero Trust Free is chosen (card
+      on file, not charged; at 50 seats further logins are blocked, not billed). Cloudflare One ->
+      Access controls -> Policies -> "author-page - Production" -> Edit -> Include, Emails: add theirs.
+- [-] Open sign-up (parked): Zero Trust -> Access -> Applications -> logistack -> Policies: a policy for
       everyone (Include -> **Everyone**, login by one-time PIN by email). New users land on Free by
       themselves (the server makes the account at the first login); you upgrade them in Users and plans.
       Keep "author-page - Production" as it is. Mind the free Zero Trust limit: 50 users.
@@ -133,6 +136,34 @@ until agreed. `[ ]` open · `[~]` agreed, to build · `[-]` parked · `[x]` buil
 56. [ ] Next step: exploit quizzes (best line against this villain, read the villain from a hand,
         his combos value vs bluff on the river), postflop buckets by bet / check-call / check-fold
         (need the EV engine as the reference), bet size by texture, stack style shown on the tables.
+
+## Review of the phone day - 2026-10-10
+57. [x] Guess the stack, level 3: the hidden chip landed on a chip the slob had put on top from the
+        next tower, so the answer key was off (€47.40 for €46.65). Fixed + a test over 3000 stacks.
+58. [x] The quiz chart painter: a finger paints only after "✏ Edit" or picking a bucket ("Done" to
+        scroll again), like the PF Ranges grid.
+59. [x] `CLAUDE.md` in the repo: the rules for every session, phone included (no AI lines in commits).
+60. [~] Quiz storage: a day keeps its questions 3 days; older days fold into one history item (score
+        per quiz, set finished or not, for the streak and stats). Missed questions keep coming back
+        from their own list (max 40).
+61. [~] Free plan: at most 10 quiz items on the server (`state`, history, the last days; only those
+        names accepted), and only the day's set: practice beyond it is for paid plans. A set already
+        started can be finished.
+62. [~] Range building facing an open: buckets 3-bet for value / 3-bet merged (thin value,
+        protection) / 3-bet as a bluff / call / fold, read from the library's "vs 4Bet" charts: goes on
+        vs a 4-bet = value; folds and stronger than most calls = merged; folds and weaker than hands
+        that only call = bluff (BTN, SB, BB have charts; other seats borrow the nearest). Facing a
+        3-bet: value / bluff / call / fold, clear cases only.
+63. [~] Paint the chart: scored on raise / call / fold only (the chart's own words); value, merged
+        and bluff stay in the one-hand questions.
+64. [~] Admin: every quiz level open.
+65. [~] Player habit + wizard question: check-raise all-in with a pocket pair under the top card
+        and above the second (sometimes second pair), on the flop or turn, when he fears draws.
+        Only at a reasonable SPR (about 3 or less: a fish doesn't x-raise 10x the pot); 100 BB
+        usually too deep, but a 3-bet pot (90 BB behind, pot 20-25 BB) is close. At a small SPR also
+        with weaker hands when he puts you on AK with no pair. Levels: never / now and then / very
+        often. Feeds his jam range (Lab range story, EV table calls wider, bots, Live tip).
+66. [ ] Options panel on a laptop (takes 58 % of the width): Marius checks first.
 
 ## Later
 39. [x] Solution stability: nudge the inputs (preflop range 5-10 % narrower or wider, other
