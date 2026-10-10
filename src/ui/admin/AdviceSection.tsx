@@ -134,7 +134,7 @@ export function AdviceSection() {
           <p className="text-sm text-muted">Looking for a playbook in this browser…</p>
         ) : playbook === null ? (
           <div className="rounded-md border border-dashed border-line px-3 py-3 text-sm text-muted">
-            <p>No playbook in this browser. Load it in the Lab first (open a hand: the Playbook panel), or pick the file here.</p>
+            <p>No playbook in this browser. Load it in the Lab first (open a hand: the Advice panel), or pick the file here.</p>
             <Button className="mt-2.5" onClick={() => file.current?.click()}>
               Load a playbook file…
             </Button>

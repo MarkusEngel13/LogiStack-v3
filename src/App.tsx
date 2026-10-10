@@ -84,27 +84,27 @@ export default function App() {
   const current: ModuleId | null = page === 'home' ? null : page === 'new' ? 'lab' : page === 'hand' ? (open?.from ?? 'lab') : page;
 
   const navClass = (id: ModuleId) => `shrink-0 rounded-md px-2.5 py-1.5 text-sm whitespace-nowrap sm:px-3 ${current === id ? 'bg-surface-2 text-ink' : 'text-muted hover:text-ink'}`;
-  const nav = (
-    <>
-      {MODULES.map((m) => (
-        <button key={m.id} type="button" onClick={() => setPage(m.id)} className={navClass(m.id)}>
-          {m.name}
-        </button>
-      ))}
-      {isAdmin && (
-        // a phone: the Joker's hat only (the row is full with six names)
-        <button type="button" onClick={() => setPage('admin')} className={`${navClass('admin')} relative flex items-center gap-1.5`} title={ADMIN_MODULE.what} aria-label={ADMIN_MODULE.name}>
-          <AdminIcon className="h-5 w-5 sm:hidden" />
-          <span className="hidden sm:inline">{ADMIN_MODULE.name}</span>
-          {adminNews.requests > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-4 rounded-full bg-accent px-1 text-center text-[10px] leading-4 font-bold text-accent-ink sm:static sm:min-w-5 sm:text-[11px] sm:leading-5" title="Open Premium requests">
-              {adminNews.requests}
-            </span>
-          )}
-        </button>
-      )}
-    </>
-  );
+  // the admin's own module: in the menu on a computer; on a phone the Joker's hat in the top row
+  // (the module row is full with six names)
+  const adminButton = (phone: boolean) =>
+    isAdmin && (
+      <button type="button" onClick={() => setPage('admin')} className={`${navClass('admin')} relative flex items-center gap-1.5`} title={ADMIN_MODULE.what} aria-label={ADMIN_MODULE.name}>
+        {phone ? <AdminIcon className="h-5 w-5" /> : <span>{ADMIN_MODULE.name}</span>}
+        {adminNews.requests > 0 && (
+          <span
+            className={`min-w-4 rounded-full bg-accent px-1 text-center text-[10px] leading-4 font-bold text-accent-ink ${phone ? 'absolute -top-0.5 -right-0.5' : 'min-w-5 text-[11px] leading-5'}`}
+            title="Open Premium requests"
+          >
+            {adminNews.requests}
+          </span>
+        )}
+      </button>
+    );
+  const modules = MODULES.map((m) => (
+    <button key={m.id} type="button" onClick={() => setPage(m.id)} className={navClass(m.id)}>
+      {m.name}
+    </button>
+  ));
 
   return (
     <SettingsProvider>
@@ -119,16 +119,20 @@ export default function App() {
                 <button type="button" onClick={() => setPage('home')} className="shrink-0 text-lg font-black tracking-tight" title="Start page">
                   Logi<span className="text-accent">Stack</span>
                 </button>
-                <nav className="hidden min-w-0 flex-wrap gap-1 sm:flex">{nav}</nav>
+                <nav className="hidden min-w-0 flex-wrap gap-1 sm:flex">
+                  {modules}
+                  {adminButton(false)}
+                </nav>
               </div>
               <div className="flex shrink-0 items-center gap-1">
+                <div className="sm:hidden">{adminButton(true)}</div>
                 <AccountBadge onAdmin={() => setPage('admin')} />
                 <Button variant="ghost" onClick={() => setOptionsOpen(true)} title="Options" className="shrink-0 !px-2.5 sm:!px-3.5">
                   ⚙<span className="hidden sm:inline"> Options</span>
                 </Button>
               </div>
             </div>
-            <nav className="-mx-1 mt-1 flex flex-wrap gap-0.5 sm:hidden">{nav}</nav>
+            <nav className="-mx-1 mt-1 flex flex-wrap gap-0.5 sm:hidden">{modules}</nav>
           </div>
         </header>
 
