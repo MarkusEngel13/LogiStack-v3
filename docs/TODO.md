@@ -25,6 +25,52 @@ until agreed. `[ ]` open · `[~]` agreed, to build · `[-]` parked · `[x]` buil
   record on 2026-10-10 - confirm at the registrar). Other free-looking .com: poolexploit, exploitreads,
   exploitlive, poolreads, readthepool, learnthepool, poolprofiler, villainprofiler, exploittrainer,
   homegamelab. Or keep LogiStack with logistack.poker ($52/yr, available).
+
+## Monetization (Germany) - 2026-10-10
+Marius is self-employed in Germany (writer). No lawyers: we do it together, with a legal-text
+service for the texts and the protection against warning letters. Rough work: 1.5-2 weeks.
+- [ ] Tax setup (Marius, before the first sale): the app is a business (gewerblich), not writing:
+      register a Gewerbe (about 20-60 EUR) and tell the Finanzamt about the new activity. VAT status
+      is one for all his work (writing + app): check whether he is Kleinunternehmer (under 25,000 EUR
+      last year and 100,000 EUR this year, all activities) or charges VAT - ask the Finanzamt.
+- [ ] Payments: a merchant of record (Paddle, 5 % + 0.50 USD per payment, no monthly fee) sells in
+      its own name and handles VAT in every EU country, invoices, refunds. Stripe directly is
+      cheaper but then EU VAT (OSS) is ours. Price yearly or 8+ EUR/month so the fixed fee stays
+      small. Web only (app stores take 15-30 %).
+- [ ] Build: Paddle checkout, a webhook that sets the plan (plans.ts tiers exist), a cancel page.
+- [ ] Own login (email code and/or Google), sessions, replacing Cloudflare Access (50-user cap);
+      an email-sending service (free to ~20 USD/month).
+- [ ] Account: delete my account (with all data) and export my data (GDPR); admin "Delete user".
+- [ ] Legal pages: Impressum (address needed: own or an address service, ~10-20 EUR/month),
+      privacy policy (processors: Cloudflare, Paddle, email service - sign their DPAs), terms.
+      Texts from a service (IT-Recht Kanzlei 9.90-24.90 EUR/month), kept up to date by it.
+- [ ] Checkout: tick box "start now, I lose the 14-day withdrawal right" for immediate access;
+      a cancel-subscription button (Kündigungsbutton, § 312k BGB) and, separate from it, the
+      withdrawal button (required since 19 June 2026), both always reachable.
+- [ ] No cookie banner as long as we store only what the app needs (login, app data): no
+      analytics, no ads, no trackers. Say so in the privacy policy. Any analytics -> banner.
+- [ ] Cloudflare Workers Paid (5 USD/month): enough for 1000+ users (10M requests, 5 GB D1),
+      D1 Time Travel as the backup. Check the storage per user once hands pile up.
+- [ ] No real-money gambling, no ads for poker sites: a training tool stays outside gambling law.
+- Running costs at the start: about 25-60 EUR/month plus payment fees.
+- [ ] Prices (agreed 2026-10-10), VAT included:
+      | Plan    | Monthly   | Yearly | Early bird (locked while subscribed) |
+      | Premium | 9.99 EUR  | 79 EUR  | 5.99 EUR / 49 EUR a year |
+      | Pro     | 19.99 EUR | 159 EUR | 11.99 EUR / 99 EUR a year |
+      Kept after VAT and Paddle: Premium ~7.46/month or ~62/year, Pro ~15.37/month or ~125/year
+      (early bird: ~4.30, ~38, ~9.05, ~78). Show yearly as a monthly figure ("79 EUR a year, 6.58 a month").
+- [ ] Tiers: Free = 20 hands, 3 players, 2 profiles, 3 ranges, the daily quiz set. Premium = no
+      limits, size explorer, "what happens if", EV tables, quiz practice. Pro = Premium + stats on
+      your players, sharing profiles, and (before early bird ends) the exploit quizzes, the Tonight
+      dashboard, Live tips. Pro must be clearly worth double.
+- [ ] Early bird: honest and limited - e.g. the first 200 members or until a fixed date, and keep it
+      (no fake countdowns: UWG). The price stays as long as the subscription runs (a Paddle discount
+      that never expires on that subscription). A 14-day free Pro trial.
+- Scenarios (assumptions, year one; half of year-one payers early birds, ~6.60 EUR kept per payer
+  per month, ~8.30 at full price later):
+  cautious 1,000 sign-ups, 2.5 % pay = 25 -> ~165 EUR/month; middle 5,000, 3.5 % = 175 -> ~1,150;
+  strong 20,000, 4.5 % = 900 -> ~5,900 (later ~7,500). Reach decides it (English + German,
+  communities, a poker YouTuber or podcast); yearly plans and the daily quiz keep people.
 ## Phone layout
 1. [x] Phone: the LogiStack logo above (or just under) the menu bar. (ROADMAP "Next")
 2. [x] Phone: the menu bar wraps its text and links instead of running off the screen. (ROADMAP "Next")
