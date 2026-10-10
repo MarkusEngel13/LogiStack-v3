@@ -4,16 +4,10 @@ Marius's notes from using the app, one line each. We agree them in batches of 2-
 until agreed. `[ ]` open · `[~]` agreed, to build · `[-]` parked · `[x]` built.
 
 
-## Tonight (Marius, Cloudflare dashboard) - 2026-10-10
-- [x] Done (2026-10-10): open to Everyone after all (see 67). Earlier idea: 4-5 testers by email. Zero Trust Free is chosen (card
-      on file, not charged; at 50 seats further logins are blocked, not billed). Cloudflare One ->
-      Access controls -> Policies -> "author-page - Production" -> Edit -> Include, Emails: add theirs.
-- [-] Open sign-up (parked): Zero Trust -> Access -> Applications -> logistack -> Policies: a policy for
-      everyone (Include -> **Everyone**, login by one-time PIN by email). New users land on Free by
-      themselves (the server makes the account at the first login); you upgrade them in Users and plans.
-      Keep "author-page - Production" as it is. Mind the free Zero Trust limit: 50 users.
-- [ ] Optional: Zero Trust -> Settings -> seat expiration, so users inactive for a while give their
-      seat back by themselves (stays within 50).
+## Sign-up (Cloudflare) - 2026-10-10
+- [x] Open sign-up (see 67): Access policy Everyone, login with a code by email, Zero Trust Free
+      (card on file, not charged; past 50 seats new logins are blocked, not billed), seats expire
+      after 2 weeks without a login. New users land on Free; plans change in the Admin dashboard.
 
 ## Going live (soon)
 - [ ] Buy a domain and move off `logistack.mariusdinu81.workers.dev` (custom domain on the Worker;
@@ -29,6 +23,23 @@ until agreed. `[ ]` open · `[~]` agreed, to build · `[-]` parked · `[x]` buil
 ## Monetization (Germany) - 2026-10-10
 Marius is self-employed in Germany (writer). No lawyers: we do it together, with a legal-text
 service for the texts and the protection against warning letters. Rough work: 1.5-2 weeks.
+Added after the review (2026-10-10, not legal or tax advice):
+- [ ] NOW, ahead of payments: Impressum and privacy policy. Sign-up is open and the app keeps
+      strangers' emails and data: the Impressum duty covers a business-like offer even while free,
+      GDPR applies from the first stranger.
+- [ ] The coaches' content (the biggest open risk): free and paid users get advice built from HHP's
+      and Carrel's videos. Before charging: all of it fully in our own words and never their names
+      in marketing, or ask them (HHP as a partner or affiliate = the reach the scenarios need).
+      The one question for a lawyer (the legal-text service).
+- [ ] Ask Paddle before building the checkout whether it takes a poker training tool (gambling-
+      related businesses get reviewed); its approval also wants the domain, prices and legal pages live.
+- [ ] Name: a trademark search (DPMA and EUIPO, free) for VillainGym before any marketing;
+      "LogiStack" clashes with an existing software company.
+- [ ] Launch with Premium only; Pro once its features exist (exploit quizzes, Tonight dashboard,
+      Live tips): early birds shouldn't pay for promises.
+- Order of work: name + trademark + domain -> Impressum + privacy policy -> ask Paddle -> own login
+  -> delete / export my account -> Paddle checkout + webhook -> terms, cancel and withdrawal
+  buttons -> launch Premium with the early bird.
 - [ ] Tax setup (Marius, before the first sale): the app is a business (gewerblich), not writing:
       register a Gewerbe (about 20-60 EUR) and tell the Finanzamt about the new activity. VAT status
       is one for all his work (writing + app): check whether he is Kleinunternehmer (under 25,000 EUR
