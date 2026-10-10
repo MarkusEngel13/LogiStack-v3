@@ -18,6 +18,10 @@ until agreed. `[ ]` open · `[~]` agreed, to build · `[-]` parked · `[x]` buil
       software company "Logistack" uses it) - check `.poker`, `.app`, `logistackpoker.com` at the
       registrar, and think about the name clash before going public.
 - [ ] Then: own sign-up and login instead of Cloudflare Access (no 50-user limit), see comment 5.
+- Name, parked (2026-10-10): **VillainGym** is the favourite (villaingym.com had no registration
+  record on 2026-10-10 - confirm at the registrar). Other free-looking .com: poolexploit, exploitreads,
+  exploitlive, poolreads, readthepool, learnthepool, poolprofiler, villainprofiler, exploittrainer,
+  homegamelab. Or keep LogiStack with logistack.poker ($52/yr, available).
 ## Phone layout
 1. [x] Phone: the LogiStack logo above (or just under) the menu bar. (ROADMAP "Next")
 2. [x] Phone: the menu bar wraps its text and links instead of running off the screen. (ROADMAP "Next")
