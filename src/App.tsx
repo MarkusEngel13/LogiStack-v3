@@ -1,11 +1,13 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import type { HandRecord } from './core/hand/types';
+import { useAdminNews } from './ui/admin/adminStore';
 import { Button } from './ui/controls';
-import { HomePage, MODULES, type ModuleId } from './ui/home/HomePage';
+import { ADMIN_MODULE, AdminIcon, HomePage, MODULES, type ModuleId } from './ui/home/HomePage';
 import { nextHandNo, saveHand } from './ui/library';
 import { OptionsModal } from './ui/OptionsModal';
 import { leaveScreen } from './ui/ranges/unsavedGuard';
 import { AccountBadge } from './ui/sync/AccountBadge';
+import { useSyncStatus } from './ui/sync/useSyncStatus';
 import { SettingsProvider } from './ui/settings';
 import { ToastProvider } from './ui/toast';
 import { LayerHost } from './ui/layers';
@@ -19,6 +21,7 @@ const HandScreen = lazy(() => import('./ui/replay/HandScreen').then((m) => ({ de
 const LivePage = lazy(() => import('./ui/live/LivePage').then((m) => ({ default: m.LivePage })));
 const HandsList = lazy(() => import('./ui/HandsList').then((m) => ({ default: m.HandsList })));
 const GymPage = lazy(() => import('./ui/gym/GymPage').then((m) => ({ default: m.GymPage })));
+const AdminPage = lazy(() => import('./ui/admin/AdminPage').then((m) => ({ default: m.AdminPage })));
 
 /** The start page, a module, or two screens inside the Lab: a new hand and one open hand. */
 type Page = 'home' | ModuleId | 'new' | 'hand';
@@ -50,6 +53,9 @@ export default function App() {
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [wizardKey, setWizardKey] = useState(0);
   const [open, setOpen] = useState<{ hand: HandRecord; editable: boolean; from: ModuleId } | null>(null);
+  // the admin's own module (the dashboard), with its news in the menu
+  const isAdmin = useSyncStatus().account?.role === 'admin';
+  const adminNews = useAdminNews(isAdmin);
 
   /** A hand opens in the Lab's hand screen; "back" returns to the module it came from. */
   const openHand = (hand: HandRecord, editable: boolean, from: ModuleId = 'lab') => {
@@ -77,18 +83,26 @@ export default function App() {
   // the module a screen belongs to, for the menu's highlight
   const current: ModuleId | null = page === 'home' ? null : page === 'new' ? 'lab' : page === 'hand' ? (open?.from ?? 'lab') : page;
 
+  const navClass = (id: ModuleId) => `shrink-0 rounded-md px-2.5 py-1.5 text-sm whitespace-nowrap sm:px-3 ${current === id ? 'bg-surface-2 text-ink' : 'text-muted hover:text-ink'}`;
   const nav = (
     <>
       {MODULES.map((m) => (
-        <button
-          key={m.id}
-          type="button"
-          onClick={() => setPage(m.id)}
-          className={`shrink-0 rounded-md px-2.5 py-1.5 text-sm whitespace-nowrap sm:px-3 ${current === m.id ? 'bg-surface-2 text-ink' : 'text-muted hover:text-ink'}`}
-        >
+        <button key={m.id} type="button" onClick={() => setPage(m.id)} className={navClass(m.id)}>
           {m.name}
         </button>
       ))}
+      {isAdmin && (
+        // a phone: the Joker's hat only (the row is full with six names)
+        <button type="button" onClick={() => setPage('admin')} className={`${navClass('admin')} relative flex items-center gap-1.5`} title={ADMIN_MODULE.what} aria-label={ADMIN_MODULE.name}>
+          <AdminIcon className="h-5 w-5 sm:hidden" />
+          <span className="hidden sm:inline">{ADMIN_MODULE.name}</span>
+          {adminNews.requests > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 min-w-4 rounded-full bg-accent px-1 text-center text-[10px] leading-4 font-bold text-accent-ink sm:static sm:min-w-5 sm:text-[11px] sm:leading-5" title="Open Premium requests">
+              {adminNews.requests}
+            </span>
+          )}
+        </button>
+      )}
     </>
   );
 
@@ -108,7 +122,7 @@ export default function App() {
                 <nav className="hidden min-w-0 flex-wrap gap-1 sm:flex">{nav}</nav>
               </div>
               <div className="flex shrink-0 items-center gap-1">
-                <AccountBadge />
+                <AccountBadge onAdmin={() => setPage('admin')} />
                 <Button variant="ghost" onClick={() => setOptionsOpen(true)} title="Options" className="shrink-0 !px-2.5 sm:!px-3.5">
                   ⚙<span className="hidden sm:inline"> Options</span>
                 </Button>
@@ -154,6 +168,7 @@ export default function App() {
           )}
           {page === 'ranges' && <RangesPage />}
           {page === 'equity' && <EquityPage />}
+          {page === 'admin' && (isAdmin ? <AdminPage /> : <HomePage onOpen={setPage} />)}
           {page === 'hand' && open && (
             <HandScreen
               key={`${open.hand.id}-${open.editable}`}
