@@ -58,7 +58,7 @@ describe('types: the family before the flop, then the postflop sliders', () => {
         expect(names(classify(s, types).best), name).toEqual(['Weak-tight rec']);
       }
     }
-  });
+  }, 30_000); // every review of three players: about 2 s alone, over 5 s while the whole suite runs
 
   test('a tie is shown, not broken by list order', () => {
     // a reg's preflop, c-bets between Reg (3) and TAG (3.5), bluffs as a reg: as near one as the other
