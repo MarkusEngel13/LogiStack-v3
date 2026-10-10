@@ -3,6 +3,14 @@
 Marius's notes from using the app, one line each. We agree them in batches of 2-3; nothing is built
 until agreed. `[ ]` open · `[~]` agreed, to build · `[-]` parked · `[x]` built.
 
+
+## Tonight (Marius, Cloudflare dashboard) - 2026-10-10
+- [ ] Open sign-up: Zero Trust -> Access -> Applications -> logistack -> Policies: a policy for
+      everyone (Include -> **Everyone**, login by one-time PIN by email). New users land on Free by
+      themselves (the server makes the account at the first login); you upgrade them in Users and plans.
+      Keep "author-page - Production" as it is. Mind the free Zero Trust limit: 50 users.
+- [ ] Optional: Zero Trust -> Settings -> seat expiration, so users inactive for a while give their
+      seat back by themselves (stays within 50).
 ## Phone layout
 1. [x] Phone: the LogiStack logo above (or just under) the menu bar. (ROADMAP "Next")
 2. [x] Phone: the menu bar wraps its text and links instead of running off the screen. (ROADMAP "Next")
