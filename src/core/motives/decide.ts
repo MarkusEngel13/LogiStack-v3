@@ -220,6 +220,41 @@ interface Aggro {
  * opponent counting only as far as they are there (`pres`: 1 = in, 0.4 = in four times in ten;
  * beating an absent player is free). NaN anywhere stays NaN.
  */
+// ---- the range-against-range work, kept for a moment -----------------------------------------------
+// The equity parts and fear numbers depend on the two ranges and the board only, not on who plays
+// them: the same question asked again with another player profile (the size explorer's stability
+// check, a slider dragged back and forth) reuses them. Exact - only a lookup. The results are
+// read, never written.
+
+/** A key for a range: FNV-1a over its weights. */
+function rangeKey(w: Weights): string {
+  let h = 2166136261;
+  let n = 0;
+  for (let c = 0; c < 1326; c++) {
+    const v = w[c]!;
+    if (v === 0) continue;
+    n++;
+    h = Math.imul(h ^ c, 16777619);
+    h = Math.imul(h ^ Math.round(v * 1e6), 16777619);
+  }
+  return `${(h >>> 0).toString(36)}.${n}`;
+}
+
+const MEMO_SIZE = 48;
+const memo = new Map<string, unknown>();
+function remember<T>(key: string, make: () => T): T {
+  const hit = memo.get(key);
+  if (hit !== undefined) {
+    memo.delete(key);
+    memo.set(key, hit); // most recent last
+    return hit as T;
+  }
+  const v = make();
+  memo.set(key, v);
+  if (memo.size > MEMO_SIZE) memo.delete(memo.keys().next().value!);
+  return v;
+}
+
 function product(arrays: readonly Float32Array[], pres?: readonly number[]): Float32Array {
   const out = new Float32Array(1326).fill(1);
   arrays.forEach((a, i) => {
@@ -255,8 +290,11 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
   const G = BUCKETS.length;
   const group = buckets.map((b) => (b ? BUCKETS.indexOf(b) : -1));
   const ALL = new Array<number>(G).fill(1);
-  const eqParts: GroupParts[] = opps.map((o) => partsByGroup(mine, o, board, group, G, true));
-  const nowParts: GroupParts[] = opps.map((o) => partsByGroup(mine, o, board, group, G, false));
+  const boardKey = board.join(',');
+  const mineKey = rangeKey(mine);
+  const oppKeys = opps.map(rangeKey);
+  const eqParts: GroupParts[] = opps.map((o, i) => remember(`p1|${boardKey}|${mineKey}|${oppKeys[i]}`, () => partsByGroup(mine, o, board, group, G, true)));
+  const nowParts: GroupParts[] = opps.map((o, i) => remember(`p0|${boardKey}|${mineKey}|${oppKeys[i]}`, () => partsByGroup(mine, o, board, group, G, false)));
   const equity = product(eqParts.map((q) => fromParts(q, ALL)), pres);
   // Felt fear: the share of next cards that would bite into the hand's lead at all (people count
   // the cards that "could" hurt, not how likely the opponent holds the hand), two cards to come
@@ -267,7 +305,7 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
   if (river) {
     ahead = product(nowParts.map((q) => fromParts(q, ALL)), pres);
   } else {
-    const frs = opps.map((o) => fearNumbers(mine, o, board));
+    const frs = opps.map((o, i) => remember(`f|${boardKey}|${mineKey}|${oppKeys[i]}`, () => fearNumbers(mine, o, board)));
     ahead = product(frs.map((f) => f.ahead), pres);
     const cardsToCome = streetsLeft === 2 ? 1.5 : 1;
     for (let combo = 0; combo < 1326; combo++) {

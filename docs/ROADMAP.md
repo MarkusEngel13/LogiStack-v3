@@ -770,6 +770,16 @@ table: rerun the EV with the ranges 5-10 % wider / narrower and each slider half
 show how often the best option stays best ("best in 18 of 20") and, better, the distance to the
 flip ("the check-raise stays best unless his range is 12 % wider"). Cheap heads-up, slow
 multiway.
+- [x] Built 2026-10-10 (`core/motives/stability.ts`, "Stable?" under the EV table): 10 nudges per
+  player still in - his range (preflop 10 % wider / narrower by the hand ranking; after the flop
+  10 % stronger / weaker, weight tilted by hand strength on the board; your read of him stays) and
+  six habits about 15 % either way (calls, raises, respects big bets, bluffs; each more and less).
+  Answer: stable / mostly stable / fragile, which nudge flips it and to what; a flip to another
+  size of the same action counts as stable (the lead between the two shows how little it matters).
+  Heads-up also how far his range may move (10 / 20 / 30 %). The 3 best options are compared; the
+  actor's decision is worked out once; `decide` now keeps the range-against-range parts for the
+  last 48 questions (exact; also made the whole test run ~20 % faster). About 10 s heads-up,
+  15 s three-way, in the background.
 
 **Earlier agreed:**
 - Count players while folding: optional "who played?" on "I fold" -> measured VPIP/PFR per saved

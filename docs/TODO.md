@@ -84,6 +84,6 @@ until agreed. `[ ]` open · `[~]` agreed, to build · `[-]` parked · `[x]` buil
         6 s instead of a confirm box (`ui/toast.tsx`). Cause of this morning's two unnamed players.
 
 ## Later
-39. [~] Solution stability: nudge the inputs (preflop range 5-10 % narrower or wider, other
+39. [x] Solution stability: nudge the inputs (preflop range 5-10 % narrower or wider, other
         parameters 5-15 % up or down) and show whether the suggested line holds or flips - a line
         that flips on a 5 % change is not a safe exploit.

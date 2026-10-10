@@ -7,6 +7,7 @@ import type { SizeAnswer, SizeQuestion } from '../../core/motives/sizes';
 import type { StoryInput, StoryStep } from '../../core/motives/story';
 import type { TableState } from '../../core/engine/state';
 import type { WhatIfAnswer } from '../../core/motives/whatIf';
+import type { Stability } from '../../core/motives/stability';
 import type { MotiveProfile } from '../../core/motives/profile';
 import type { PostflopRow } from '../../core/players/preview';
 import type { SimBatch, SimTable } from '../../core/sim/table';
@@ -24,6 +25,7 @@ export type Question =
   | { kind: 'story'; input: StoryInput }
   | { kind: 'sizes'; q: SizeQuestion }
   | { kind: 'whatif'; q: SizeQuestion; sizes?: number[] }
+  | { kind: 'stability'; q: SizeQuestion; names?: Record<number, string> }
   | { kind: 'bot'; input: StoryInput; state: TableState; step: number }
   | { kind: 'preview'; profile: MotiveProfile }
   | { kind: 'sim'; table: SimTable; from: number; to: number; charts: ChartChoice[] };
@@ -46,6 +48,8 @@ export interface EquityAnswer {
   story?: StoryStep[];
   /** kind 'sizes' */
   sizes?: SizeAnswer;
+  /** kind 'stability' (null: no option with an EV) */
+  stability?: Stability | null;
   /** kind 'whatif' */
   whatIf?: WhatIfAnswer;
   /** kind 'bot' */

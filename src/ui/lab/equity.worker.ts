@@ -7,6 +7,7 @@
  * - 'story': every postflop action of a hand through the motive model (ranges narrowed).
  * - 'sizes': the size explorer for the player to act.
  * - 'whatif': each line of the player to act and what reaches the next street.
+ * - 'stability': does the best EV option hold when the reads of the others are nudged.
  * - 'bot': the action of a bot holding real cards (after the flop).
  * - 'preview': what a player style does in the Players page's fixed spots.
  * - 'sim': a batch of bot hands at a table (the player check, the exploit check).
@@ -22,6 +23,7 @@ import { botChoice } from '../../core/motives/bot';
 import { exploreSizes, sizeKey, type SizeAnswer } from '../../core/motives/sizes';
 import { runStory, type StoryCache } from '../../core/motives/story';
 import { whatIf } from '../../core/motives/whatIf';
+import { stability } from '../../core/motives/stability';
 import { POSTFLOP_SPOTS, postflopRow, type PostflopRow } from '../../core/players/preview';
 import { playSimHands } from '../../core/sim/table';
 import type { EquityAnswer, EquityQuestion } from './useEquity';
@@ -69,6 +71,9 @@ ctx.onmessage = async (e) => {
     } else if (q.kind === 'bot') {
       if (storyCache.size > 400) storyCache.clear();
       answer({ bot: botChoice(q.input, q.state, q.step, Math.random, storyCache, true) });
+    } else if (q.kind === 'stability') {
+      // the EV table's answer, when it is still here, saves one run
+      answer({ stability: stability(q.q, { base: sizesCache.get(sizeKey(q.q)), names: q.names }) });
     } else if (q.kind === 'whatif') {
       answer({ whatIf: whatIf(q.q, q.sizes) });
     } else if (q.kind === 'sizes') {

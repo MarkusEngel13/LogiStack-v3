@@ -411,11 +411,26 @@ function optionEV(
   return { ev };
 }
 
-export function exploreSizes(q: SizeQuestion): SizeAnswer {
+/**
+ * Options for re-asking a question with one read changed (stability.ts): `mine` = the actor's
+ * decision, the same while what he believes stays; `only` = work out just these options (by
+ * label), the others are left out of the answer.
+ */
+export interface ExploreOptions {
+  mine?: Decision;
+  only?: ReadonlySet<string>;
+}
+
+/** The actor's decision over his range: what a size says about him (exploreSizes' first step). */
+export function actorDecision(q: SizeQuestion): Decision {
+  const seen = q.others.map((x) => x.seen ?? x.range);
+  return decide(q.actor.profile, { ...q.situation, allInAlways: true }, q.actor.range, seen.length === 1 ? seen[0]! : seen);
+}
+
+export function exploreSizes(q: SizeQuestion, opts: ExploreOptions = {}): SizeAnswer {
   const s = q.situation;
   const board = s.board;
-  const seen = q.others.map((x) => x.seen ?? x.range);
-  const mine = decide(q.actor.profile, { ...s, allInAlways: true }, q.actor.range, seen.length === 1 ? seen[0]! : seen);
+  const mine = opts.mine ?? actorDecision(q);
   const cards = q.actor.cards;
   const eqOf = cards ? equityMaker(cards, board, q.others) : null;
   const equity = eqOf ? eqOf(q.others.map((x) => ({ seat: x.seat, w: x.range }))) : undefined;
@@ -456,7 +471,10 @@ export function exploreSizes(q: SizeQuestion): SizeAnswer {
   // the passive options (check, or fold and call), then each bet or raise size
   const rows: SizeRow[] = [];
   const passive: SizeRow[] = [];
-  mine.options.forEach((o, i) => (o.kind === 'bet' || o.kind === 'raise' ? rows : passive).push(row(i)));
+  mine.options.forEach((o, i) => {
+    if (opts.only && !opts.only.has(o.label)) return;
+    (o.kind === 'bet' || o.kind === 'raise' ? rows : passive).push(row(i));
+  });
   return { rows, passive, equity, multiway: q.others.length > 1 };
 }
 
