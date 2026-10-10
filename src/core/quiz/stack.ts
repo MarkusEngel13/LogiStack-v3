@@ -79,18 +79,30 @@ export const STYLE_OF_TYPE: Record<string, StackStyle[]> = {
 export interface Tower {
   /** Chip indices into the set, bottom to top. */
   chips: number[];
-  /** Small sideways offsets per chip (px at the drawing's scale), for a stack that isn't a cylinder. */
+  /** Small sideways offsets per chip (px at the drawing's scale, a chip is 40 px: about mm), for a stack that isn't a cylinder. */
   jitter: number[];
+  /** Each chip's turn (0-1 of a full circle), so the edge stripes never line up chip to chip. (Older questions have none.) */
+  turn?: number[];
+  /** Tiny up or down offsets per chip (px), so the edges don't sit perfectly flat. */
+  lift?: number[];
+}
+
+/** A chip lying on the table: index, x and y offsets in chip widths, its turn (0-1). */
+export interface LyingChip {
+  chip: number;
+  x: number;
+  y: number;
+  turn?: number;
 }
 
 export interface Scene {
   label?: string;
   /** Towers in rows, front row first. */
   rows: Tower[][];
-  /** Chips lying loose in front (index, x and y offsets in chip widths). */
-  loose: { chip: number; x: number; y: number }[];
+  /** Chips lying loose in front. */
+  loose: LyingChip[];
   /** A splashed pile (a pot): chips scattered, no towers. */
-  splash?: { chip: number; x: number; y: number }[];
+  splash?: LyingChip[];
 }
 
 // ---- making a stack -----------------------------------------------------------------------------
@@ -140,29 +152,52 @@ export function makeChips(set: ChipSet, amount: number, rand: Rand): number[] {
 
 export const valueOf = (set: ChipSet, chips: readonly number[]) => chips.reduce((t, i) => t + set.chips[i]!.value, 0);
 
-const jitterFor = (rand: Rand, n: number, amount: number) => Array.from({ length: n }, () => Math.round((rand() - 0.5) * amount * 10) / 10);
+/** How far a chip sits off the tower's middle, at most (px; a chip is 40 px wide, so about mm). */
+const WOBBLE: Record<StackStyle, number> = { neat: 0.8, human: 1.6, nervous: 1.8, slob: 2.5 };
+
+/** A random turn of a chip (0-1 of a full circle). */
+const turnOf = (rand: Rand) => Math.round(rand() * 100) / 100;
+
+type Looks = { jitter: number[]; turn: number[]; lift: number[] };
+
+/**
+ * How n chips sit in a tower of a style (v2's look): each a little off to the side (about one chip
+ * in ten twice as far, but not in a neat stack), a hair up or down, and turned at random so the
+ * edge stripes zip instead of lining up.
+ */
+function chipLooks(rand: Rand, n: number, style: StackStyle): Looks {
+  const jitter: number[] = [];
+  const turn: number[] = [];
+  const lift: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const outlier = style !== 'neat' && rand() < 0.1;
+    jitter.push(Math.round((rand() * 2 - 1) * WOBBLE[style] * (outlier ? 2 : 1) * 10) / 10);
+    turn.push(turnOf(rand));
+    lift.push(Math.round((rand() * 2 - 1) * 0.3 * 10) / 10);
+  }
+  return { jitter, turn, lift };
+}
 
 /** Towers for a pile of chips, in a style. The highest chips stand at the back, as most players keep them. */
 export function stackUp(chips: number[], style: StackStyle, rand: Rand): Scene {
   const byChip = new Map<number, number>();
   for (const c of chips) byChip.set(c, (byChip.get(c) ?? 0) + 1);
   const kinds = [...byChip.keys()].sort((a, b) => a - b); // low chips first (front)
-  const towers: Tower[] = [];
+  const towers: (Tower & Looks)[] = [];
   const loose: Scene['loose'] = [];
   for (const chip of kinds) {
     let n = byChip.get(chip)!;
     // the slob leaves a few chips lying around
     if (style === 'slob' && n > 4 && rand() < 0.5) {
       const k = between(rand, 1, 3);
-      for (let j = 0; j < k; j++) loose.push({ chip, x: Math.round((rand() - 0.5) * 60) / 10, y: Math.round(rand() * 6) / 10 });
+      for (let j = 0; j < k; j++) loose.push({ chip, x: Math.round((rand() - 0.5) * 60) / 10, y: Math.round(rand() * 6) / 10, turn: turnOf(rand) });
       n -= k;
     }
     while (n > 0) {
       const h =
         style === 'neat' ? 20 : style === 'human' ? (rand() < 0.7 ? 20 : between(rand, 8, 15)) : style === 'nervous' ? between(rand, 5, 12) : between(rand, 3, 24);
       const take = Math.min(n, h);
-      const jit = style === 'neat' ? 0.6 : style === 'human' ? 1.2 : style === 'nervous' ? 1.4 : 3;
-      towers.push({ chips: Array.from({ length: take }, () => chip), jitter: jitterFor(rand, take, jit) });
+      towers.push({ chips: Array.from({ length: take }, () => chip), ...chipLooks(rand, take, style) });
       n -= take;
     }
   }
@@ -171,10 +206,16 @@ export function stackUp(chips: number[], style: StackStyle, rand: Rand): Scene {
     for (let t = 0; t < towers.length - 1; t++) {
       if (rand() < 0.35 && towers[t + 1]!.chips.length > 3) {
         const k = between(rand, 1, 3);
-        const moved = towers[t + 1]!.chips.splice(-k, k);
-        towers[t + 1]!.jitter.splice(-k, k);
-        towers[t]!.chips.push(...moved);
-        towers[t]!.jitter.push(...jitterFor(rand, k, 3));
+        const from = towers[t + 1]!;
+        const to = towers[t]!;
+        to.chips.push(...from.chips.splice(-k, k));
+        from.jitter.splice(-k, k);
+        from.turn.splice(-k, k);
+        from.lift.splice(-k, k);
+        const looks = chipLooks(rand, k, 'slob');
+        to.jitter.push(...looks.jitter);
+        to.turn.push(...looks.turn);
+        to.lift.push(...looks.lift);
       }
     }
   }
@@ -188,11 +229,11 @@ export function stackUp(chips: number[], style: StackStyle, rand: Rand): Scene {
 
 /** A splashed pot: the chips scattered in an oval, a few little piles of two or three. */
 export function splash(chips: number[], rand: Rand): Scene {
-  const out: { chip: number; x: number; y: number }[] = [];
+  const out: LyingChip[] = [];
   for (const chip of shuffled(rand, chips)) {
     const a = rand() * Math.PI * 2;
     const r = Math.sqrt(rand());
-    out.push({ chip, x: Math.round(Math.cos(a) * r * 30) / 10, y: Math.round(Math.sin(a) * r * 12) / 10 });
+    out.push({ chip, x: Math.round(Math.cos(a) * r * 30) / 10, y: Math.round(Math.sin(a) * r * 12) / 10, turn: turnOf(rand) });
   }
   return { rows: [], loose: [], splash: out };
 }
