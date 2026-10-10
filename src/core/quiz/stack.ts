@@ -206,8 +206,10 @@ function makeDirty(set: ChipSet, scene: Scene, rand: Rand): { scene: Scene; hidd
   const higher = set.chips.map((c, i) => ({ c, i })).filter((x) => x.c.value > set.chips[low]!.value);
   if (!higher.length) return null;
   const hi = pick(rand, higher).i;
-  const at = between(rand, 2, t.chips.length - 3);
-  t.chips[at] = hi;
+  // only one of the tower's own chips: the slob's towers can carry a few of the next tower's on top
+  const spots = t.chips.flatMap((c, i) => (i >= 2 && i <= t.chips.length - 3 && c === low ? [i] : []));
+  if (!spots.length) return null;
+  t.chips[pick(rand, spots)] = hi;
   return { scene, hidden: set.chips[hi]!.value - set.chips[low]!.value };
 }
 

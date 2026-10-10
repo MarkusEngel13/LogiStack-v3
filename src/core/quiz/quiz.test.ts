@@ -43,12 +43,23 @@ describe('guess the stack', () => {
     }
   });
 
-  it('the dirty stack: the answer counts the hidden chip', () => {
-    const rand = seeded(3);
-    const q = stackQuestion(home, 3, rand);
+  /** The value of the chips the question draws. */
+  const drawn = (q: ReturnType<typeof stackQuestion>) => {
     const scene = (q.data.scenes as { rows: { chips: number[] }[][]; loose: { chip: number }[] }[])[0]!;
-    const counted = scene.rows.flat().reduce((t, x) => t + x.chips.reduce((s, i) => s + home.chips[i]!.value, 0), 0) + scene.loose.reduce((t, l) => t + home.chips[l.chip]!.value, 0);
-    expect(q.answer).toMatchObject({ kind: 'number', value: counted, tolerance: 0 });
+    return scene.rows.flat().reduce((t, x) => t + x.chips.reduce((s, i) => s + home.chips[i]!.value, 0), 0) + scene.loose.reduce((t, l) => t + home.chips[l.chip]!.value, 0);
+  };
+
+  it('the dirty stack: the answer counts the hidden chip', () => {
+    const q = stackQuestion(home, 3, seeded(3));
+    expect(q.answer).toMatchObject({ kind: 'number', value: drawn(q), tolerance: 0 });
+  });
+
+  it('the answer is always what the drawing shows (messy stacks with chips of the next tower on top too)', () => {
+    const rand = seeded(17);
+    for (let i = 0; i < 3000; i++) {
+      const q = stackQuestion(home, 2 + (i % 2), rand);
+      expect((q.answer as { value: number }).value).toBe(drawn(q));
+    }
   });
 
   it('geometric bets: pot 100, stack 800, two streets', () => {

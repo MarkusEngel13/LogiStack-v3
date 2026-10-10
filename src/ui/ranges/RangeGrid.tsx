@@ -113,20 +113,30 @@ export function RangeGrid({
   if (!paintable || !touchScreen) return grid;
   return (
     <div className="space-y-1.5">
-      <div className={`flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-xs ${editing ? 'bg-accent text-accent-ink' : 'bg-surface-2 text-muted'}`}>
-        <span>{editing ? 'Painting: a finger paints the cells' : 'Scroll freely · tap a cell to see it'}</span>
-        <button
-          type="button"
-          onClick={() => {
-            setEditing((v) => !v);
-            onHover?.(null, 0, 0);
-          }}
-          className={`min-h-9 rounded-md px-3 font-semibold ${editing ? 'bg-black/20' : 'border border-line bg-surface text-ink'}`}
-        >
-          {editing ? 'Done' : '✏ Edit'}
-        </button>
-      </div>
+      <TouchEditBar
+        editing={editing}
+        onToggle={() => {
+          setEditing((v) => !v);
+          onHover?.(null, 0, 0);
+        }}
+      />
       {grid}
+    </div>
+  );
+}
+
+/** The bar over a paintable grid on a touch screen: "✏ Edit" to paint with a finger, "Done" to scroll again. */
+export function TouchEditBar({ editing, onToggle, idle = 'Scroll freely · tap a cell to see it' }: { editing: boolean; onToggle: () => void; idle?: string }) {
+  return (
+    <div className={`flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-xs ${editing ? 'bg-accent text-accent-ink' : 'bg-surface-2 text-muted'}`}>
+      <span>{editing ? 'Painting: a finger paints the cells' : idle}</span>
+      <button
+        type="button"
+        onClick={onToggle}
+        className={`min-h-9 rounded-md px-3 font-semibold ${editing ? 'bg-black/20' : 'border border-line bg-surface text-ink'}`}
+      >
+        {editing ? 'Done' : '✏ Edit'}
+      </button>
     </div>
   );
 }

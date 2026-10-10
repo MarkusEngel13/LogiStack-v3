@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import { CELL_NAMES } from '../../core/ranges/hands';
 import { Button } from '../controls';
+import { TouchEditBar } from '../ranges/RangeGrid';
+import { useTouchScreen } from '../touch';
 
 export const BUCKET_COLORS: Record<string, string> = {
   value: '#dc2626',
@@ -10,8 +12,9 @@ export const BUCKET_COLORS: Record<string, string> = {
 };
 
 /**
- * A 13×13 chart to paint: pick a bucket, tap or drag over hands (finger or mouse). After the
- * answer, each cell shows the chart's bucket, and the ones you got wrong are marked.
+ * A 13×13 chart to paint: pick a bucket, tap or drag over hands. A finger paints only after
+ * "✏ Edit" or picking a bucket (until "Done"), so a scroll over the grid changes nothing. After
+ * the answer, each cell shows the chart's bucket, and the ones you got wrong are marked.
  */
 export function GridPainter({
   buckets,
@@ -27,6 +30,10 @@ export function GridPainter({
   const [brush, setBrush] = useState(buckets[0]!.id);
   const painting = useRef<string | null>(null);
   const done = !!answer;
+  // a finger paints only in edit mode (as on the PF Ranges page); a mouse or pen always
+  const touchScreen = useTouchScreen();
+  const [editing, setEditing] = useState(false);
+  const fingerPaints = !done && (!touchScreen || editing);
 
   const paintAt = (x: number, y: number) => {
     const el = document.elementFromPoint(x, y) as HTMLElement | null;
@@ -45,7 +52,11 @@ export function GridPainter({
             <button
               key={b.id}
               type="button"
-              onClick={() => setBrush(b.id)}
+              onClick={() => {
+                setBrush(b.id);
+                // picking a bucket means painting next
+                if (touchScreen) setEditing(true);
+              }}
               className={`flex min-h-10 items-center gap-2 rounded-lg border px-3 py-1.5 text-sm ${brush === b.id ? 'border-accent bg-surface-3 font-semibold' : 'border-line bg-surface-2'}`}
             >
               <span className="h-3.5 w-3.5 rounded-sm border border-line" style={{ background: BUCKET_COLORS[b.id] }} />
@@ -54,11 +65,16 @@ export function GridPainter({
           ))}
         </div>
       )}
+      {!done && touchScreen && (
+        <div style={{ maxWidth: 560 }}>
+          <TouchEditBar editing={editing} onToggle={() => setEditing((v) => !v)} idle="Scroll freely · ✏ Edit (or pick a bucket) to paint" />
+        </div>
+      )}
       <div
-        className="grid touch-none select-none gap-px rounded-md bg-line p-px"
+        className={`grid select-none gap-px rounded-md bg-line p-px ${fingerPaints ? 'touch-none' : ''} ${touchScreen && editing && !done ? 'outline-2 outline-accent' : ''}`}
         style={{ gridTemplateColumns: 'repeat(13, minmax(0, 1fr))', maxWidth: 560 }}
         onPointerDown={(e) => {
-          if (done) return;
+          if (done || (e.pointerType === 'touch' && !editing)) return;
           const el = e.target as HTMLElement;
           const cell = el.dataset.cell;
           if (cell === undefined) return;
