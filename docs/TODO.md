@@ -5,7 +5,7 @@ until agreed. `[ ]` open · `[~]` agreed, to build · `[-]` parked · `[x]` buil
 
 
 ## Tonight (Marius, Cloudflare dashboard) - 2026-10-10
-- [ ] Changed plan (2026-10-10): 4-5 testers by email, not Everyone. Zero Trust Free is chosen (card
+- [x] Done (2026-10-10): open to Everyone after all (see 67). Earlier idea: 4-5 testers by email. Zero Trust Free is chosen (card
       on file, not charged; at 50 seats further logins are blocked, not billed). Cloudflare One ->
       Access controls -> Policies -> "author-page - Production" -> Edit -> Include, Emails: add theirs.
 - [-] Open sign-up (parked): Zero Trust -> Access -> Applications -> logistack -> Policies: a policy for
@@ -143,9 +143,9 @@ until agreed. `[ ]` open · `[~]` agreed, to build · `[-]` parked · `[x]` buil
 58. [x] The quiz chart painter: a finger paints only after "✏ Edit" or picking a bucket ("Done" to
         scroll again), like the PF Ranges grid.
 59. [x] `CLAUDE.md` in the repo: the rules for every session, phone included (no AI lines in commits).
-60. [~] Quiz storage: a day keeps its questions 3 days; older days fold into one history item (score
-        per quiz, set finished or not, for the streak and stats). Missed questions keep coming back
-        from their own list (max 40).
+60. [~] Quiz storage (revised): keep only today's set, the questions you got wrong (they come back;
+        max 40; Guess the stack's never kept) and a score line a day. Older days fold into one
+        history item. The admin keeps every day in full.
 61. [~] Free plan: at most 10 quiz items on the server (`state`, history, the last days; only those
         names accepted), and only the day's set: practice beyond it is for paid plans. A set already
         started can be finished.
@@ -164,6 +164,22 @@ until agreed. `[ ]` open · `[~]` agreed, to build · `[-]` parked · `[x]` buil
         with weaker hands when he puts you on AK with no pair. Levels: never / now and then / very
         often. Feeds his jam range (Lab range story, EV table calls wider, bots, Live tip).
 66. [ ] Options panel on a laptop (takes 58 % of the width): Marius checks first.
+
+## Open sign-up - 2026-10-10
+67. [x] Anyone logs in with a code Cloudflare emails them (policy Everyone, Zero Trust Free, seats
+        expire after 2 weeks without a login) and lands on Free by themselves. Done by Marius.
+68. [~] Admin dashboard: its own module card (a joker, light red, only the admin sees it). Overview
+        tiles, Premium requests, users (search, filters, sort; table on a computer, cards on a
+        phone; a user's panel: plan, role, items against the limits, note, delete), the plans'
+        limits, the advice upload. Plan limits stay in the code for now.
+69. [~] "Ask for Premium" for Free users; the admin approves or declines. Later: a subscription link.
+70. [~] "Consider this": the playbook's advice in our own words goes to the server (the admin uploads
+        it from his browser; the coaches' words, names and videos stay there); Free sees 1 piece per
+        moment, Premium and Pro 3. The admin keeps "Playbook says" (+ "users see"). The coaches'
+        wording gets edited later.
+71. [~] A welcome card for new users: Free's limits, their data on the server (only theirs), ask for
+        Premium or deletion under the account.
+72. [~] Shared profiles show "LogiStack" (or a pseudonym), never the sharer's email.
 
 ## Later
 39. [x] Solution stability: nudge the inputs (preflop range 5-10 % narrower or wider, other
