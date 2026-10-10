@@ -18,13 +18,14 @@ import { newId, pick, shuffled, type Question, type Rand } from './types';
 
 const POS_NAME: Record<string, string> = { 'UTG+3': 'LJ' };
 
-/** The chart's clear action for a cell, or null when it mixes. */
-function clearAction(r: LibraryRange, cell: number): 'raise' | 'call' | 'fold' | null {
+/** The chart's clear action for a cell, or null when it mixes. (Charts hold percents.) */
+export function clearAction(r: LibraryRange, cell: number): 'raise' | 'call' | 'fold' | null {
   const m = r.chart[cell]!;
-  const raise = m.raise + m.allin;
-  const fold = 1 - raise - m.call;
+  const raise = (m.raise + m.allin) / 100;
+  const call = m.call / 100;
+  const fold = 1 - raise - call;
   if (raise >= 0.7) return 'raise';
-  if (m.call >= 0.7) return 'call';
+  if (call >= 0.7) return 'call';
   if (fold >= 0.7) return 'fold';
   return null;
 }
@@ -41,7 +42,7 @@ function edgeCell(r: LibraryRange, rand: Rand): number | null {
   return window.length ? pick(rand, window) : null;
 }
 
-const charts = (scenario: string) => LIBRARY.filter((r) => r.scenario === scenario && r.env === 'Live' && r.stack === '100BB');
+export const charts = (scenario: string) => LIBRARY.filter((r) => r.scenario === scenario && r.env === 'Live' && r.stack === '100BB');
 
 function chartQuestion(level: number, rand: Rand): Question {
   for (let guard = 0; guard < 50; guard++) {
@@ -69,7 +70,7 @@ function chartQuestion(level: number, rand: Rand): Question {
         ];
     if (!choices.some((c) => c.id === act)) continue;
     const m = r.chart[cell]!;
-    const share = (x: number) => `${Math.round(x * 100)} %`;
+    const share = (x: number) => `${Math.round(x)} %`;
     return {
       id: newId(rand),
       quiz: 'ranges',
@@ -79,7 +80,7 @@ function chartQuestion(level: number, rand: Rand): Question {
       data: { hand, cell, chart: r.label },
       choices,
       answer: { kind: 'choice', id: act },
-      explain: `The chart (${r.label}): ${hand} raises ${share(m.raise + m.allin)}${m.call ? `, calls ${share(m.call)}` : ''}, folds ${share(Math.max(0, 1 - m.raise - m.allin - m.call))}.`,
+      explain: `The chart (${r.label}): ${hand} raises ${share(m.raise + m.allin)}${m.call ? `, calls ${share(m.call)}` : ''}, folds ${share(Math.max(0, 100 - m.raise - m.allin - m.call))}.`,
     };
   }
   throw new Error('no chart question found');

@@ -65,7 +65,7 @@ export const CHIP_PRESETS: ChipSet[] = [
 export type StackStyle = 'neat' | 'human' | 'nervous' | 'slob';
 
 /** The player types' habits at the table (v2: reg / nervous / slob). */
-const STYLE_OF_TYPE: Record<string, StackStyle[]> = {
+export const STYLE_OF_TYPE: Record<string, StackStyle[]> = {
   Nit: ['neat'],
   Reg: ['neat', 'human'],
   TAG: ['neat', 'human'],

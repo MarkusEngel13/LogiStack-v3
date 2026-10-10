@@ -3,6 +3,7 @@
  *   1 Pot odds and bet sizes  ("€0.80 to call into €2.40: what equity do you need?", "½ pot is?")
  *   2 Raises and SPR          ("3x over a bet of €0.75 is?", "pot-sized raise", "stack ÷ pot")
  *   3 Side pots, geometric    ("three all-ins: how big is the main pot?", "the bet to be all-in by the river")
+ *   4 Defence and bluffs      ("he bets ¾ pot: how often must you defend?", "how many of your river bets can be bluffs?")
  */
 
 import { geometricBet } from './stack';
@@ -39,7 +40,55 @@ export function mathsQuestion(g: MathsGame, level: number, rand: Rand): Question
   const bb = g.blinds.bb;
   const base = { id, quiz: 'maths' as const, level };
   const pot = () => round(g, between(rand, 4, 60) * bb);
-  const kind = level === 1 ? pick(rand, ['pot-odds', 'bet-size']) : level === 2 ? pick(rand, ['raise', 'pot-raise', 'spr']) : pick(rand, ['side-pot', 'geometric']);
+  const kind =
+    level === 1 ? pick(rand, ['pot-odds', 'bet-size']) : level === 2 ? pick(rand, ['raise', 'pot-raise', 'spr']) : level === 3 ? pick(rand, ['side-pot', 'geometric']) : pick(rand, ['mdf', 'bluffs', 'ratio']);
+
+  if (kind === 'mdf' || kind === 'bluffs' || kind === 'ratio') {
+    const [f, word] = pick(rand, [
+      [0.33, '⅓ pot'],
+      [0.5, '½ pot'],
+      [0.66, '⅔ pot'],
+      [0.75, '¾ pot'],
+      [1, 'pot'],
+      [1.5, '1½ × pot'],
+      [2, '2 × pot'],
+    ] as [number, string][]);
+    const n = (x: number) => String(Math.round(x * 100) / 100);
+    const mdf = 100 / (1 + f);
+    const bluffs = (100 * f) / (1 + 2 * f);
+    if (kind === 'mdf') {
+      return {
+        ...base,
+        type: 'mdf',
+        prompt: `He bets ${word}. How often must you continue (call or raise) so his bluffs don't win at once (the minimum defence)?`,
+        data: { fraction: f },
+        unit: '%',
+        answer: { kind: 'number', value: Math.round(mdf * 10) / 10, tolerance: 3 },
+        explain: `Minimum defence = pot ÷ (pot + bet) = 1 ÷ ${n(1 + f)} = ${Math.round(mdf)} %. Fold more than ${Math.round(100 - mdf)} % and any two cards profit as a bluff. Against a pool that under-bluffs, fold more than this anyway: the number is the line for a balanced bettor.`,
+      };
+    }
+    if (kind === 'bluffs') {
+      return {
+        ...base,
+        type: 'bluffs',
+        prompt: `River: you bet ${word}. What share of your bets can be bluffs so his calls break even?`,
+        data: { fraction: f },
+        unit: '%',
+        answer: { kind: 'number', value: Math.round(bluffs * 10) / 10, tolerance: 3 },
+        explain: `He risks ${word} to win ${n(1 + f)} pots, so he needs ${Math.round(bluffs)} % equity: bet ÷ (pot + 2 × bet) = ${n(f)} ÷ ${n(1 + 2 * f)}. That is the share of bluffs that makes calling and folding the same to him. Live pools call too much, so bluff less than this against them.`,
+      };
+    }
+    const value = Math.round(((1 + f) / f) * 100) / 100;
+    return {
+      ...base,
+      type: 'ratio',
+      prompt: `River: you bet ${word}. For each bluff, how many value bets (balanced)?`,
+      data: { fraction: f },
+      unit: 'value bets',
+      answer: { kind: 'number', value, relative: 0.12 },
+      explain: `Bluffs are ${Math.round(bluffs)} % of the bets, value ${Math.round(100 - bluffs)} %: ${Math.round(100 - bluffs)} ÷ ${Math.round(bluffs)} = ${value} value bets per bluff. Bigger bets carry more bluffs (pot: 2 to 1, ⅓ pot: 4 to 1).`,
+    };
+  }
 
   if (kind === 'pot-odds') {
     const p = pot();

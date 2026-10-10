@@ -8,7 +8,7 @@ import { QuizRunner, type QuizSource } from './QuizRunner';
 import { allAttempts, loadDays, loadState, openInSet, saveState, todayRecord } from './quizStore';
 import { formatAmount } from '../format';
 
-const ICON: Record<QuizId, string> = { stack: '🪙', maths: '🧮', ranges: '🎯', draws: '🃏' };
+const ICON: Record<QuizId, string> = { stack: '🪙', maths: '🧮', ranges: '🎯', draws: '🃏', build: '🧱', board: '🗺️', reads: '🕵️' };
 
 /** The Gym's quizzes: today's set of ten, your streak, and each quiz to practise at your level. */
 export function QuizHome() {

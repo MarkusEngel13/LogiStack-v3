@@ -4,9 +4,12 @@
  * streak (days in a row with the set finished), and stats per quiz.
  */
 
+import { boardQuestion } from './board';
+import { buildQuestion } from './build';
 import { drawsQuestionFor } from './draws';
 import { mathsQuestion } from './maths';
 import { rangesQuestion } from './ranges';
+import { readsQuestion } from './reads';
 import { CHIP_PRESETS, stackQuestion, type ChipSet } from './stack';
 import { QUIZ_INFO, QUIZZES, seeded, type Given, type QuizId, type Question, type Rand } from './types';
 
@@ -42,12 +45,12 @@ export interface QuizState {
 }
 
 export const DAILY_SIZE = 10;
-const DAILY_MIX: Record<QuizId, number> = { stack: 3, maths: 3, ranges: 2, draws: 2 };
+const DAILY_MIX: Record<QuizId, number> = { stack: 2, maths: 2, ranges: 1, draws: 1, build: 1, board: 2, reads: 1 };
 const REVIEW_MAX = 40;
 
 export const defaultState = (): QuizState => ({
   id: 'state',
-  levels: { stack: 1, maths: 1, ranges: 1, draws: 1 },
+  levels: { stack: 1, maths: 1, ranges: 1, draws: 1, build: 1, board: 1, reads: 1 },
   chipSet: CHIP_PRESETS[0]!,
   review: [],
 });
@@ -57,6 +60,9 @@ export function makeQuestion(quiz: QuizId, level: number, state: QuizState, rand
   if (quiz === 'stack') return stackQuestion(set, level, rand);
   if (quiz === 'maths') return mathsQuestion({ currency: set.currency, blinds: set.blinds }, level, rand);
   if (quiz === 'ranges') return rangesQuestion(level, rand);
+  if (quiz === 'build') return buildQuestion(level, rand);
+  if (quiz === 'board') return boardQuestion(level, rand);
+  if (quiz === 'reads') return readsQuestion(set, level, rand);
   return drawsQuestionFor(level, rand);
 }
 
@@ -72,7 +78,8 @@ export function dailySet(date: string, state: QuizState): Question[] {
     for (let k = 0; k < DAILY_MIX[quiz]; k++) {
       const again = k === 0 && out.filter((q) => state.review.some((r) => r.id === q.id)).length < 3 ? review.findIndex((r) => r.quiz === quiz) : -1;
       if (again >= 0) out.push(review.splice(again, 1)[0]!);
-      else out.push(makeQuestion(quiz, state.levels[quiz], state, rand));
+      // painting a whole chart is practice, not one of the day's quick ten
+      else out.push(makeQuestion(quiz, quiz === 'build' && state.levels[quiz] >= 3 ? 1 + Math.floor(rand() * 2) : state.levels[quiz], state, rand));
     }
   }
   return out;

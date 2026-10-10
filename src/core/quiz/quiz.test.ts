@@ -5,7 +5,11 @@ import { combosLeft, drawsOn, drawsQuestionFor, outs } from './draws';
 import { mathsQuestion } from './maths';
 import { rangesQuestion } from './ranges';
 import { CHIP_PRESETS, geometricBet, makeChips, stackQuestion, stackUp, valueOf } from './stack';
-import { grade, QUIZZES, QUIZ_INFO, seeded } from './types';
+import { boardQuestion } from './board';
+import { buildQuestion, chartBuckets } from './build';
+import { readsQuestion } from './reads';
+import { charts, clearAction } from './ranges';
+import { grade, QUIZZES, QUIZ_INFO, rightAnswer, seeded } from './types';
 
 const c = (t: string) => parseCards(t.split(' '));
 const home = CHIP_PRESETS[0]!;
@@ -33,9 +37,7 @@ describe('guess the stack', () => {
     for (let level = 1; level <= 5; level++) {
       for (let i = 0; i < 20; i++) {
         const q = stackQuestion(home, level, rand);
-        const a = q.answer;
-        const given = a.kind === 'choice' ? { kind: 'choice' as const, id: a.id } : a.kind === 'number' ? { kind: 'number' as const, value: a.value } : { kind: 'multi' as const, ids: a.ids };
-        expect(grade(q, given).correct).toBe(true);
+        expect(grade(q, rightAnswer(q)).correct).toBe(true);
         if (level === 1) expect(q.choices).toHaveLength(5);
       }
     }
@@ -61,9 +63,7 @@ describe('table maths, ranges, draws', () => {
     for (let level = 1; level <= 3; level++) {
       for (let i = 0; i < 15; i++) {
         for (const q of [mathsQuestion({ currency: home.currency, blinds: home.blinds }, level, rand), rangesQuestion(level, rand), drawsQuestionFor(level, rand)]) {
-          const a = q.answer;
-          const given = a.kind === 'choice' ? { kind: 'choice' as const, id: a.id } : a.kind === 'number' ? { kind: 'number' as const, value: a.value } : { kind: 'multi' as const, ids: a.ids };
-          expect(grade(q, given).correct, q.prompt).toBe(true);
+          expect(grade(q, rightAnswer(q)).correct, q.prompt).toBe(true);
           expect(q.explain.length).toBeGreaterThan(10);
         }
       }
@@ -97,6 +97,66 @@ describe('table maths, ranges, draws', () => {
   });
 });
 
+describe('range building, the board, reads', () => {
+  it('every generator answers its own question, at every level', () => {
+    const rand = seeded(21);
+    for (let i = 0; i < 6; i++) {
+      for (let level = 1; level <= QUIZ_INFO.build.levels; level++) {
+        const q = buildQuestion(level, rand);
+        expect(grade(q, rightAnswer(q)).correct, q.prompt).toBe(true);
+        if (q.answer.kind === 'choice') expect(q.choices!.some((c) => c.id === (q.answer as { id: string }).id)).toBe(true);
+      }
+      for (let level = 1; level <= QUIZ_INFO.board.levels; level++) {
+        const q = boardQuestion(level, rand);
+        expect(grade(q, rightAnswer(q)).correct, q.prompt).toBe(true);
+        expect(q.explain.length).toBeGreaterThan(10);
+      }
+      for (let level = 1; level <= QUIZ_INFO.reads.levels; level++) {
+        const q = readsQuestion(home, level, rand);
+        expect(grade(q, rightAnswer(q)).correct).toBe(true);
+      }
+      for (let level = 4; level <= 4; level++) {
+        const q = mathsQuestion({ currency: home.currency, blinds: home.blinds }, level, rand);
+        expect(grade(q, rightAnswer(q)).correct).toBe(true);
+      }
+    }
+  }, 60_000);
+
+  it('charts are in percent: a 50/50 hand is never a clear action', () => {
+    const utg = charts('RFI').find((r) => r.positions.includes('HJ'))!;
+    const mixed = utg.chart.findIndex((m) => m.raise === 50);
+    if (mixed >= 0) expect(clearAction(utg, mixed)).toBeNull();
+    expect(clearAction(utg, 0)).toBe('raise'); // AA
+  });
+
+  it('3-bet buckets: aces are value, the bluffs are below the calls', () => {
+    for (const scenario of ['vs RFI BTN', 'vs RFI CO']) {
+      const bb = charts(scenario).find((r) => r.positions.includes('BB'))!;
+      const b = chartBuckets(bb);
+      expect(b[0]).toBe('value'); // AA
+      expect(b.includes('call')).toBe(true);
+      // the BB 3-bets A5s against the button while 88-22 call; against the CO it 3-bets linear
+      expect(b.includes('bluff')).toBe(scenario === 'vs RFI BTN');
+    }
+  });
+
+  it('a painted chart is graded by combos', () => {
+    const q = buildQuestion(3, seeded(4));
+    const cells = (q.answer as { cells: string[] }).cells;
+    expect(grade(q, { kind: 'grid', cells }).error).toBe(0);
+    const allFold = cells.map(() => 'fold');
+    expect(grade(q, { kind: 'grid', cells: allFold }).correct).toBe(false);
+  });
+
+  it('maths: pot-sized bet, defend half', () => {
+    const rand = seeded(9);
+    for (let i = 0; i < 40; i++) {
+      const q = mathsQuestion({ currency: home.currency, blinds: home.blinds }, 4, rand);
+      if (q.type === 'mdf' && (q.data as { fraction: number }).fraction === 1) expect((q.answer as { value: number }).value).toBe(50);
+    }
+  });
+});
+
 describe('the routine', () => {
   it('the day\'s set: ten questions, the same on every device, missed ones come back', () => {
     const st = defaultState();
@@ -126,6 +186,6 @@ describe('the routine', () => {
     expect(streak(days, '2026-10-10')).toBe(3);
     expect(streak([...days.slice(0, 3), day('2026-10-10', true)], '2026-10-10')).toBe(4);
     expect(streak([day('2026-10-07', true)], '2026-10-10')).toBe(0);
-    expect(QUIZZES).toHaveLength(4);
+    expect(QUIZZES).toHaveLength(7);
   });
 });

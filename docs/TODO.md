@@ -113,6 +113,27 @@ until agreed. `[ ]` open · `[~]` agreed, to build · `[-]` parked · `[x]` buil
         the review of changed questions and the exploit check are pages with ← Back; real
         windows only for Options, the account, users and plans, "unsaved changes", naming a chart.
 
+## Quizzes (Gym) - 2026-10-10
+50. [x] Gym tabs "Play · Watch" and "Quizzes"; the home Gym card says "Play · Watch · Quiz" and shows
+        how many of today's questions are left. Results sync to the account (kind `quiz`: one item a
+        day plus your levels, chip set and missed questions). `core/quiz/*`, `ui/quiz/*`.
+51. [x] Today's ten (the same on every device), a streak, levels (8 of the last 10 right moves you
+        up), missed questions come back in later sets, stats per quiz.
+52. [x] Guess the stack (5 levels, v2's ladder, your own chip colours and values, the stack's look by
+        player type), Table maths (4: pot odds, sizes, raises, SPR, side pots, geometric bets,
+        minimum defence, bluff share), Ranges (3: charts, facing an open, flop equity), Draws and
+        combos (3: outs, draws on a board, combos with blockers).
+53. [x] Range building (3): bucket a hand facing an open or a 3-bet (value / bluff / call / fold, read
+        from the library charts: a raise with several stronger hands only calling is a bluff), and
+        paint a whole chart (scored on the combos either side plays, 80 % to pass).
+54. [x] Ranges on the board (5): bucket your hand on the flop (HHP's buckets), ahead / close / behind
+        his opening range, count his can-play-for-stacks combos, who has more nuts (raiser or BB),
+        river blockers.
+55. [x] Read the player (2): his stack's look, his tracker numbers (VPIP, PFR, 3-bet, AF).
+56. [ ] Next step: exploit quizzes (best line against this villain, read the villain from a hand,
+        his combos value vs bluff on the river), postflop buckets by bet / check-call / check-fold
+        (need the EV engine as the reference), bet size by texture, stack style shown on the tables.
+
 ## Later
 39. [x] Solution stability: nudge the inputs (preflop range 5-10 % narrower or wider, other
         parameters 5-15 % up or down) and show whether the suggested line holds or flips - a line

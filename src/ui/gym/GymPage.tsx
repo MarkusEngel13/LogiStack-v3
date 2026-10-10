@@ -55,7 +55,7 @@ export function GymPage({ onStart, onOpen }: { onStart: (hand: HandRecord, mode:
     <div className="mx-auto max-w-4xl space-y-5 px-3 py-5 sm:px-6 sm:py-6">
       <div>
         <h1 className="text-xl font-bold">Gym</h1>
-        <p className="text-xs text-muted">{tab === 'bots' ? 'Bots of mixed types: watch how each one plays, or sit down and play against them.' : 'Quick drills: stacks, table maths, ranges, draws. Results are saved to your account.'}</p>
+        <p className="text-xs text-muted">{tab === 'bots' ? 'Bots of mixed types: watch how each one plays, or sit down and play against them.' : 'Quick drills: stacks, maths, ranges, draws, reads. Ten a day, results saved to your account.'}</p>
       </div>
       <Segmented value={tab} options={[{ value: 'bots', label: '🤖 Play · Watch' }, { value: 'quiz', label: '🧠 Quizzes' }]} onChange={pickTab} />
       {tab === 'quiz' ? (

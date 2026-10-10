@@ -8,6 +8,7 @@ import { Button, Modal, inputClass } from '../controls';
 import { CURRENCIES, formatAmount, parseAmount } from '../format';
 import { useToast } from '../toast';
 import { ChipLegend, ChipScene } from './ChipStack';
+import { GridPainter } from './GridPainter';
 import { addAttempt, allAttempts, loadDays, loadState, saveState } from './quizStore';
 
 export type QuizSource = { kind: 'daily'; questions: Question[] } | { kind: 'practice'; quiz: QuizId; level: number };
@@ -35,7 +36,7 @@ function Cards({ label, cards }: { label: string; cards: string[] }) {
 /** What the question shows: the chips, the cards, the hand. */
 function Visual({ q }: { q: Question }) {
   const d = q.data;
-  if (q.quiz === 'stack') {
+  if (Array.isArray(d.scenes)) {
     const chips = d.chips as ChipDef[];
     const scenes = d.scenes as Scene[];
     return (
@@ -51,8 +52,25 @@ function Visual({ q }: { q: Question }) {
       </div>
     );
   }
-  if (q.type === 'open' || q.type === 'facing') {
-    return <div className="text-center text-5xl font-black tracking-tight">{String(d.hand)}</div>;
+  if (typeof d.hand === 'string') {
+    return <div className="text-center text-5xl font-black tracking-tight">{d.hand}</div>;
+  }
+  if (d.stats) {
+    const st = d.stats as { hands: number; vpip: number; pfr: number; threeBet: number; af: number };
+    const cell = (k: string, v: string) => (
+      <div className="rounded-lg bg-surface-2 px-3 py-2 text-center">
+        <div className="text-[10px] font-semibold tracking-wider text-muted uppercase">{k}</div>
+        <div className="text-2xl font-black">{v}</div>
+      </div>
+    );
+    return (
+      <div className="grid grid-cols-4 gap-2">
+        {cell('VPIP', `${st.vpip}`)}
+        {cell('PFR', `${st.pfr}`)}
+        {cell('3-bet', `${st.threeBet}`)}
+        {cell('AF', `${st.af}`)}
+      </div>
+    );
   }
   if (d.board || d.hero) {
     return (
@@ -84,10 +102,13 @@ export function QuizRunner({ source, onClose }: { source: QuizSource; onClose: (
   const [multi, setMulti] = useState<string[]>([]);
   const [score, setScore] = useState({ right: 0, done: 0 });
   const started = useRef(Date.now());
+  // a question from the review queue (a miss coming back), as it was when the question came up
+  const [again, setAgain] = useState(false);
   const nextRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     started.current = Date.now();
+    setAgain(!!q && loadState().review.some((r) => r.id === q.id));
     setGiven(null);
     setResult(null);
     setText('');
@@ -114,7 +135,8 @@ export function QuizRunner({ source, onClose }: { source: QuizSource; onClose: (
       correct: r.correct,
       ...(r.error !== undefined ? { error: Math.round(r.error * 1000) / 1000 } : {}),
       ms: Date.now() - started.current,
-      given: g,
+      // a painted chart is 169 cells: keep the score (error), not the painting
+      given: g.kind === 'grid' ? { kind: 'grid', cells: [] } : g,
       ...(source.kind === 'daily' ? { daily: true } : {}),
     });
     let next = { ...state, review: updateReview(state.review, q, r.correct) };
@@ -167,7 +189,7 @@ export function QuizRunner({ source, onClose }: { source: QuizSource; onClose: (
           <div className="flex items-baseline justify-between gap-3 text-xs text-muted">
             <span>
               {QUIZ_INFO[q.quiz].name} · level {q.level}
-              {state.review.some((r) => r.id === q.id) && ' · missed before'}
+              {again && ' · missed before'}
             </span>
             <span>
               {source.kind === 'daily' ? `${index + 1} of ${source.questions.length}` : `${score.right} of ${score.done} right`}
@@ -223,6 +245,9 @@ export function QuizRunner({ source, onClose }: { source: QuizSource; onClose: (
               )}
             </div>
           )}
+          {q.answer.kind === 'grid' && q.choices && (
+            <GridPainter key={q.id} buckets={q.choices} answer={result && q.answer.kind === 'grid' ? q.answer.cells : undefined} onSubmit={(cells) => answer({ kind: 'grid', cells })} />
+          )}
           {q.answer.kind === 'number' && !result && (
             <form
               className="flex items-center gap-2"
@@ -248,6 +273,9 @@ export function QuizRunner({ source, onClose }: { source: QuizSource; onClose: (
           {result && (
             <div className={`space-y-2 rounded-lg border p-4 ${result.correct ? 'border-ok/60 bg-ok/10' : 'border-danger/60 bg-danger/10'}`}>
               <div className="text-base font-bold">{result.correct ? '✓ Right' : '✗ Not quite'}</div>
+              {q.answer.kind === 'grid' && result.error !== undefined && (
+                <div className="text-sm">{Math.round((1 - result.error) * 100)} % of the played combos right (80 % to pass)</div>
+              )}
               {q.answer.kind === 'number' && given?.kind === 'number' && (
                 <div className="text-sm">
                   Answer {show(q, q.answer.value)} · yours {show(q, given.value)}
