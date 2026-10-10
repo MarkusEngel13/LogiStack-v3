@@ -143,21 +143,21 @@ until agreed. `[ ]` open · `[~]` agreed, to build · `[-]` parked · `[x]` buil
 58. [x] The quiz chart painter: a finger paints only after "✏ Edit" or picking a bucket ("Done" to
         scroll again), like the PF Ranges grid.
 59. [x] `CLAUDE.md` in the repo: the rules for every session, phone included (no AI lines in commits).
-60. [~] Quiz storage (revised): keep only today's set, the questions you got wrong (they come back;
+60. [x] Quiz storage (revised): keep only today's set, the questions you got wrong (they come back;
         max 40; Guess the stack's never kept) and a score line a day. Older days fold into one
         history item. The admin keeps every day in full.
-61. [~] Free plan: at most 10 quiz items on the server (`state`, history, the last days; only those
+61. [x] Free plan: at most 10 quiz items on the server (`state`, history, the last days; only those
         names accepted), and only the day's set: practice beyond it is for paid plans. A set already
         started can be finished.
-62. [~] Range building facing an open: buckets 3-bet for value / 3-bet merged (thin value,
+62. [x] Range building facing an open: buckets 3-bet for value / 3-bet merged (thin value,
         protection) / 3-bet as a bluff / call / fold, read from the library's "vs 4Bet" charts: goes on
         vs a 4-bet = value; folds and stronger than most calls = merged; folds and weaker than hands
         that only call = bluff (BTN, SB, BB have charts; other seats borrow the nearest). Facing a
         3-bet: value / bluff / call / fold, clear cases only.
-63. [~] Paint the chart: scored on raise / call / fold only (the chart's own words); value, merged
+63. [x] Paint the chart: scored on raise / call / fold only (the chart's own words); value, merged
         and bluff stay in the one-hand questions.
-64. [~] Admin: every quiz level open.
-65. [~] Player habit + wizard question: check-raise all-in with a pocket pair under the top card
+64. [x] Admin: every quiz level open.
+65. [x] Player habit + wizard question: check-raise all-in with a pocket pair under the top card
         and above the second (sometimes second pair), on the flop or turn, when he fears draws.
         Only at a reasonable SPR (about 3 or less: a fish doesn't x-raise 10x the pot); 100 BB
         usually too deep, but a 3-bet pot (90 BB behind, pot 20-25 BB) is close. At a small SPR also
@@ -168,19 +168,19 @@ until agreed. `[ ]` open · `[~]` agreed, to build · `[-]` parked · `[x]` buil
 ## Open sign-up - 2026-10-10
 67. [x] Anyone logs in with a code Cloudflare emails them (policy Everyone, Zero Trust Free, seats
         expire after 2 weeks without a login) and lands on Free by themselves. Done by Marius.
-68. [~] Admin dashboard: its own module card (a joker, light red, only the admin sees it). Overview
+68. [x] Admin dashboard: its own module card (a joker, light red, only the admin sees it). Overview
         tiles, Premium requests, users (search, filters, sort; table on a computer, cards on a
         phone; a user's panel: plan, role, items against the limits, note, delete), the plans'
         limits, the advice upload. Plan limits stay in the code for now.
-69. [~] "Ask for Premium" for Free users; the admin approves or declines. Later: a subscription link.
-70. [~] "Consider this": the playbook's advice in our own words goes to the server (the admin uploads
+69. [x] "Ask for Premium" for Free users; the admin approves or declines. Later: a subscription link.
+70. [x] "Consider this": the playbook's advice in our own words goes to the server (the admin uploads
         it from his browser; the coaches' words, names and videos stay there); Free sees 1 piece per
         moment, Premium and Pro 3. The admin keeps "Playbook says" (+ "users see"). The coaches'
         wording gets edited later.
-71. [~] A welcome card for new users: Free's limits, their data on the server (only theirs), ask for
+71. [x] A welcome card for new users: Free's limits, their data on the server (only theirs), ask for
         Premium or deletion under the account.
-72. [~] Shared profiles show "LogiStack" (or a pseudonym), never the sharer's email.
-74. [~] No "playbook" anywhere users read (not even "it never leaves your browser"): the advice is
+72. [x] Shared profiles show "LogiStack" (or a pseudonym), never the sharer's email.
+74. [x] No "playbook" anywhere users read (not even "it never leaves your browser"): the advice is
         simply given. Only the admin's upload and his file loading still name it.
 
 ## Strategy Bible - 2026-10-10
