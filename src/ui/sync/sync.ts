@@ -42,7 +42,13 @@ export interface Account {
   role: Role;
   limits: Limits;
   usage: Record<Kind, number>;
+  /** When they asked for Premium (ISO time); null = no open request (shared/api.ts `Me`). */
+  premiumRequest: string | null;
 }
+
+/** /api/me as the app keeps it: limits from the plan table and no request when the server sends none. */
+type MeBody = Omit<Account, 'limits' | 'premiumRequest'> & { limits?: Limits; premiumRequest?: string | null };
+const toAccount = (b: MeBody): Account => ({ ...b, limits: b.limits ?? limitsFor(b.plan, b.role), premiumRequest: b.premiumRequest ?? null });
 
 export interface SyncStatus {
   state: 'local' | 'syncing' | 'synced' | 'error';
@@ -60,6 +66,12 @@ const set = (patch: Partial<SyncStatus>) => {
   for (const l of listeners) l(status);
 };
 export const syncStatus = () => status;
+
+/** A change the app made to the account (a Premium request sent or taken back). */
+export function updateAccount(patch: Partial<Account>) {
+  if (status.account) set({ account: { ...status.account, ...patch } });
+}
+
 export function onSyncStatus(l: (s: SyncStatus) => void): () => void {
   listeners.add(l);
   return () => listeners.delete(l);
@@ -225,7 +237,7 @@ export async function startSync(wait = 5000): Promise<void> {
   const work = (async () => {
     let me;
     try {
-      me = await call<Omit<Account, 'limits'> & { limits?: Limits }>('me');
+      me = await call<MeBody>('me');
     } catch {
       // opened offline (at the table): local only for now; start syncing once the phone is online
       if (!navigator.onLine) window.addEventListener('online', () => void startSync(0), { once: true });
@@ -233,12 +245,11 @@ export async function startSync(wait = 5000): Promise<void> {
     }
     // not logged in, or no API at all (`npm run dev` answers /api/me with the app's page): local only
     if (!me.ok || typeof me.body.email !== 'string') return;
-    const account: Account = { ...me.body, limits: me.body.limits ?? limitsFor(me.body.plan, me.body.role) };
-    set({ account, state: 'syncing' });
+    set({ account: toAccount(me.body), state: 'syncing' });
     try {
       await fullSync();
-      const again = await call<Account>('me');
-      set({ state: 'synced', ...(again.ok ? { account: again.body } : {}) });
+      const again = await call<MeBody>('me');
+      set({ state: 'synced', ...(again.ok && typeof again.body.email === 'string' ? { account: toAccount(again.body) } : {}) });
     } catch (e) {
       set({ state: 'error', message: e instanceof Error ? e.message : String(e) });
     }
