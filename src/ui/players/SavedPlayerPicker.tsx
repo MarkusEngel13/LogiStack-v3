@@ -1,5 +1,5 @@
 import { Fragment, useMemo, type ReactNode } from 'react';
-import { leadsLevel, limpTrapLevel, movedSliders, SLIDER_INFO, type SeatStyle, type StyleSettings } from '../../core/players/style';
+import { leadsLevel, limpTrapLevel, movedSliders, pairJamLevel, SLIDER_INFO, type SeatStyle, type StyleSettings } from '../../core/players/style';
 import { Field, inputClass } from '../controls';
 import { gradeBadge, gradeLabel } from './gradeColor';
 import { loadPlayers, loadProfiles, seatStyleOfPlayer, seatStyleOfProfile } from './store';
@@ -12,12 +12,14 @@ export interface Pick {
 
 const LIMP_TRAP_WORDS = ['', 'limp-reraises a monster', 'limp-reraises often'];
 const LEADS_WORDS = ['', 'leads into the raiser rarely (monsters)', 'leads into the raiser', 'leads into the raiser often'];
+const PAIR_JAM_WORDS = ['', 'check-raises all-in with a pair under the top card now and then', 'check-raises all-in with a pair under the top card very often'];
 
-/** The specials in words: limp-reraises, leads, open size and its tell. */
+/** The specials in words: limp-reraises, leads, the pair jam, open size and its tell. */
 export function specials(s: StyleSettings): string[] {
   return [
     LIMP_TRAP_WORDS[limpTrapLevel(s.limpTrap)],
     LEADS_WORDS[leadsLevel(s.leads)],
+    PAIR_JAM_WORDS[pairJamLevel(s.pairJam)],
     s.openBB ? `opens ${s.openBB} BB` : '',
     s.openTell === 'strong' ? 'opens bigger with strong hands' : s.openTell === 'weak' ? 'opens bigger with weak hands' : '',
   ].filter((x): x is string => !!x);

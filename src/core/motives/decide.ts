@@ -13,6 +13,7 @@
  *   tough decision x how likely the line leaves a medium hand in a hard spot (a jam ends it)
  *   embarrassment  x a bluff called and shown (river)
  *   + a liking for betting (aggression) or for calling (stickiness), and for the usual sizes (habit)
+ *   + a move of his own: the check-raise all-in with a pair under the top card (pairJam.ts)
  * and the player picks by a soft choice (noise). The fold is the zero.
  *
  * What the player believes about the other side - who folds to which size - is beliefs.ts; the
@@ -20,13 +21,15 @@
  * cards (fear.ts), and the same against the part of the range that keeps going after a bet.
  */
 
-import { BUCKETS, bucketAll, type Bucket } from '../buckets';
+import { BUCKETS, bucketOf, type Bucket } from '../buckets';
 import type { Card } from '../cards';
 import { fromParts, partsByGroup, type GroupParts } from '../equity/field';
 import { fearNumbers } from '../fear';
+import { classifyAll } from '../handClass';
 import type { Weights } from '../ranges/range';
 import { nutsChanged } from '../texture';
 import { believedContinue, laterBets } from './beliefs';
+import { pairJamShares } from './pairJam';
 import type { MotiveProfile } from './profile';
 
 export interface Situation {
@@ -282,7 +285,8 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
   const streetsLeft = 5 - board.length;
   const river = streetsLeft === 0;
   const usualBet = p.betHabit[board.length - 3] ?? 0;
-  const buckets = bucketAll(board);
+  const classes = classifyAll(board);
+  const buckets = classes.map((h) => (h ? bucketOf(h) : null));
 
   // Equity and lead against each opponent, split by the opponent's buckets in one pass each: a
   // bet's continuing range is the buckets scaled by how often each goes on, so every bet size is
@@ -511,7 +515,13 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
     }
   };
 
-  const weighted = (o: Option, m: Motives): Motives => ({
+  // His own move: the share of each combo that check-raises all-in out of habit (pairJam.ts), as
+  // a liking for the all-in raise just big enough to give it that share (`jamLiking`, set below)
+  const jam = options.findIndex((o) => o.kind === 'raise' && o.allIn);
+  const jamShare = jam >= 0 ? pairJamShares(p.pairJam, s, classes, opps, scary) : null;
+  const jamLiking = new Float32Array(jamShare ? 1326 : 0);
+
+  const weighted = (o: Option, m: Motives, combo: number): Motives => ({
     gain: p.greed * m.gain,
     loss: -lambda(o.amount) * m.loss,
     fear: -p.fear * m.fear,
@@ -520,7 +530,7 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
     embarrassment: -p.embarrassment * m.embarrassment,
     liking:
       o.kind === 'bet' || o.kind === 'raise'
-        ? p.aggression + habit * m.liking + (o.kind === 'bet' && s.initiative ? (p.cbetHabit ?? 0) : 0)
+        ? p.aggression + habit * m.liking + (o.kind === 'bet' && s.initiative ? (p.cbetHabit ?? 0) : 0) + (jamShare && o === options[jam] ? jamLiking[combo]! : 0)
         : o.kind === 'call'
           ? p.stickiness
           : 0,
@@ -539,11 +549,23 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
     if (!b || !(w > 0) || Number.isNaN(equity[combo]!)) continue;
     let top = -Infinity;
     options.forEach((o, i) => {
-      scores[i] = total(weighted(o, motivesOf(combo, o)));
+      scores[i] = total(weighted(o, motivesOf(combo, o), combo));
       top = Math.max(top, scores[i]!);
     });
     let sum = 0;
     for (let i = 0; i < options.length; i++) sum += Math.exp((scores[i]! - top) / tau);
+    const h = jamShare?.[combo] ?? 0;
+    if (h > 0) {
+      // the liking that turns the jam's chance p into h + (1 - h) p, every other option's into (1 - h)
+      // of its own: the habit takes a share of the hand, the motives decide the rest
+      const lp = (scores[jam]! - top) / tau - Math.log(sum);
+      const like = tau * (Math.log(h / (1 - h) + Math.exp(lp)) - lp);
+      jamLiking[combo] = like;
+      scores[jam]! += like;
+      top = Math.max(top, scores[jam]!);
+      sum = 0;
+      for (let i = 0; i < options.length; i++) sum += Math.exp((scores[i]! - top) / tau);
+    }
     const row = (byBucket[b] ??= { combos: 0, shares: new Array<number>(options.length).fill(0) });
     row.combos += w;
     rangeTotal += w;
@@ -566,7 +588,7 @@ export function decide(p: MotiveProfile, s: Situation, mine: Weights, opp: Weigh
     explain(combo) {
       return options.map((option) => {
         const motives = motivesOf(combo, option);
-        const w = weighted(option, motives);
+        const w = weighted(option, motives, combo);
         return { option, score: total(w), motives, weighted: w };
       });
     },

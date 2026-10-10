@@ -88,6 +88,14 @@ describe('answers', () => {
     expect(apply({ leads: 'sometimes' }).sliders.postAggr).toBe(unknown.sliders.postAggr);
   });
 
+  test('the check-raise all-in with a pair: three levels, a special only (no slider moves)', () => {
+    expect(['never', 'sometimes', 'often'].map((x) => apply({ pairJam: x }).pairJam)).toEqual([0, 1, 2]);
+    expect(apply({ pairJam: 'often' }).sliders).toEqual(unknown.sliders);
+    // don't know keeps the profile's level
+    expect(apply({}, { ...unknown, pairJam: 2 }).pairJam).toBe(2);
+    expect(QUESTIONS.find((q) => q.id === 'pairJam')!.options.map((o) => o.id)).toEqual(['never', 'sometimes', 'often']);
+  });
+
   test('c-bets: five steps, the mixed one in the middle', () => {
     expect(['hits', 'less', 'mixed', 'flop', 'every'].map((x) => apply({ cbet: x }).sliders.cbet)).toEqual([1, 2, 3, 4, 5]);
   });
