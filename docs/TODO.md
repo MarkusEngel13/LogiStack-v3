@@ -183,6 +183,12 @@ until agreed. `[ ]` open · `[~]` agreed, to build · `[-]` parked · `[x]` buil
 74. [~] No "playbook" anywhere users read (not even "it never leaves your browser"): the advice is
         simply given. Only the admin's upload and his file loading still name it.
 
+## Strategy Bible - 2026-10-10
+75. [ ] HHP's second channel "Hungrier Horse" (short videos, 3-4 min): gather it like the main
+        channel (list, transcripts, claims, bible check) and fold its advice into the HHP playbook.
+76. [ ] Once a month: gather whatever HHP (both channels) and Carrel put out since the last run,
+        extract, rebuild the playbooks, upload the new advice for users (Admin dashboard).
+
 ## Later
 39. [x] Solution stability: nudge the inputs (preflop range 5-10 % narrower or wider, other
         parameters 5-15 % up or down) and show whether the suggested line holds or flips - a line
