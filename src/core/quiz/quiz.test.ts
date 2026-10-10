@@ -1,6 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import { parseCards } from '../cards';
-import { dailySet, defaultState, levelUp, streak, updateReview, type Attempt, type DayRecord } from './daily';
+import { isQuizItemId } from '../../shared/plans';
+import {
+  addRecent,
+  allLines,
+  dailySet,
+  defaultState,
+  fullState,
+  levelUp,
+  RECENT_PER_QUIZ,
+  statsOf,
+  streak,
+  tidyQuiz,
+  updateReview,
+  type Answered,
+  type Attempt,
+  type DayLine,
+  type DayRecord,
+  type QuizHistory,
+  type QuizItem,
+  type QuizState,
+} from './daily';
 import { combosLeft, drawsOn, drawsQuestionFor, outs } from './draws';
 import { mathsQuestion } from './maths';
 import { rangesQuestion } from './ranges';
@@ -10,7 +30,7 @@ import { buildQuestion, chartBuckets, fourBetChart, paintCells } from './build';
 import { cellByName } from '../ranges/hands';
 import { readsQuestion } from './reads';
 import { charts, clearAction } from './ranges';
-import { grade, QUIZZES, QUIZ_INFO, rightAnswer, seeded } from './types';
+import { grade, QUIZZES, QUIZ_INFO, rightAnswer, seeded, type Question } from './types';
 
 const c = (t: string) => parseCards(t.split(' '));
 const home = CHIP_PRESETS[0]!;
@@ -233,7 +253,7 @@ describe('the routine', () => {
     const b = dailySet('2026-10-10', st);
     expect(a).toHaveLength(10);
     expect(a.map((q) => q.prompt)).toEqual(b.map((q) => q.prompt));
-    const missed = a[0]!;
+    const missed = a.find((q) => q.quiz === 'maths')!;
     const withReview = { ...st, review: updateReview([], { ...missed, id: 'old' }, false) };
     expect(dailySet('2026-10-11', withReview).some((q) => q.id === 'old')).toBe(true);
     expect(updateReview(withReview.review, { ...missed, id: 'old' }, true)).toEqual([]);
@@ -246,15 +266,92 @@ describe('the routine', () => {
     expect(levelUp(Array(10).fill(at(true)), 'maths', QUIZ_INFO.maths.levels)).toBeNull();
   });
 
+  /** A day with a set of two; `done` answers both (the first one right). */
+  const day = (date: string, done: boolean, practice = 0): DayRecord => {
+    const set = dailySet(date, defaultState()).slice(0, 2);
+    const answer = (q: Question, correct: boolean, daily: boolean): Attempt => ({ at: `${date}T10:00:00Z`, qid: q.id, quiz: q.quiz, type: q.type, level: 1, correct, ms: 1, given: { kind: 'number', value: 0 }, ...(daily ? { daily: true } : {}) });
+    const practised = Array.from({ length: practice }, (_, i) => answer({ ...set[0]!, id: `p${i}` }, i % 2 === 0, false));
+    return { id: `day:${date}`, date, set, attempts: [...(done ? set.map((q, i) => answer(q, i === 0, true)) : []), ...practised] };
+  };
+
   it('the streak counts finished days in a row', () => {
-    const day = (date: string, done: boolean): DayRecord => {
-      const set = dailySet(date, defaultState()).slice(0, 2);
-      return { id: `day:${date}`, date, set, attempts: done ? set.map((q) => ({ at: '', qid: q.id, quiz: q.quiz, type: q.type, level: 1, correct: true, ms: 1, given: { kind: 'number', value: 0 }, daily: true })) : [] };
-    };
+    const lines = (days: DayRecord[]) => allLines([], days);
     const days = [day('2026-10-07', true), day('2026-10-08', true), day('2026-10-09', true), day('2026-10-10', false)];
-    expect(streak(days, '2026-10-10')).toBe(3);
-    expect(streak([...days.slice(0, 3), day('2026-10-10', true)], '2026-10-10')).toBe(4);
-    expect(streak([day('2026-10-07', true)], '2026-10-10')).toBe(0);
+    expect(streak(lines(days), '2026-10-10')).toBe(3);
+    expect(streak(lines([...days.slice(0, 3), day('2026-10-10', true)]), '2026-10-10')).toBe(4);
+    expect(streak(lines([day('2026-10-07', true)]), '2026-10-10')).toBe(0);
     expect(QUIZZES).toHaveLength(7);
+  });
+
+  it('missed questions of Guess the stack never come back', () => {
+    const rand = seeded(2);
+    const stackQ = stackQuestion(home, 2, rand);
+    const mathsQ = mathsQuestion({ currency: home.currency, blinds: home.blinds }, 1, rand);
+    expect(updateReview([], stackQ, false)).toEqual([]);
+    expect(updateReview([], mathsQ, false)).toEqual([mathsQ]);
+    // older states kept them: they go on loading
+    expect(fullState({ id: 'state', review: [stackQ, mathsQ] }).review).toEqual([mathsQ]);
+  });
+
+  it('the last answers: 50 per quiz, without their questions', () => {
+    const at = (quiz: 'maths' | 'stack', i: number): Attempt => ({ at: String(i), qid: `q${i}`, quiz, type: 't', level: 1, correct: true, ms: 1, given: { kind: 'number', value: 1 }, daily: true });
+    let recent: Answered[] = [];
+    for (let i = 0; i < 120; i++) recent = addRecent(recent, at(i % 12 === 0 ? 'stack' : 'maths', i));
+    expect(recent.filter((a) => a.quiz === 'maths')).toHaveLength(RECENT_PER_QUIZ);
+    expect(recent.filter((a) => a.quiz === 'stack')).toHaveLength(10);
+    expect(recent.at(-1)).toEqual({ at: '119', quiz: 'maths', level: 1, correct: true });
+    expect(Object.keys(recent[0]!)).not.toContain('given');
+  });
+
+  /** Data as it was before the history: a state without the last answers, a day item per day. */
+  const oldData = (): QuizItem[] => {
+    const rand = seeded(3);
+    const review = [stackQuestion(home, 1, rand), mathsQuestion({ currency: home.currency, blinds: home.blinds }, 1, rand)];
+    const { recent: _recent, ...state } = { ...defaultState(), review };
+    void _recent;
+    return [state as QuizState, day('2026-10-07', true, 3), day('2026-10-08', true), day('2026-10-09', false, 4), day('2026-10-10', false, 1)];
+  };
+
+  it('days before today fold into one history line each; today keeps its questions', () => {
+    const items = oldData();
+    const before = allLines([], items.filter((x): x is DayRecord => x.id.startsWith('day:')));
+    const tidy = tidyQuiz(items, '2026-10-10', false);
+    expect(tidy.map((x) => x.id).sort()).toEqual(['day:2026-10-10', 'history', 'state']);
+    expect(tidy.every((x) => isQuizItemId(x.id))).toBe(true);
+    const history = tidy.find((x): x is QuizHistory => x.id === 'history')!;
+    expect(history.days.map((l) => l.date)).toEqual(['2026-10-07', '2026-10-08', '2026-10-09']);
+    expect(history.days[0]).toMatchObject({ set: 2, done: true });
+    expect(history.days[2]).toMatchObject({ set: 2, done: false });
+    // right / answered per quiz, practice included
+    const answered = (l: DayLine) => Object.values(l.quizzes).reduce((t, x) => t + x![1], 0);
+    expect(history.days.map(answered)).toEqual([5, 2, 4]);
+    expect(Object.values(history.days[1]!.quizzes).reduce((t, x) => t + x![0], 0)).toBe(1);
+    // the state: the last answers gathered from every day, the stack question out of the review
+    const state = tidy.find((x): x is QuizState => x.id === 'state')!;
+    expect(state.recent).toHaveLength(5 + 2 + 4 + 1);
+    expect(state.review.map((q) => q.quiz)).toEqual(['maths']);
+    // streak and stats read the same from the history as from the days
+    const today = tidy.filter((x): x is DayRecord => x.id.startsWith('day:'));
+    expect(allLines(history.days, today)).toEqual(before);
+    expect(streak(allLines(history.days, today), '2026-10-10')).toBe(0);
+    expect(streak(allLines(history.days, today), '2026-10-09')).toBe(2);
+    const stats = statsOf(state.recent, allLines(history.days, today));
+    expect(QUIZZES.reduce((t, q) => t + stats[q].total, 0)).toBe(12);
+    // idempotent: a second tidy changes nothing
+    expect(tidyQuiz(tidy, '2026-10-10', false)).toEqual(tidy);
+  });
+
+  it('the admin and local-only mode keep every day, with the same history', () => {
+    const items = oldData();
+    const tidy = tidyQuiz(items, '2026-10-10', true);
+    expect(tidy.filter((x) => x.id.startsWith('day:'))).toHaveLength(4);
+    const lean = tidyQuiz(items, '2026-10-10', false);
+    expect(tidy.find((x) => x.id === 'history')).toEqual(lean.find((x) => x.id === 'history'));
+    expect(tidy.find((x) => x.id === 'state')).toEqual(lean.find((x) => x.id === 'state'));
+    expect(tidyQuiz(tidy, '2026-10-10', true)).toEqual(tidy);
+    // the day after, the admin's history grows by today; a user who stops being admin folds the same
+    expect(tidyQuiz(tidy, '2026-10-11', false)).toEqual(tidyQuiz(lean, '2026-10-11', false));
+    // nothing stored yet: nothing made
+    expect(tidyQuiz([], '2026-10-10', false)).toEqual([]);
   });
 });

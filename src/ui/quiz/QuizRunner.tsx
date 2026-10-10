@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { parseCard } from '../../core/cards';
-import { levelUp, makeQuestion, streak, today, updateReview } from '../../core/quiz/daily';
+import { addRecent, levelUp, makeQuestion, streak, today, updateReview, type Attempt } from '../../core/quiz/daily';
 import type { ChipDef, Scene } from '../../core/quiz/stack';
 import { grade, QUIZ_INFO, type Given, type Grade, type QuizId, type Question } from '../../core/quiz/types';
 import { PlayingCard } from '../cards/PlayingCard';
@@ -9,7 +9,7 @@ import { CURRENCIES, formatAmount, parseAmount } from '../format';
 import { useToast } from '../toast';
 import { ChipLegend, ChipScene } from './ChipStack';
 import { GridPainter } from './GridPainter';
-import { addAttempt, allAttempts, loadDays, loadState, saveState } from './quizStore';
+import { addAttempt, loadLines, loadState, saveState } from './quizStore';
 
 export type QuizSource = { kind: 'daily'; questions: Question[] } | { kind: 'practice'; quiz: QuizId; level: number };
 
@@ -126,7 +126,7 @@ export function QuizRunner({ source, onClose }: { source: QuizSource; onClose: (
     setGiven(g);
     setResult(r);
     setScore((s) => ({ right: s.right + (r.correct ? 1 : 0), done: s.done + 1 }));
-    addAttempt({
+    const attempt: Attempt = {
       at: new Date().toISOString(),
       qid: q.id,
       quiz: q.quiz,
@@ -138,10 +138,11 @@ export function QuizRunner({ source, onClose }: { source: QuizSource; onClose: (
       // a painted chart is 169 cells: keep the score (error), not the painting
       given: g.kind === 'grid' ? { kind: 'grid', cells: [] } : g,
       ...(source.kind === 'daily' ? { daily: true } : {}),
-    });
-    let next = { ...state, review: updateReview(state.review, q, r.correct) };
+    };
+    addAttempt(attempt);
+    let next = { ...state, review: updateReview(state.review, q, r.correct), recent: addRecent(state.recent, attempt) };
     if (q.level === state.levels[q.quiz]) {
-      const up = levelUp(allAttempts(), q.quiz, q.level);
+      const up = levelUp(next.recent, q.quiz, q.level);
       if (up) {
         next = { ...next, levels: { ...next.levels, [q.quiz]: up } };
         toast({ text: `Level up: ${QUIZ_INFO[q.quiz].name} → ${up} (${QUIZ_INFO[q.quiz].levelNames[up - 1]})` });
@@ -169,7 +170,7 @@ export function QuizRunner({ source, onClose }: { source: QuizSource; onClose: (
   };
 
   const done = !q;
-  const days = useMemo(() => (done ? loadDays() : []), [done]);
+  const lines = useMemo(() => (done ? loadLines() : []), [done]);
 
   return (
     <Modal kind="page" title={title} onClose={onClose}>
@@ -179,7 +180,7 @@ export function QuizRunner({ source, onClose }: { source: QuizSource; onClose: (
             {score.right} / {score.done}
           </div>
           <p className="text-muted">{source.kind === 'daily' ? "Today's set is done." : 'Practice over.'}</p>
-          {source.kind === 'daily' && <p className="text-lg">🔥 {streak(days, today())} day streak</p>}
+          {source.kind === 'daily' && <p className="text-lg">🔥 {streak(lines, today())} day streak</p>}
           <Button variant="primary" onClick={onClose}>
             Back to the Gym
           </Button>
