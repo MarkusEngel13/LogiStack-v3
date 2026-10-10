@@ -501,6 +501,7 @@ export function RangesPage() {
 
       {ask && (
         <Modal
+          kind="dialog"
           title="Unsaved changes"
           onClose={() => setAsk(null)}
           footer={
@@ -533,6 +534,7 @@ export function RangesPage() {
 
       {naming && (
         <Modal
+          kind="dialog"
           title="Save as your own chart"
           onClose={() => setNaming(null)}
           footer={

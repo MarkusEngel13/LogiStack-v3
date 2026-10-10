@@ -11,7 +11,7 @@ const PREVIEW = [parseCard('As'), parseCard('Kd')];
 export function OptionsModal({ onClose }: { onClose: () => void }) {
   const { settings, update } = useSettings();
   return (
-    <Modal title="Options" onClose={onClose} footer={<Button variant="primary" onClick={onClose}>Done</Button>}>
+    <Modal kind="dialog" title="Options" onClose={onClose} footer={<Button variant="primary" onClick={onClose}>Done</Button>}>
       <div className="space-y-5">
         <Field label="Theme">
           <Segmented

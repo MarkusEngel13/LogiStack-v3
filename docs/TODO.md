@@ -83,6 +83,17 @@ until agreed. `[ ]` open · `[~]` agreed, to build · `[-]` parked · `[x]` buil
         deleting a player, profile, hand or fishy mark (and copying a profile) shows "… · Undo" for
         6 s instead of a confirm box (`ui/toast.tsx`). Cause of this morning's two unnamed players.
 
+## Layers - 2026-10-10
+46. [x] No more windows on windows: every "tell me more" opens in one inspector (`ui/layers.tsx`) -
+        a column on the right on a computer (the page moves aside and stays in view), a sheet from
+        the bottom on a phone - with a trail ("Options · you › Gabi's range") and ← Back.
+47. [x] Back always works: ←, Esc, and the phone's back button or gesture (one history step per layer).
+48. [x] EV table, "Explore bet sizes" and "What happens if" are one "Options up close" panel with
+        tabs: EV (with Stable?), How they answer, Next street.
+49. [x] The card picker opens next to where you tapped (a sheet on a phone); the question wizard,
+        the review of changed questions and the exploit check are pages with ← Back; real
+        windows only for Options, the account, users and plans, "unsaved changes", naming a chart.
+
 ## Later
 39. [x] Solution stability: nudge the inputs (preflop range 5-10 % narrower or wider, other
         parameters 5-15 % up or down) and show whether the suggested line holds or flips - a line

@@ -45,6 +45,7 @@ export function CardPicker({
 
   return (
     <Modal
+      kind="popover"
       title={title}
       onClose={onClose}
       footer={

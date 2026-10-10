@@ -513,7 +513,7 @@ export function HandScreen({ initial, editable, onBack, backLabel = 'Lab', onNew
     <>
       {rangeSeat && (
         <RangeModal
-          title={`${rangeSeat.name} (${rangeSeat.position}${rangeSeat.playerType ? `, ${rangeSeat.playerType}` : ''}): range at this point`}
+          title={`${rangeSeat.name}'s range (${rangeSeat.position}${rangeSeat.playerType ? `, ${rangeSeat.playerType}` : ''})`}
           seat={rangeSeat.seat}
           steps={story.steps ?? []}
           step={cursor}

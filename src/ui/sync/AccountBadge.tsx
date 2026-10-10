@@ -24,7 +24,7 @@ export function AccountBadge() {
         <span className="rounded bg-surface-3 px-1.5 py-0.5 text-[11px] font-semibold text-ink">{s.account.role === 'admin' ? 'Admin' : PLAN_LABELS[s.account.plan]}</span>
       </button>
       {open && (
-        <Modal title="Account" onClose={() => setOpen(false)}>
+        <Modal kind="dialog" title="Account" onClose={() => setOpen(false)}>
           <div className="space-y-3 text-sm">
             <p>
               Logged in as <b>{s.account.email}</b> · {PLAN_LABELS[s.account.plan]} plan
@@ -92,7 +92,7 @@ function AdminModal({ onClose }: { onClose: () => void }) {
       .catch((e: unknown) => setError(String(e)));
 
   return (
-    <Modal title="Users and plans" onClose={onClose} wide>
+    <Modal kind="dialog" title="Users and plans" onClose={onClose} wide>
       <p className="mb-3 text-sm text-muted">Everyone who has logged in at least once. A friend has to log in once before you can set their plan.</p>
       {error && <p className="mb-3 text-sm text-danger">{error}</p>}
       {!users ? (

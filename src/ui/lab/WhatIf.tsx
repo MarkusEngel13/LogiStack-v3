@@ -1,10 +1,8 @@
 import { useState } from 'react';
-import type { ReactNode } from 'react';
 import { prettyCard, RANK_CHARS, suitOf, type Card } from '../../core/cards';
 import { sizeKey, type SizeQuestion } from '../../core/motives/sizes';
 import type { WhatIfAnswer, WhatIfLine } from '../../core/motives/whatIf';
 import { comboTotal, withoutCards } from '../../core/ranges/range';
-import { Modal } from '../controls';
 import type { Money } from '../replay/views';
 import { useSettings } from '../settings';
 import { BucketBar, combosText, SharesBar } from './RangeStory';
@@ -47,24 +45,17 @@ function CardName({ card }: { card: Card }) {
  * other player answers now and what reaches the next street, on a blank, a scare card or any
  * card you pick. A small bet keeps their weak hands in; a big one leaves the strong ones.
  */
-export function WhatIfModal({
-  title,
-  spot,
+export function WhatIf({
   q,
   money,
   otherName,
   actorName = 'You',
-  onClose,
 }: {
-  title: string;
-  /** The spot, under the title (lab/SpotLine). */
-  spot?: ReactNode;
   q: SizeQuestion;
   money: Money;
   otherName: string;
   /** The player to act: "You" when it's Hero, else his name. */
   actorName?: string;
-  onClose: () => void;
 }) {
   const { settings } = useSettings();
   const [sizes, setSizes] = useState<number[]>(settings.whatIfSizes);
@@ -79,7 +70,7 @@ export function WhatIfModal({
   const who: Who = { actor: actorName, other: otherName, cards: q.actor.cards ?? [] };
 
   return (
-    <Modal title={title} subtitle={spot} wide="xl" onClose={onClose}>
+    <div>
       {/* who is who: one colour per player, the same in every line below */}
       <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
         <span>
@@ -169,7 +160,7 @@ export function WhatIfModal({
           </p>
         </div>
       )}
-    </Modal>
+    </div>
   );
 }
 

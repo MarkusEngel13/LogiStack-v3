@@ -90,6 +90,7 @@ export function QuestionWizard({
 
   return (
     <Modal
+      kind="page"
       title={player ? `Re-check ${player.name}` : 'New player: what have you seen him do?'}
       onClose={onClose}
       wide

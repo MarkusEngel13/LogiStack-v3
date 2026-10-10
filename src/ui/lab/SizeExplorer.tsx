@@ -1,7 +1,6 @@
 import { BUCKETS, BUCKET_LABELS } from '../../core/buckets';
-import type { ReactNode } from 'react';
 import { sizeKey, type PlayerAnswer, type SizeQuestion, type SizeRow } from '../../core/motives/sizes';
-import { Button, Modal } from '../controls';
+import { Button } from '../controls';
 import type { Money } from '../replay/views';
 import { BUCKET_COLORS, BucketBar, combosText } from './RangeStory';
 import { useEquity } from './useEquity';
@@ -30,23 +29,16 @@ export const playLabel = (r: SizeRow) =>
  * and with known cards the EV of each, this street. `onUse` enters the option in the Lab.
  */
 export function SizeExplorer({
-  title,
-  spot,
   q,
   money,
   names,
   onUse,
-  onClose,
 }: {
-  title: string;
-  /** The spot, under the title (lab/SpotLine). */
-  spot?: ReactNode;
   q: SizeQuestion;
   money: Money;
   /** Seat → name, for everyone in `q.others`. */
   names: Record<number, string>;
   onUse?: (row: SizeRow) => void;
-  onClose: () => void;
 }) {
   const { answer, pending } = useEquity({ kind: 'sizes', q }, `sizes:${sizeKey(q)}`);
   const a = answer?.sizes;
@@ -107,7 +99,7 @@ export function SizeExplorer({
   };
 
   return (
-    <Modal title={title} subtitle={spot} wide="xl" onClose={onClose}>
+    <div>
       {pending && !a && (
         <p className="text-sm text-muted">
           Working out every option{multi ? ` against ${q.others.length} players (on the flop this takes several seconds)` : ' (a few seconds)'}…
@@ -216,6 +208,6 @@ export function SizeExplorer({
           </p>
         </div>
       )}
-    </Modal>
+    </div>
   );
 }

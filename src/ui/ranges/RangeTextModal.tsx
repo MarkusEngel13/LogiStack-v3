@@ -59,7 +59,7 @@ export function RangeTextModal({
   };
 
   return (
-    <Modal title="Range as text" onClose={onClose} footer={<Button onClick={onClose}>Close</Button>}>
+    <Modal kind="dialog" title="Range as text" onClose={onClose} footer={<Button onClick={onClose}>Close</Button>}>
       <div className="space-y-5">
         <div>
           <div className="mb-1.5 text-xs font-semibold tracking-wider text-muted uppercase">This chart</div>

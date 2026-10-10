@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import type { HandRecord } from './core/hand/types';
 import { Button } from './ui/controls';
 import { HomePage, MODULES, type ModuleId } from './ui/home/HomePage';
@@ -8,6 +8,7 @@ import { leaveScreen } from './ui/ranges/unsavedGuard';
 import { AccountBadge } from './ui/sync/AccountBadge';
 import { SettingsProvider } from './ui/settings';
 import { ToastProvider } from './ui/toast';
+import { LayerHost } from './ui/layers';
 import { HandWizard } from './ui/wizard/HandWizard';
 
 // modules load when first opened (the start page and the wizard stay in the main file)
@@ -33,6 +34,17 @@ function botsPlayTheOthers() {
 
 export default function App() {
   const [page, setPageNow] = useState<Page>('home');
+  // the header's height, for the panels and pages that open under it (layers.tsx)
+  const headerRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const set = () => document.documentElement.style.setProperty('--header-h', `${el.getBoundingClientRect().height}px`);
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   // every move to another screen asks first when the current one holds unsaved work (a range)
   const setPage = (p: Page) => leaveScreen(() => setPageNow(p));
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -83,8 +95,9 @@ export default function App() {
   return (
     <SettingsProvider>
       <ToastProvider>
+      <LayerHost>
       <div className="min-h-screen">
-        <header className="sticky top-0 z-40 border-b border-line bg-bg/90 backdrop-blur">
+        <header ref={headerRef} className="sticky top-0 z-40 border-b border-line bg-bg/90 backdrop-blur">
           {/* a computer: one row; a phone: the logo, account and options on top, the modules wrapping under them */}
           <div className="mx-auto max-w-[1500px] px-3 py-2 sm:px-6 sm:py-3">
             <div className="flex items-center justify-between gap-2 sm:gap-4">
@@ -105,6 +118,8 @@ export default function App() {
           </div>
         </header>
 
+        {/* the module moves aside for the inspector (layers.tsx) on a computer */}
+        <div style={{ paddingRight: 'var(--inspector-w, 0px)', transition: 'padding-right 160ms ease' }}>
         <Suspense fallback={<div className="px-6 py-10 text-sm text-muted">Loading…</div>}>
           {page === 'home' && <HomePage onOpen={setPage} />}
           {page === 'new' && (
@@ -155,9 +170,11 @@ export default function App() {
             />
           )}
         </Suspense>
+        </div>
 
         {optionsOpen && <OptionsModal onClose={() => setOptionsOpen(false)} />}
       </div>
+      </LayerHost>
       </ToastProvider>
     </SettingsProvider>
   );

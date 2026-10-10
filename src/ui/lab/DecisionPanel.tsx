@@ -12,9 +12,8 @@ import { PlayingCard } from '../cards/PlayingCard';
 import type { Money } from '../replay/views';
 import { EvTable } from './EvTable';
 import { RangeModal } from './RangeModal';
-import { SizeExplorer } from './SizeExplorer';
+import { OptionsPanel } from './OptionsPanel';
 import { SpotLine } from './SpotLine';
-import { WhatIfModal } from './WhatIfModal';
 import { BucketBar, RangeStory } from './RangeStory';
 import { useEquity } from './useEquity';
 import type { StoryView } from './useStory';
@@ -54,8 +53,7 @@ export function DecisionPanel({
 }) {
   const [editing, setEditing] = useState<SeatNo | null>(null);
   const [viewing, setViewing] = useState<SeatNo | null>(null);
-  const [exploring, setExploring] = useState(false);
-  const [whatIfOpen, setWhatIfOpen] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const me = state.phase === 'betting' && state.toAct !== null ? state.seats.find((s) => s.seat === state.toAct) : undefined;
   // Opponents are the players who have put chips in by choice; those still to act (who mostly
   // fold) are left out rather than counted as random hands.
@@ -138,10 +136,6 @@ export function DecisionPanel({
   const canWhatIf = !!villain && (state.board.length === 3 || state.board.length === 4);
   // the EV table works itself out heads-up and on the turn and river; a multiway flop takes seconds, so on a click
   const evAuto = !!sizeQ && (sizeQ.others.length === 1 || state.board.length >= 4);
-  const whoText = (sizeQ?.others ?? []).map((o) => {
-    const s = state.seats.find((x) => x.seat === o.seat)!;
-    return `${s.name} (${s.position}${s.playerType ? `, ${s.playerType}` : ''})`;
-  });
   /** Play an option in the Lab (the EV table's and the size explorer's buttons). */
   const play = (r: SizeRow) => {
     if (!onAction) return;
@@ -216,29 +210,19 @@ export function DecisionPanel({
                 </div>
               )
             )}
-            {(canExplore || canWhatIf) && (
-              <div className="flex gap-2">
-                {canExplore && (
-                  <button
-                    type="button"
-                    onClick={() => setExploring(true)}
-                    className="flex-1 rounded-md border border-line px-2 py-1.5 text-sm text-muted hover:border-accent hover:text-ink"
-                    title="Every option against everyone still in: who folds, calls or raises, bucket by bucket, and your EV"
-                  >
-                    Explore bet sizes…
-                  </button>
-                )}
-                {canWhatIf && (
-                  <button
-                    type="button"
-                    onClick={() => setWhatIfOpen(true)}
-                    className="flex-1 rounded-md border border-line px-2 py-1.5 text-sm text-muted hover:border-accent hover:text-ink"
-                    title="Check, bet small or bet big: what reaches the next street, on a blank or a scare card"
-                  >
-                    What happens if…
-                  </button>
-                )}
-              </div>
+            {sizeQ && (
+              <button
+                type="button"
+                onClick={() => setOptionsOpen(true)}
+                className="w-full rounded-md border border-line px-2 py-1.5 text-sm text-muted hover:border-accent hover:text-ink"
+                title="Every option up close: the EV and whether it holds, how they answer each size, what reaches the next street"
+              >
+                Options up close…{' '}
+                <span className="text-xs text-faint">
+                  EV{canExplore ? ' · how they answer' : ''}
+                  {canWhatIf ? ' · next street' : ''}
+                </span>
+              </button>
             )}
             {answer?.error && <p className="text-xs text-danger">{answer.error}</p>}
             <p className="text-xs text-faint">
@@ -334,40 +318,30 @@ export function DecisionPanel({
         )}
       </div>
 
-      {whatIfOpen && canWhatIf && villain && sizeQ && (
-        <WhatIfModal
-          title={`${me.name} (${me.position}) against ${villain.name} (${villain.position}${villain.playerType ? `, ${villain.playerType}` : ''}): what happens if…`}
+      {optionsOpen && sizeQ && (
+        <OptionsPanel
+          title={`Options · ${me.seat === hand.hero ? 'you' : me.name}`}
           spot={spotOf(me.seat)}
-          otherName={villain.name}
-          actorName={me.seat === hand.hero ? 'You' : me.name}
-          money={money}
           q={sizeQ}
-          onClose={() => setWhatIfOpen(false)}
-        />
-      )}
-
-      {exploring && canExplore && sizeQ && (
-        <SizeExplorer
-          title={`${me.name} (${me.position}): every option against ${whoText.join(', ')}`}
-          spot={spotOf(me.seat)}
+          money={money}
           names={names}
-          money={money}
-          q={sizeQ}
+          canAnswers={canExplore}
+          whatIf={canWhatIf && villain ? { otherName: villain.name, actorName: me.seat === hand.hero ? 'You' : me.name } : undefined}
           onUse={
             onAction
               ? (r) => {
-                  setExploring(false);
+                  setOptionsOpen(false);
                   play(r);
                 }
               : undefined
           }
-          onClose={() => setExploring(false)}
+          onClose={() => setOptionsOpen(false)}
         />
       )}
 
       {viewing !== null && narrowed?.get(viewing) && story.steps && (
         <RangeModal
-          title={`${state.seats.find((s) => s.seat === viewing)?.name ?? 'Player'}: ${viewing === me.seat ? 'the range your line shows' : 'range at this point'}`}
+          title={viewing === me.seat ? `${me.name}'s line` : `${state.seats.find((s) => s.seat === viewing)?.name ?? 'Player'}'s range`}
           spot={spotOf(viewing)}
           seat={viewing}
           steps={story.steps}
@@ -382,7 +356,7 @@ export function DecisionPanel({
 
       {editedRange && editedSeat && (
         <VillainRangeModal
-          title={`${editedSeat.name} (${editedSeat.position}): range at this point`}
+          title={`Edit ${editedSeat.name}'s range`}
           spot={spotOf(editedSeat.seat)}
           initial={editedRange.weights}
           dead={dead}

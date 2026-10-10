@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useTouchScreen } from './touch';
+import { LayerView, useLayerHost, type LayerKind } from './layers';
 import { createPortal } from 'react-dom';
 import type { Chips, Currency } from '../core/hand/types';
 import { currencySymbol, parseAmount, toMajor } from './format';
@@ -223,7 +224,23 @@ export function Stepper({ value, min, max, onChange }: { value: number; min: num
   );
 }
 
-export function Modal({
+/**
+ * A window - as a layer (layers.tsx): by default a panel (the inspector on a computer, a sheet on
+ * a phone), `kind="page"` for a long task, `"popover"` for a small picker, `"dialog"` for the few
+ * real windows on top of everything (Options, the account, "unsaved changes").
+ */
+export function Modal(props: Parameters<typeof Dialog>[0] & { kind?: LayerKind | 'dialog' }) {
+  const host = useLayerHost();
+  const { kind = 'panel', ...rest } = props;
+  if (!host || kind === 'dialog') return <Dialog {...rest} />;
+  return (
+    <LayerView kind={kind} title={rest.title} subtitle={rest.subtitle} footer={rest.footer} wide={rest.wide} onClose={rest.onClose}>
+      {rest.children}
+    </LayerView>
+  );
+}
+
+function Dialog({
   title,
   subtitle,
   onClose,
@@ -248,7 +265,7 @@ export function Modal({
   // rendered into <body>: a modal opened from inside the header (blurred, so it would become the
   // modal's frame) still covers the screen, centred, with its × in view
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4" style={{ background: 'var(--overlay)' }} onMouseDown={onClose}>
+    <div data-dialog className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4" style={{ background: 'var(--overlay)' }} onMouseDown={onClose}>
       <div
         className={`max-h-[90vh] w-full ${wide === 'xl' ? 'max-w-6xl' : wide ? 'max-w-4xl' : 'max-w-lg'} overflow-auto rounded-xl border border-line bg-surface shadow-2xl`}
         onMouseDown={(e) => e.stopPropagation()}

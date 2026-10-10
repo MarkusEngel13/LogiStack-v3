@@ -76,7 +76,7 @@ export function ReviewWizard({
 
   if (!step || !player || !now) {
     return (
-      <Modal title="Changed questions" onClose={onClose} footer={<Button variant="primary" onClick={onClose}>Done</Button>}>
+      <Modal kind="page" title="Changed questions" onClose={onClose} footer={<Button variant="primary" onClick={onClose}>Done</Button>}>
         <p className="text-sm">All reviewed: {players.length} player{players.length === 1 ? '' : 's'} on the new questions.</p>
       </Modal>
     );
@@ -89,6 +89,7 @@ export function ReviewWizard({
 
   return (
     <Modal
+      kind="page"
       title={`Changed questions · ${i + 1} of ${steps.length}`}
       onClose={onClose}
       wide
