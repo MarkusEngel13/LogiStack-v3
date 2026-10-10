@@ -6,7 +6,8 @@ import { mathsQuestion } from './maths';
 import { rangesQuestion } from './ranges';
 import { CHIP_PRESETS, geometricBet, makeChips, stackQuestion, stackUp, valueOf } from './stack';
 import { boardQuestion } from './board';
-import { buildQuestion, chartBuckets } from './build';
+import { buildQuestion, chartBuckets, fourBetChart, paintCells } from './build';
+import { cellByName } from '../ranges/hands';
 import { readsQuestion } from './reads';
 import { charts, clearAction } from './ranges';
 import { grade, QUIZZES, QUIZ_INFO, rightAnswer, seeded } from './types';
@@ -140,15 +141,72 @@ describe('range building, the board, reads', () => {
     expect(clearAction(utg, 0)).toBe('raise'); // AA
   });
 
-  it('3-bet buckets: aces are value, the bluffs are below the calls', () => {
-    for (const scenario of ['vs RFI BTN', 'vs RFI CO']) {
-      const bb = charts(scenario).find((r) => r.positions.includes('BB'))!;
-      const b = chartBuckets(bb);
-      expect(b[0]).toBe('value'); // AA
-      expect(b.includes('call')).toBe(true);
-      // the BB 3-bets A5s against the button while 88-22 call; against the CO it 3-bets linear
-      expect(b.includes('bluff')).toBe(scenario === 'vs RFI BTN');
+  const chart = (scenario: string, pos: string) => charts(scenario).find((r) => r.positions.includes(pos))!;
+  const bucketOf = (scenario: string, pos: string, hand: string) => chartBuckets(chart(scenario, pos))[cellByName(hand)!];
+
+  it('facing an open: value goes on against a 4-bet, merged folds above the calls, a bluff folds below them', () => {
+    // the BB against the button: KQs calls a 4-bet (value); TT, AQo, AJs fold to one but beat
+    // nearly every hand that only calls (merged)
+    expect(bucketOf('vs RFI BTN', 'BB', 'AA')).toBe('value');
+    expect(bucketOf('vs RFI BTN', 'BB', 'KQs')).toBe('value');
+    for (const hand of ['TT', 'AQo', 'AJs']) expect(bucketOf('vs RFI BTN', 'BB', hand)).toBe('merged');
+    expect(bucketOf('vs RFI BTN', 'BB', '88')).toBe('call');
+    // the button against early position: A4s folds to a 4-bet while 77-55 and most suited connectors only call
+    expect(bucketOf('vs RFI EP', 'BTN', 'A4s')).toBe('bluff');
+    // against middle position: AJo folds to a 4-bet in the middle of the calls (99-55, JTs, QTs): not asked
+    expect(bucketOf('vs RFI MP', 'BTN', 'AJo')).toBeNull();
+    expect(bucketOf('vs RFI MP', 'BTN', 'KQo')).toBe('bluff');
+    // a mixed hand is never asked
+    expect(bucketOf('vs RFI BTN', 'BB', '99')).toBeNull();
+  });
+
+  it('facing an open: a seat without a chart against a 4-bet borrows the nearest; no calls, no merged or bluff', () => {
+    expect(fourBetChart(chart('vs RFI EP', 'CO'))!.positions).toEqual(['HJ']);
+    expect(fourBetChart(chart('vs RFI BTN', 'BB'))!.positions).toEqual(['BB']);
+    // the button 3-bets or folds against the CO: what folds to a 4-bet can't be told merged or bluff
+    const b = chartBuckets(chart('vs RFI CO', 'BTN'));
+    expect(b.includes('call')).toBe(false);
+    expect(b.some((x) => x === 'merged' || x === 'bluff')).toBe(false);
+    expect(b[cellByName('KJo')!]).toBeNull();
+  });
+
+  it('facing a 3-bet: a 4-bet with several stronger hands only calling is a bluff', () => {
+    expect(bucketOf('IP vs 3Bet', 'BTN', 'AA')).toBe('value');
+    expect(bucketOf('IP vs 3Bet', 'BTN', 'KQo')).toBe('bluff');
+    expect(bucketOf('IP vs 3Bet', 'BTN', 'AJs')).toBe('call');
+    expect(bucketOf('OOP vs 3Bet', 'SB', 'AJo')).toBe('bluff');
+    expect(chartBuckets(chart('OOP vs 3Bet', 'SB')).includes('merged')).toBe(false);
+  });
+
+  it('every bucket question has its answer among the choices and says why', () => {
+    const rand = seeded(8);
+    const seen = new Set<string>();
+    for (let i = 0; i < 300; i++) {
+      const q = buildQuestion(1 + (i % 2), rand);
+      const id = (q.answer as { id: string }).id;
+      seen.add(`${q.level}:${id}`);
+      expect(q.choices!.map((c) => c.id)).toContain(id);
+      if (q.level === 2) expect(q.choices!.some((c) => c.id === 'merged')).toBe(false);
+      if (id === 'merged' || (q.level === 1 && id === 'bluff')) expect(q.explain).toContain('hands that only call');
     }
+    for (const b of ['value', 'merged', 'bluff', 'call', 'fold']) expect(seen.has(`1:${b}`), b).toBe(true);
+  });
+
+  it('paint the chart: raise, call and fold only (open or fold for an opening chart)', () => {
+    const rand = seeded(4);
+    for (let i = 0; i < 30; i++) {
+      const q = buildQuestion(3, rand);
+      const cells = (q.answer as { cells: string[] }).cells;
+      expect(cells.every((c) => c === 'raise' || c === 'call' || c === 'fold')).toBe(true);
+      const ids = q.choices!.map((c) => c.id);
+      if (q.choices!.some((c) => c.label === 'Open')) expect(ids).toEqual(['raise', 'fold']);
+      else expect(q.choices!.map((c) => c.label)).toContain('Raise');
+      expect(ids.every((id) => ['raise', 'call', 'fold'].includes(id))).toBe(true);
+    }
+    const btn = paintCells(chart('vs RFI MP', 'BTN'));
+    expect(btn[cellByName('AA')!]).toBe('raise');
+    expect(btn[cellByName('99')!]).toBe('call');
+    expect(paintCells(charts('RFI')[0]!).includes('call')).toBe(false);
   });
 
   it('a painted chart is graded by combos', () => {

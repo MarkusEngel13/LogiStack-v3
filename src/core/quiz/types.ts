@@ -35,7 +35,7 @@ export const QUIZ_INFO: Record<QuizId, { name: string; what: string; levels: num
   },
   build: {
     name: 'Range building',
-    what: 'Sort hands into buckets: 3-bet for value, 3-bet as a bluff, call, fold. Then paint whole charts.',
+    what: 'Sort hands into buckets: 3-bet for value, merged or as a bluff, call, fold. Then paint whole charts.',
     levels: 3,
     levelNames: ['Facing an open', 'Facing a 3-bet', 'Paint the chart'],
   },
